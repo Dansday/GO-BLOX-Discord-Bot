@@ -1,0 +1,26 @@
+{
+  "name": "goblox-assistant-bot",
+  "version": "1.2.0",
+  "description": "A versatile Discord bot with multiple features: AI-powered chatbot using GPT-4, message forwarding system that supports embeds and bot messages, automated welcome messages, and comprehensive logging system. Built with discord.js-selfbot-v13.",
+  "main": "main.js",
+  "type": "module",
+  "scripts": {
+    "start": "node main.js"
+  },
+  "keywords": [
+    "discord",
+    "selfbot",
+    "goblox",
+    "message-forwarder",
+    "chatbot",
+    "welcomer",
+    "discord-bot",
+    "gpt-4"
+  ],
+  "author": "Akbar Yudhanto",
+  "license": "MIT",
+  "dependencies": {
+    "discord.js-selfbot-v13": "^3.6.1",
+    "openai": "^5.3.0"
+  }
+}
