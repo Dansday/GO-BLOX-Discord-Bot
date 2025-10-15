@@ -21,8 +21,8 @@ async function welcomeUser(member, client) {
 
     try {
         const welcomeMessage = getRandomMessage().replace("{user}", `<@${member.user.id}>`);
-        
-        // Create beautiful welcome embed
+
+        // Create simple welcome embed
         const welcomeEmbed = {
             color: EMBED.COLOR,
             title: "🎉 Welcome to the Server!",
@@ -32,25 +32,16 @@ async function welcomeUser(member, client) {
             },
             fields: [
                 {
-                    name: "👤 User",
-                    value: `${member.user.tag}`,
-                    inline: true
-                },
-                {
-                    name: "🆔 User ID",
-                    value: `${member.user.id}`,
-                    inline: true
-                },
-                {
                     name: "📅 Account Created",
                     value: `<t:${Math.floor(member.user.createdTimestamp / 1000)}:R>`,
                     inline: true
+                },
+                {
+                    name: "👥 Member Count",
+                    value: `Member #${member.guild.memberCount}`,
+                    inline: true
                 }
             ],
-            footer: {
-                text: `Member #${member.guild.memberCount} • ${member.guild.name}`,
-                icon_url: member.guild.iconURL({ dynamic: true })
-            },
             timestamp: new Date().toISOString()
         };
 

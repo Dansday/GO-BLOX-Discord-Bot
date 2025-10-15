@@ -82,14 +82,14 @@ export const FORWARDER = {
         "1378015808428445777": { group: "growagarden", type: "announcements" }, //Ember Support | announcements
         "1378020774610206860": { group: "growagarden", type: "changelogs" }, //Ember Support | change-log
         "1398539523046117468": { group: "growagarden", type: "leaks" }, //Jandel Fan | leaks
-        "1427507516614381588": { group: "growagarden", type: "seeds" }, //Jandel Fan | stock
+        "1427507516614381588": { group: "growagarden", type: "stocks" }, //Jandel Fan | stock
         "1408932641859829852": { group: "growagarden", type: "weather" }, //Jandel Fan | weather
         "1408933312596279377": { group: "growagarden", type: "merchants" }, //Jandel Fan | merchants
         "1394790732300161195": { group: "growagarden", type: "adminabuse" }, //Jandel Fan | admin-abuse
     },
     // Test source channels (limited for testing)
     TEST_SOURCE_CHANNELS: {
-        "1427974951834489014": { group: "tester", type: "retriever" }, //for testing purposes
+        "1397315604100415701": { group: "tester", type: "botlogs" }, //for testing purposes
     },
     // Get source channels based on environment
     get SOURCE_CHANNELS() {
@@ -131,7 +131,7 @@ export const FORWARDER = {
             announcements: "1405136401304916009",
             changelogs: "1383561457832038501",
             leaks: "1405138081190903819",
-            seeds: "1383553496409837728",
+            stocks: "1383553496409837728",
             weather: "1383555288509972490",
             merchants: "1383555456722800832",
             adminabuse: "1396359317635993665",
@@ -139,7 +139,7 @@ export const FORWARDER = {
 
         //for testing purposes
         "tester": {
-            retriever: "1427974987335204865"
+            botlogs: "1382897055034511431"
         }
     },
     ROLE_MENTIONS: {
