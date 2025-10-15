@@ -13,7 +13,7 @@
     "goblox",
     "message-forwarder",
     "welcomer",
-    "discord-bot",
+    "discord-bot"
   ],
   "author": "Akbar Yudhanto",
   "license": "MIT",
