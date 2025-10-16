@@ -43,10 +43,11 @@ goblox-bot/
         ├── commands.js   # Slash command system
         └── commands/     # Command definitions
             ├── admin/
-            │   └── pause.js    # Pause command
+            │   ├── pause.js      # Pause command
+            │   └── interface.js  # Interface command
             └── user/
-                ├── help.js     # Help command
-                └── status.js   # Status command
+                ├── help.js       # Help command
+                └── status.js     # Status command
 ```
 
 ## Setup
@@ -102,12 +103,35 @@ The official bot provides several slash commands for bot management:
 
 ### Admin Commands (Require Administrator permissions)
 - `/pause` - Pause/Resume the bot (when paused, only `/pause` works)
+- `/interface` - Send bot interface with buttons to target channel
 
 ### Command Features
 - **Ephemeral responses** - All command responses are private to the user
 - **Permission checking** - Admin commands verify Administrator permissions
 - **Error handling** - Detailed error messages for command failures
 - **Pause system** - Bot can be paused to disable all commands except `/pause`
+- **Button interface** - Visual interface with buttons for easy bot interaction
+
+## Button Interface
+
+The `/interface` command creates a visual interface with buttons that users can click instead of using slash commands:
+
+### Interface Features
+- **📊 Status Button** - Shows bot status and uptime (same as `/status`)
+- **❓ Help Button** - Shows available commands (same as `/help`)
+- **⏸️ Pause/Resume Button** - Pauses or resumes the bot (same as `/pause`, admin only)
+
+### How to Use
+1. Admin uses `/interface #channel` to send the interface to any text channel
+2. Users can click buttons for instant bot interaction
+3. All button responses are ephemeral (private to the user)
+4. Pause/Resume button requires Administrator permissions
+
+### Benefits
+- **User-friendly** - No need to remember slash command syntax
+- **Visual** - Clear buttons with icons and labels
+- **Accessible** - Works for users who prefer clicking over typing
+- **Consistent** - Same functionality as slash commands
 
 ## Communication Method
 

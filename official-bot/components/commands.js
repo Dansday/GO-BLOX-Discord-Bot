@@ -1,9 +1,10 @@
 import { REST, Routes } from 'discord.js';
-import { OFFICIAL_BOT_TOKEN, OFFICIAL_BOT_APPLICATION_ID } from "../../config.js";
+import { OFFICIAL_BOT_TOKEN, OFFICIAL_BOT_APPLICATION_ID, EMBED } from "../../config.js";
 import logger from "../../logger.js";
 
 // Import all commands directly
 import { commandDefinition as pauseCommand, execute as pauseExecute } from './commands/admin/pause.js';
+import { commandDefinition as interfaceCommand, execute as interfaceExecute } from './commands/admin/interface.js';
 import { commandDefinition as helpCommand, execute as helpExecute } from './commands/user/help.js';
 import { commandDefinition as statusCommand, execute as statusExecute } from './commands/user/status.js';
 
@@ -12,6 +13,7 @@ const commandDefinitions = [
     helpCommand,
     statusCommand,
     pauseCommand,
+    interfaceCommand,
 ];
 
 // Slash command registry
@@ -84,6 +86,137 @@ async function deployCommands(clearFirst = false) {
     }
 }
 
+// Handle button interactions
+async function handleButtonInteraction(interaction, client) {
+    const { customId } = interaction;
+
+    // Check if bot is paused (except for pause button)
+    if (client.isPaused && customId !== 'bot_pause') {
+        await interaction.reply({
+            content: '⏸️ Bot is currently paused. Use the Pause/Resume button to resume.',
+            ephemeral: true
+        });
+        return;
+    }
+
+    switch (customId) {
+        case 'bot_status':
+            await handleStatusButton(interaction);
+            break;
+        case 'bot_help':
+            await handleHelpButton(interaction);
+            break;
+        case 'bot_pause':
+            await handlePauseButton(interaction, client);
+            break;
+        default:
+            await interaction.reply({
+                content: '❌ Unknown button interaction.',
+                ephemeral: true
+            });
+    }
+}
+
+// Handle status button
+async function handleStatusButton(interaction) {
+    const statusEmbed = {
+        color: EMBED.COLOR,
+        title: "📊 Bot Status",
+        fields: [
+            {
+                name: "🟢 Bot Status",
+                value: "🟢 Online",
+                inline: true
+            },
+            {
+                name: "⏰ Uptime",
+                value: `${Math.floor(process.uptime())} seconds`,
+                inline: true
+            },
+            {
+                name: "📡 Webhook Server",
+                value: "Active",
+                inline: true
+            },
+            {
+                name: "🔧 Components",
+                value: "Forwarder, Welcomer, Slash Commands",
+                inline: false
+            },
+            {
+                name: "🎮 Commands",
+                value: "✅ All commands available",
+                inline: false
+            }
+        ],
+        timestamp: new Date().toISOString()
+    };
+
+    await interaction.reply({
+        embeds: [statusEmbed],
+        ephemeral: true
+    });
+}
+
+// Handle help button
+async function handleHelpButton(interaction) {
+    const availableCommands = getSlashCommands();
+    const commandList = availableCommands.map(cmd => `\`/${cmd}\``).join(', ');
+
+    const helpEmbed = {
+        color: EMBED.COLOR,
+        title: "🤖 GOBLOX Bot Slash Commands",
+        description: "Available slash commands:",
+        fields: [
+            {
+                name: "Commands",
+                value: commandList || "No commands available",
+                inline: false
+            },
+            {
+                name: "Usage",
+                value: "Use `/command` to execute a slash command, or use the buttons above for quick access",
+                inline: false
+            }
+        ],
+        timestamp: new Date().toISOString()
+    };
+
+    await interaction.reply({
+        embeds: [helpEmbed],
+        ephemeral: true
+    });
+}
+
+// Handle pause button
+async function handlePauseButton(interaction, client) {
+    // Check if user has permission
+    if (!interaction.member.permissions.has('Administrator')) {
+        await interaction.reply({
+            content: '❌ You need Administrator permissions to use this button.',
+            ephemeral: true
+        });
+        return;
+    }
+
+    // Toggle pause state
+    client.isPaused = !client.isPaused;
+
+    if (client.isPaused) {
+        await interaction.reply({
+            content: '⏸️ Bot has been **paused**. All commands are now unavailable except the Pause/Resume button.',
+            ephemeral: true
+        });
+        await logger.log(`⏸️ Bot paused by ${interaction.user.tag} (${interaction.user.id}) via button`);
+    } else {
+        await interaction.reply({
+            content: '▶️ Bot has been **resumed**. All commands are now available.',
+            ephemeral: true
+        });
+        await logger.log(`▶️ Bot resumed by ${interaction.user.tag} (${interaction.user.id}) via button`);
+    }
+}
+
 // Initialize the slash command system
 function init(client) {
     // Add client properties for command system
@@ -94,10 +227,12 @@ function init(client) {
     registerSlashCommand('help', { execute: helpExecute });
     registerSlashCommand('status', { execute: statusExecute });
     registerSlashCommand('pause', { execute: pauseExecute });
+    registerSlashCommand('interface', { execute: interfaceExecute });
 
     // Listen for slash command interactions
     client.on('interactionCreate', async (interaction) => {
-        if (!interaction.isChatInputCommand()) return;
+        if (interaction.isChatInputCommand()) {
+            // Handle slash commands
 
         try {
             // Execute slash command and get detailed result
@@ -153,6 +288,23 @@ function init(client) {
             }
         }
         // Note: Success cases are handled by individual command functions
+        } else if (interaction.isButton()) {
+            // Handle button interactions
+            try {
+                await handleButtonInteraction(interaction, client);
+            } catch (error) {
+                await logger.log(`❌ Button interaction error: ${error.message}`);
+                
+                try {
+                    await interaction.reply({
+                        content: `❌ **Button Error**: An error occurred while processing your button click.\n\nPlease try again or contact an administrator.`,
+                        ephemeral: true
+                    });
+                } catch (replyError) {
+                    await logger.log(`❌ Failed to send button error response: ${replyError.message}`);
+                }
+            }
+        }
     });
 
     logger.log("🎮 Slash command system initialized");
