@@ -4,7 +4,7 @@ import logger from "../../logger.js";
 import { handleStatusButton } from './interface/status.js';
 import { handleHelpButton } from './interface/help.js';
 import { handlePauseButton } from './interface/pause.js';
-import { handleSendMessageButton, handleSendMessageModal, handleChannelSelection } from './interface/sendmessage.js';
+import { handleSendMessageButton, handleSendMessageModal, handleChannelSelection, handleRoleSelection, handleCompleteSetup } from './interface/sendmessage.js';
 
 // Handle button interactions
 export async function handleButtonInteraction(interaction, client) {
@@ -14,7 +14,7 @@ export async function handleButtonInteraction(interaction, client) {
     if (client.isPaused && customId !== 'bot_pause') {
         await interaction.reply({
             content: '⏸️ Bot is currently paused. Use the Pause/Resume button to resume.',
-            ephemeral: true
+            flags: 64
         });
         return;
     }
@@ -33,10 +33,16 @@ export async function handleButtonInteraction(interaction, client) {
             await handleSendMessageButton(interaction, client);
             break;
         default:
-            await interaction.reply({
-                content: '❌ Unknown button interaction.',
-                ephemeral: true
-            });
+            // Handle send message related buttons
+            if (customId.startsWith('send_message_complete_')) {
+                await handleCompleteSetup(interaction, client);
+            } else {
+                await logger.log(`🔍 Unknown button interaction: ${customId}`);
+                await interaction.reply({
+                    content: '❌ Unknown button interaction.',
+                    flags: 64
+                });
+            }
     }
 }
 
@@ -101,7 +107,7 @@ export async function sendInterfaceToChannel(targetChannel, interaction, client)
 
         await interaction.reply({
             content: `✅ Bot interface sent to ${targetChannel}!`,
-            ephemeral: true
+            flags: 64
         });
 
         await logger.log(`🎮 Bot interface sent to ${targetChannel.name} by ${interaction.user.tag} (${interaction.user.id})`);
@@ -109,7 +115,7 @@ export async function sendInterfaceToChannel(targetChannel, interaction, client)
     } catch (error) {
         await interaction.reply({
             content: `❌ Failed to send interface: ${error.message}`,
-            ephemeral: true
+            flags: 64
         });
         await logger.log(`❌ Interface send failed: ${error.message}`);
     }
@@ -129,7 +135,7 @@ function init(client) {
                 try {
                     await interaction.reply({
                         content: `❌ **Button Error**: An error occurred while processing your button click.\n\nPlease try again or contact an administrator.`,
-                        ephemeral: true
+                        flags: 64
                     });
                 } catch (replyError) {
                     await logger.log(`❌ Failed to send button error response: ${replyError.message}`);
@@ -147,7 +153,7 @@ function init(client) {
                 try {
                     await interaction.reply({
                         content: `❌ **Modal Error**: An error occurred while processing your form submission.\n\nPlease try again or contact an administrator.`,
-                        ephemeral: true
+                        flags: 64
                     });
                 } catch (replyError) {
                     await logger.log(`❌ Failed to send modal error response: ${replyError.message}`);
@@ -165,10 +171,29 @@ function init(client) {
                 try {
                     await interaction.reply({
                         content: `❌ **Selection Error**: An error occurred while processing your channel selection.\n\nPlease try again or contact an administrator.`,
-                        ephemeral: true
+                        flags: 64
                     });
                 } catch (replyError) {
                     await logger.log(`❌ Failed to send selection error response: ${replyError.message}`);
+                }
+            }
+        } else if (interaction.isRoleSelectMenu()) {
+            // Handle role selection
+            try {
+                if (interaction.customId.startsWith('send_message_role_select_')) {
+                    await handleRoleSelection(interaction, client);
+                }
+            } catch (error) {
+                await logger.log(`❌ Role selection error in interface.js: ${error.message}`);
+                await logger.log(`❌ Role selection error stack: ${error.stack}`);
+                
+                try {
+                    await interaction.reply({
+                        content: `❌ **Selection Error**: An error occurred while processing your role selection.\n\nPlease try again or contact an administrator.`,
+                        flags: 64
+                    });
+                } catch (replyError) {
+                    await logger.log(`❌ Failed to send role selection error response: ${replyError.message}`);
                 }
             }
         }

@@ -25,7 +25,7 @@ export async function handleHelpButton(interaction) {
             },
             {
                 name: "📤 Send Message Button",
-                value: "Send custom embeds to any channel with title, description, image, and color.",
+                value: "Send custom embeds to any channel with title (required), description (required), image URL, color, footer, and role mentions. Step-by-step process: Select channel → Choose role (optional) → Fill embed details → Send.",
                 inline: false
             },
             {
@@ -42,7 +42,7 @@ export async function handleHelpButton(interaction) {
 
     await interaction.reply({
         embeds: [helpEmbed],
-        ephemeral: true
+        flags: 64
     });
 
     await logger.log(`❓ Help button clicked by ${interaction.user.tag} (${interaction.user.id})`);

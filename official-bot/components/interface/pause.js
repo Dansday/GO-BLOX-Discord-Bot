@@ -6,7 +6,7 @@ export async function handlePauseButton(interaction, client) {
     if (!interaction.member.permissions.has('Administrator')) {
         await interaction.reply({
             content: '❌ You need Administrator permissions to use this button.',
-            ephemeral: true
+            flags: 64
         });
         return;
     }
@@ -17,13 +17,13 @@ export async function handlePauseButton(interaction, client) {
     if (client.isPaused) {
         await interaction.reply({
             content: '⏸️ Bot has been **paused**. All commands are now unavailable except the Pause/Resume button.',
-            ephemeral: true
+            flags: 64
         });
         await logger.log(`⏸️ Bot paused by ${interaction.user.tag} (${interaction.user.id}) via button`);
     } else {
         await interaction.reply({
             content: '▶️ Bot has been **resumed**. All commands are now available.',
-            ephemeral: true
+            flags: 64
         });
         await logger.log(`▶️ Bot resumed by ${interaction.user.tag} (${interaction.user.id}) via button`);
     }

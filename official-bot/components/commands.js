@@ -30,7 +30,7 @@ async function executeSlashCommand(interaction, client) {
     if (client.isPaused && interaction.commandName !== 'pause') {
         await interaction.reply({
             content: '⏸️ Bot is currently paused. Use `/pause` to resume.',
-            ephemeral: true
+            flags: 64
         });
         return { success: true, reason: 'paused' }; // Command was handled (bot is paused)
     }
@@ -122,7 +122,7 @@ function init(client) {
 
                     await interaction.reply({
                         content: errorMessage,
-                        ephemeral: true
+                        flags: 64
                     });
                 } else {
                     // Log successful command execution (except for paused state)
@@ -138,7 +138,7 @@ function init(client) {
                     await interaction.reply({
                         content: `❌ **Critical Error**: An unexpected error occurred while processing your command.\n\n` +
                             `Please try again later or contact an administrator.`,
-                        ephemeral: true
+                        flags: 64
                     });
                 } catch (replyError) {
                     await logger.log(`❌ Failed to send error response: ${replyError.message}`);

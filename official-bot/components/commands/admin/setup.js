@@ -21,7 +21,7 @@ export async function execute(interaction, client) {
         if (!interaction.member.permissions.has('Administrator')) {
             await interaction.reply({
                 content: '❌ You need Administrator permissions to use this command.',
-                ephemeral: true
+                flags: 64
             });
             return;
         }
@@ -32,7 +32,7 @@ export async function execute(interaction, client) {
         if (!targetChannel.isTextBased()) {
             await interaction.reply({
                 content: '❌ Please select a text channel.',
-                ephemeral: true
+                flags: 64
             });
             return;
         }
@@ -43,7 +43,7 @@ export async function execute(interaction, client) {
     } catch (error) {
         await interaction.reply({
             content: `❌ Failed to send interface: ${error.message}`,
-            ephemeral: true
+            flags: 64
         });
     }
 }

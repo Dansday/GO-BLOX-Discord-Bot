@@ -38,7 +38,7 @@ export async function handleStatusButton(interaction) {
 
     await interaction.reply({
         embeds: [statusEmbed],
-        ephemeral: true
+        flags: 64
     });
 
     await logger.log(`📊 Status button clicked by ${interaction.user.tag} (${interaction.user.id})`);

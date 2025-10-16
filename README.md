@@ -48,7 +48,8 @@ goblox-bot/
         └── interface/    # Interface button handlers
             ├── status.js # Status button handler
             ├── help.js   # Help button handler
-            └── pause.js  # Pause button handler
+            ├── pause.js  # Pause button handler
+            └── sendmessage.js # Send message button handler
 ```
 
 ## Setup
@@ -105,7 +106,7 @@ The official bot provides a single slash command for bot management:
 - **📊 Status Button** - Shows bot status, uptime, and component information
 - **❓ Help Button** - Shows help information for all interface features
 - **⏸️ Pause/Resume Button** - Pauses or resumes the bot (Admin only)
-- **📤 Send Message Button** - Send custom embeds with customizable title, description, image, footer, and color (Requires Send Messages permission)
+- **📤 Send Message Button** - Send custom embeds with customizable title (required), description (required), image URL, color, footer, and role mentions. Step-by-step process: Select channel → Choose role (optional) → Fill embed details → Send
 
 ### Command Features
 - **Ephemeral responses** - All command responses are private to the user
@@ -118,15 +119,23 @@ The official bot provides a single slash command for bot management:
 The `/interface` command creates a visual interface with buttons that users can click instead of using slash commands:
 
 ### Interface Features
-- **📊 Status Button** - Shows bot status and uptime (same as `/status`)
-- **❓ Help Button** - Shows available commands (same as `/help`)
-- **⏸️ Pause/Resume Button** - Pauses or resumes the bot (same as `/pause`, admin only)
+- **📊 Status Button** - Shows bot status and uptime
+- **❓ Help Button** - Shows available commands and features
+- **⏸️ Pause/Resume Button** - Pauses or resumes the bot (admin only)
+- **📤 Send Message Button** - Send custom embeds with title (required), description (required), image URL, color, footer, and role mentions
 
 ### How to Use
 1. Admin uses `/interface #channel` to send the interface to any text channel
 2. Users can click buttons for instant bot interaction
 3. All button responses are ephemeral (private to the user)
 4. Pause/Resume button requires Administrator permissions
+
+### Send Message Feature
+The Send Message button provides a step-by-step process:
+1. **Select Channel** - Choose which channel to send the message to
+2. **Choose Role** - Optionally select a role to mention (can skip)
+3. **Fill Embed Details** - Enter title (required), description (required), image URL, color, and footer
+4. **Send** - Message is sent with role mentions and embed formatting
 
 ### Benefits
 - **User-friendly** - No need to remember slash command syntax
