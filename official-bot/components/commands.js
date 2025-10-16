@@ -44,22 +44,22 @@ async function executeSlashCommand(interaction, client) {
     if (isPaused && interaction.commandName !== 'pause' && interaction.commandName !== 'status') {
         await interaction.reply({ 
             content: '⏸️ Bot is currently paused. Use `/pause` to resume.',
-            flags: 64 // Ephemeral flag
+            ephemeral: true
         });
-        return true; // Command was handled (bot is paused)
+        return { success: true, reason: 'paused' }; // Command was handled (bot is paused)
     }
 
     const command = slashCommands.get(interaction.commandName);
     if (!command) {
-        return false;
+        return { success: false, reason: 'unknown_command' };
     }
 
     try {
         await command.execute(interaction, client);
-        return true;
+        return { success: true, reason: 'executed' };
     } catch (error) {
         await logger.log(`❌ Error executing slash command ${interaction.commandName}: ${error.message}`);
-        return false;
+        return { success: false, reason: 'execution_error', error: error.message };
     }
 }
 
@@ -77,7 +77,7 @@ async function deployCommands(clearFirst = false) {
                 { body: [] },
             );
             console.log('🧹 Cleared existing slash commands.');
-            
+
             // Wait a moment for Discord to process the clear
             await new Promise(resolve => setTimeout(resolve, 1000));
         }
@@ -108,20 +108,44 @@ async function reloadSlashCommand(interaction, client) {
             return;
         }
 
-        await interaction.reply('🔄 Reloading bot components and refreshing slash commands...');
+        await interaction.reply({ 
+            content: '🔄 Reloading bot components and refreshing slash commands...',
+            ephemeral: true
+        });
 
-        // Import and reinitialize components
-        const { default: forwarder } = await import('./forwarder.js');
-        const { default: welcomer } = await import('./welcomer.js');
-        const { default: webhook } = await import('./webhook.js');
+        // Import and reinitialize components with cache-busting
+        // Using timestamp query string to force Node.js to load fresh modules instead of cached versions
+        const timestamp = Date.now();
+        const { default: forwarder } = await import(`./forwarder.js?t=${timestamp}`);
+        const { default: welcomer } = await import(`./welcomer.js?t=${timestamp}`);
+        const { default: webhook } = await import(`./webhook.js?t=${timestamp}`);
+        const { default: logger } = await import(`../../logger.js?t=${timestamp}`);
 
         // Reinitialize components
         forwarder.init(client);
         welcomer.init(client);
-
-        // Restart webhook server
-        webhook.stopWebhookServer();
-        webhook.startWebhookServer(client);
+        logger.init(client);
+        
+        // Restart webhook server with error handling
+        let webhookStopSuccess = false;
+        let webhookStartSuccess = false;
+        
+        try {
+            webhook.stopWebhookServer();
+            webhookStopSuccess = true;
+            await logger.log('🛑 Webhook server stopped successfully');
+        } catch (webhookStopError) {
+            await logger.log(`⚠️ Warning: Failed to stop webhook server: ${webhookStopError.message}`);
+        }
+        
+        try {
+            webhook.startWebhookServer(client);
+            webhookStartSuccess = true;
+            await logger.log('🚀 Webhook server started successfully');
+        } catch (webhookStartError) {
+            await logger.log(`❌ Error: Failed to start webhook server: ${webhookStartError.message}`);
+            // Don't throw here - let the reload continue even if webhook fails
+        }
 
         // Clear and re-register slash commands locally
         slashCommands.clear();
@@ -134,11 +158,29 @@ async function reloadSlashCommand(interaction, client) {
         // Don't clear first to avoid "Unknown Integration" issues
         await deployCommands(false);
 
-        await interaction.editReply('✅ Bot components reloaded and slash commands refreshed successfully!');
+        // Generate webhook status message based on success/failure
+        let webhookStatus = '';
+        if (webhookStopSuccess && webhookStartSuccess) {
+            webhookStatus = ' Webhook server restarted successfully.';
+        } else if (!webhookStopSuccess && !webhookStartSuccess) {
+            webhookStatus = ' ⚠️ Webhook server restart failed - check logs.';
+        } else if (!webhookStartSuccess) {
+            webhookStatus = ' ⚠️ Webhook server failed to start - check logs.';
+        } else {
+            webhookStatus = ' ⚠️ Webhook server had issues stopping - check logs.';
+        }
+
+        await interaction.editReply({ 
+            content: `✅ Bot components reloaded and slash commands refreshed successfully!${webhookStatus}`,
+            ephemeral: true
+        });
         await logger.log(`🔄 Bot reloaded and commands refreshed by ${interaction.user.tag} (${interaction.user.id})`);
 
     } catch (error) {
-        await interaction.editReply(`❌ Failed to reload: ${error.message}`);
+        await interaction.editReply({ 
+            content: `❌ Failed to reload: ${error.message}`,
+            ephemeral: true
+        });
         await logger.log(`❌ Reload failed: ${error.message}`);
     }
 }
@@ -171,7 +213,10 @@ async function helpSlashCommand(interaction, client) {
         timestamp: new Date().toISOString()
     };
 
-    await interaction.reply({ embeds: [helpEmbed] });
+    await interaction.reply({ 
+        embeds: [helpEmbed],
+        ephemeral: true
+    });
 }
 
 // Status slash command - shows bot status
@@ -209,7 +254,10 @@ async function statusSlashCommand(interaction, client) {
         timestamp: new Date().toISOString()
     };
 
-    await interaction.reply({ embeds: [statusEmbed] });
+    await interaction.reply({ 
+        embeds: [statusEmbed],
+        ephemeral: true
+    });
 }
 
 // Pause/Resume slash command - pauses or resumes the bot
@@ -219,7 +267,7 @@ async function pauseSlashCommand(interaction, client) {
         if (!interaction.member.permissions.has('Administrator')) {
             await interaction.reply({ 
                 content: '❌ You need Administrator permissions to use this command.',
-                flags: 64 // Ephemeral flag
+                ephemeral: true
             });
             return;
         }
@@ -228,15 +276,24 @@ async function pauseSlashCommand(interaction, client) {
         isPaused = !isPaused;
 
         if (isPaused) {
-            await interaction.reply('⏸️ Bot has been **paused**. All commands are now unavailable except `/pause`.');
+            await interaction.reply({ 
+                content: '⏸️ Bot has been **paused**. All commands are now unavailable except `/pause`.',
+                ephemeral: true
+            });
             await logger.log(`⏸️ Bot paused by ${interaction.user.tag} (${interaction.user.id})`);
         } else {
-            await interaction.reply('▶️ Bot has been **resumed**. All commands are now available.');
+            await interaction.reply({ 
+                content: '▶️ Bot has been **resumed**. All commands are now available.',
+                ephemeral: true
+            });
             await logger.log(`▶️ Bot resumed by ${interaction.user.tag} (${interaction.user.id})`);
         }
 
     } catch (error) {
-        await interaction.editReply(`❌ Failed to toggle pause state: ${error.message}`);
+        await interaction.editReply({ 
+            content: `❌ Failed to toggle pause state: ${error.message}`,
+            ephemeral: true
+        });
         await logger.log(`❌ Pause toggle failed: ${error.message}`);
     }
 }
@@ -253,15 +310,60 @@ function init(client) {
     client.on('interactionCreate', async (interaction) => {
         if (!interaction.isChatInputCommand()) return;
 
-        // Execute slash command
-        const commandExecuted = await executeSlashCommand(interaction, client);
+        try {
+            // Execute slash command and get detailed result
+            const result = await executeSlashCommand(interaction, client);
 
-        if (!commandExecuted) {
-            await interaction.reply({ 
-                content: `❌ Unknown slash command: \`/${interaction.commandName}\`. Use \`/help\` to see available commands.`,
-                flags: 64 // Ephemeral flag
-            });
+            // Handle different failure scenarios with specific feedback
+            if (!result.success) {
+                let errorMessage;
+
+                switch (result.reason) {
+                    case 'unknown_command':
+                        errorMessage = `❌ **Unknown Command**: \`/${interaction.commandName}\`\n\n` +
+                            `This command doesn't exist. Use \`/help\` to see available commands.`;
+                        await logger.log(`❌ Unknown command attempted: /${interaction.commandName} by ${interaction.user.tag}`);
+                        break;
+
+                    case 'execution_error':
+                        errorMessage = `❌ **Command Error**: \`/${interaction.commandName}\`\n\n` +
+                            `The command failed to execute properly.\n` +
+                            `**Error**: ${result.error}\n\n` +
+                            `Please try again or contact an administrator if the issue persists.`;
+                        await logger.log(`❌ Command execution error: /${interaction.commandName} by ${interaction.user.tag} - ${result.error}`);
+                        break;
+
+                    default:
+                        errorMessage = `❌ **Unexpected Error**: \`/${interaction.commandName}\`\n\n` +
+                            `An unexpected error occurred. Please try again.`;
+                        await logger.log(`❌ Unexpected command error: /${interaction.commandName} by ${interaction.user.tag} - ${result.reason}`);
+                }
+
+                await interaction.reply({ 
+                    content: errorMessage,
+                    ephemeral: true
+                });
+            } else {
+                // Log successful command execution (except for paused state)
+                if (result.reason !== 'paused') {
+                    await logger.log(`✅ Command executed: /${interaction.commandName} by ${interaction.user.tag}`);
+                }
+            }
+        } catch (error) {
+            // Handle any unexpected errors in the interaction handler itself
+            await logger.log(`❌ Critical error in interaction handler: ${error.message}`);
+
+            try {
+                await interaction.reply({ 
+                    content: `❌ **Critical Error**: An unexpected error occurred while processing your command.\n\n` +
+                            `Please try again later or contact an administrator.`,
+                    ephemeral: true
+                });
+            } catch (replyError) {
+                await logger.log(`❌ Failed to send error response: ${replyError.message}`);
+            }
         }
+        // Note: Success cases are handled by individual command functions
     });
 
     logger.log("🎮 Slash command system initialized");
