@@ -41,13 +41,14 @@ goblox-bot/
         ├── welcomer.js   # User welcoming component
         ├── webhook.js    # Webhook server component
         ├── commands.js   # Slash command system
-        └── commands/     # Command definitions
-            ├── admin/
-            │   ├── pause.js      # Pause command
-            │   └── interface.js  # Interface command
-            └── user/
-                ├── help.js       # Help command
-                └── status.js     # Status command
+        ├── interface.js  # Interface component
+        ├── commands/     # Command definitions
+        │   └── admin/
+        │       └── interface.js  # Interface command
+        └── interface/    # Interface button handlers
+            ├── status.js # Status button handler
+            ├── help.js   # Help button handler
+            └── pause.js  # Pause button handler
 ```
 
 ## Setup
@@ -95,22 +96,16 @@ npm run dev
 
 ## Slash Commands
 
-The official bot provides several slash commands for bot management:
-
-### User Commands (Available to all users)
-- `/help` - Show available slash commands
-- `/status` - Show bot status and uptime
+The official bot provides a single slash command for bot management:
 
 ### Admin Commands (Require Administrator permissions)
-- `/pause` - Pause/Resume the bot (when paused, only `/pause` works)
 - `/interface` - Send bot interface with buttons to target channel
 
 ### Command Features
 - **Ephemeral responses** - All command responses are private to the user
 - **Permission checking** - Admin commands verify Administrator permissions
 - **Error handling** - Detailed error messages for command failures
-- **Pause system** - Bot can be paused to disable all commands except `/pause`
-- **Button interface** - Visual interface with buttons for easy bot interaction
+- **Interface-based interaction** - Users interact through visual buttons instead of slash commands
 
 ## Button Interface
 
@@ -131,7 +126,8 @@ The `/interface` command creates a visual interface with buttons that users can 
 - **User-friendly** - No need to remember slash command syntax
 - **Visual** - Clear buttons with icons and labels
 - **Accessible** - Works for users who prefer clicking over typing
-- **Consistent** - Same functionality as slash commands
+- **Simplified** - Only one slash command needed (admin only)
+- **Clean** - No command clutter in Discord's slash command menu
 
 ## Communication Method
 
@@ -189,6 +185,7 @@ Each feature is organized as a component for easy maintenance:
 - **Welcomer Component**: Handles new user welcoming
 - **Webhook Component**: Handles webhook server for self-bot communication
 - **Commands Component**: Handles slash command system and execution
+- **Interface Component**: Handles button interface creation and interactions
 - **Logger Component**: Centralized logging system
 
 ## Troubleshooting
@@ -197,6 +194,6 @@ Each feature is organized as a component for easy maintenance:
 2. **Official bot not forwarding**: Check target channel IDs and bot permissions
 3. **Communication issues**: Verify webhook URL or shared storage path
 4. **Token issues**: Ensure tokens are valid and have proper permissions
-5. **Slash commands not appearing**: Commands are automatically deployed on bot startup
-6. **Permission errors**: Admin commands require Administrator permissions
-7. **Bot appears paused**: Use `/pause` command to resume the bot
+5. **Interface not appearing**: Use `/interface #channel` to create the interface
+6. **Permission errors**: Interface creation requires Administrator permissions
+7. **Bot appears paused**: Use the Pause/Resume button in the interface to resume the bot

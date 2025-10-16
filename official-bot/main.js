@@ -5,6 +5,7 @@ import forwarder from "./components/forwarder.js";
 import welcomer from "./components/welcomer.js";
 import webhook from "./components/webhook.js";
 import commands from "./components/commands.js";
+import interfaceComponent from "./components/interface.js";
 
 const client = new Client({
     intents: [
@@ -25,6 +26,7 @@ client.on("clientReady", async () => {
     forwarder.init();
     welcomer.init(client);
     commands.init(client);
+    interfaceComponent.init(client);
 
     // Start webhook server
     webhook.startWebhookServer(client);

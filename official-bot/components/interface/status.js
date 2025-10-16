@@ -1,13 +1,7 @@
-import { EMBED } from "../../../../config.js";
+import { EMBED } from "../../../config.js";
 
-// Command definition
-export const commandDefinition = {
-    name: 'status',
-    description: 'Show bot status and uptime',
-};
-
-// Command execution
-export async function execute(interaction) {
+// Handle status button
+export async function handleStatusButton(interaction) {
     const statusEmbed = {
         color: EMBED.COLOR,
         title: "📊 Bot Status",
@@ -29,19 +23,19 @@ export async function execute(interaction) {
             },
             {
                 name: "🔧 Components",
-                value: "Forwarder, Welcomer, Slash Commands",
+                value: "Forwarder, Welcomer, Interface",
                 inline: false
             },
             {
-                name: "🎮 Commands",
-                value: "✅ All commands available",
+                name: "🎮 Interface",
+                value: "✅ Button interface active",
                 inline: false
             }
         ],
         timestamp: new Date().toISOString()
     };
 
-    await interaction.reply({ 
+    await interaction.reply({
         embeds: [statusEmbed],
         ephemeral: true
     });
