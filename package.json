@@ -21,9 +21,9 @@
   "author": "Akbar Yudhanto",
   "license": "MIT",
   "dependencies": {
-    "discord.js-selfbot-v13": "^3.7.1",
+    "concurrently": "^9.2.1",
+    "debug": "^4.4.3",
     "discord.js": "^14.23.2",
-    "concurrently": "^9.2.1"
-  },
-  "devDependencies": {}
+    "discord.js-selfbot-v13": "^3.7.1"
+  }
 }

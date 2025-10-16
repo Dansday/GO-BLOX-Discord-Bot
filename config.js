@@ -11,6 +11,9 @@ export const SELF_BOT_TOKEN = "MTM3OTYxODk0MTY4NDY4Mjc2NA.GQbIIl.gucYwt8CHvhPici
 // Official Bot Token (for forwarding to target servers)
 export const OFFICIAL_BOT_TOKEN = "MTQxNzQ4NzIyOTg4MTgxNTA4MA.GuC-RQ.NHRya3Ryny-oecpXQ8dmRHjvt8gz7qns7hzs98";
 
+// Official Bot Application ID
+export const OFFICIAL_BOT_APPLICATION_ID = "1417487229881815080";
+
 // Communication Configuration
 export const COMMUNICATION = {
     // Webhook URL for self-bot to send data to official bot (local webhook server)
@@ -86,10 +89,11 @@ export const FORWARDER = {
         "1408932641859829852": { group: "growagarden", type: "weather" }, //Jandel Fan | weather
         "1408933312596279377": { group: "growagarden", type: "merchants" }, //Jandel Fan | merchants
         "1394790732300161195": { group: "growagarden", type: "adminabuse" }, //Jandel Fan | admin-abuse
+        "1428373619490160650": { group: "botaccess", type: "receivemessage" }, //for testing purposes
     },
     // Test source channels (limited for testing)
     TEST_SOURCE_CHANNELS: {
-        "1397315604100415701": { group: "tester", type: "botlogs" }, //for testing purposes
+        "1428373619490160650": { group: "botaccess", type: "receivemessage" }, //for testing purposes
     },
     // Get source channels based on environment
     get SOURCE_CHANNELS() {
@@ -138,8 +142,8 @@ export const FORWARDER = {
         },
 
         //for testing purposes
-        "tester": {
-            botlogs: "1382897055034511431"
+        "botaccess": {
+            receivemessage: "1428373710838169743"
         }
     },
     ROLE_MENTIONS: {
@@ -152,7 +156,7 @@ export const FORWARDER = {
         "growagarden": "<@&1377005009304158421>",
 
         //for testing purposes
-        "tester": "<@&1382832767993249813>"
+        "botaccess": "<@&1428374816263508019>"
     },
     EXCLUDED_USERS: [
         "678344927997853742",
