@@ -2,7 +2,7 @@ import { sendInterfaceToChannel } from '../../interface.js';
 
 // Command definition
 export const commandDefinition = {
-    name: 'interface',
+    name: 'setup',
     description: 'Send bot interface with buttons to target channel (Admin only)',
     options: [
         {
@@ -15,7 +15,7 @@ export const commandDefinition = {
 };
 
 // Command execution
-export async function execute(interaction) {
+export async function execute(interaction, client) {
     try {
         // Check if user has permission
         if (!interaction.member.permissions.has('Administrator')) {
@@ -38,7 +38,7 @@ export async function execute(interaction) {
         }
 
         // Send interface using the interface component
-        await sendInterfaceToChannel(targetChannel, interaction);
+        await sendInterfaceToChannel(targetChannel, interaction, client);
 
     } catch (error) {
         await interaction.reply({

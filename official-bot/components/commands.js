@@ -2,13 +2,13 @@ import { REST, Routes } from 'discord.js';
 import { OFFICIAL_BOT_TOKEN, OFFICIAL_BOT_APPLICATION_ID } from "../../config.js";
 import logger from "../../logger.js";
 
-// Import interface command
-import { commandDefinition as interfaceCommand, execute as interfaceExecute } from './commands/admin/interface.js';
+// Import setup command
+import { commandDefinition as setupCommand, execute as setupExecute } from './commands/admin/setup.js';
 
 
 // Define all slash commands in one place
 const commandDefinitions = [
-    interfaceCommand,
+    setupCommand,
 ];
 
 // Slash command registry
@@ -87,8 +87,8 @@ function init(client) {
     client.isPaused = false; // Initialize pause state
     client.commandDefinitions = commandDefinitions; // Store command definitions for reload
 
-    // Register interface slash command
-    registerSlashCommand('interface', { execute: interfaceExecute });
+    // Register setup slash command
+    registerSlashCommand('setup', { execute: setupExecute });
 
     // Listen for slash command interactions
     client.on('interactionCreate', async (interaction) => {
@@ -105,7 +105,7 @@ function init(client) {
                     switch (result.reason) {
                         case 'unknown_command':
                             errorMessage = `❌ **Unknown Command**: \`/${interaction.commandName}\`\n\n` +
-                                `This command doesn't exist. Only \`/interface\` is available.`;
+                                `This command doesn't exist. Only \`/setup\` is available.`;
                             await logger.log(`❌ Unknown command attempted: /${interaction.commandName} by ${interaction.user.tag}`);
                             break;
 

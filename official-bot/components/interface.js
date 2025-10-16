@@ -37,30 +37,16 @@ export async function handleButtonInteraction(interaction, client) {
 }
 
 // Create interface embed and buttons
-export function createInterfaceEmbed() {
+export function createInterfaceEmbed(client) {
     const interfaceEmbed = {
         color: EMBED.COLOR,
-        title: "🤖 GOBLOX Bot Interface",
-        description: "Use the buttons below to interact with the bot:",
-        fields: [
-            {
-                name: "📊 Status",
-                value: "Check bot status and uptime",
-                inline: true
-            },
-            {
-                name: "❓ Help",
-                value: "Show available commands",
-                inline: true
-            },
-            {
-                name: "⏸️ Pause/Resume",
-                value: "Pause or resume the bot",
-                inline: true
-            }
-        ],
+        title: "GOBLOX Bot Interface",
+        description: "Use the buttons below to interact with the bot",
+        thumbnail: {
+            url: client.user.displayAvatarURL()
+        },
         footer: {
-            text: "GOBLOX Bot System • Use buttons to interact"
+            text: "GOBLOX Bot System"
         },
         timestamp: new Date().toISOString()
     };
@@ -93,9 +79,9 @@ export function createInterfaceButtons() {
 }
 
 // Send interface to channel
-export async function sendInterfaceToChannel(targetChannel, interaction) {
+export async function sendInterfaceToChannel(targetChannel, interaction, client) {
     try {
-        const interfaceEmbed = createInterfaceEmbed();
+        const interfaceEmbed = createInterfaceEmbed(client);
         const buttonRow = createInterfaceButtons();
 
         // Send the interface to the target channel
