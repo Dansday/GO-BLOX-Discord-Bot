@@ -27,7 +27,7 @@ async function sendToOfficialBot(messageData) {
     }
 }
 
-async function processMessage(message, channelConfig, client) {
+async function processMessage(message, channelConfig) {
     const { group, type } = channelConfig;
 
     if (FORWARDER.EXCLUDED_USERS.includes(message.author.id)) {
@@ -86,7 +86,7 @@ function init(client) {
         const channelConfig = FORWARDER.SOURCE_CHANNELS[message.channel.id];
         if (!channelConfig) return;
 
-        await processMessage(message, channelConfig, client);
+        await processMessage(message, channelConfig);
     });
 }
 

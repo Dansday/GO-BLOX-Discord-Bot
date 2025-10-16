@@ -22,7 +22,7 @@ client.on("clientReady", async () => {
     await commands.deployCommands(false);
 
     logger.init(client);
-    forwarder.init(client);
+    forwarder.init();
     welcomer.init(client);
     commands.init(client);
 

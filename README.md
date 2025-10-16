@@ -13,12 +13,13 @@ A Discord bot system that separates self-bot monitoring from official bot forwar
   - Handles historical message fetching
 
 ### Official Bot (`official-bot/`)
-- **Purpose**: Forwards messages to target channels and welcomes new users
+- **Purpose**: Forwards messages to target channels, welcomes new users, and provides slash commands
 - **Technology**: `discord.js` (official bot)
 - **Functionality**:
   - Receives message data from self-bot
   - Forwards messages to target channels with role mentions
   - Welcomes new users with random messages
+  - Provides slash commands for bot management
 
 ## Project Structure
 
@@ -38,7 +39,14 @@ goblox-bot/
     └── components/
         ├── forwarder.js  # Message forwarding component
         ├── welcomer.js   # User welcoming component
-        └── webhook.js    # Webhook server component
+        ├── webhook.js    # Webhook server component
+        ├── commands.js   # Slash command system
+        └── commands/     # Command definitions
+            ├── admin/
+            │   └── pause.js    # Pause command
+            └── user/
+                ├── help.js     # Help command
+                └── status.js   # Status command
 ```
 
 ## Setup
@@ -83,6 +91,23 @@ npm run start:official   # Official bot only
 ```bash
 npm run dev
 ```
+
+## Slash Commands
+
+The official bot provides several slash commands for bot management:
+
+### User Commands (Available to all users)
+- `/help` - Show available slash commands
+- `/status` - Show bot status and uptime
+
+### Admin Commands (Require Administrator permissions)
+- `/pause` - Pause/Resume the bot (when paused, only `/pause` works)
+
+### Command Features
+- **Ephemeral responses** - All command responses are private to the user
+- **Permission checking** - Admin commands verify Administrator permissions
+- **Error handling** - Detailed error messages for command failures
+- **Pause system** - Bot can be paused to disable all commands except `/pause`
 
 ## Communication Method
 
@@ -138,6 +163,8 @@ Each feature is organized as a component for easy maintenance:
 
 - **Forwarder Component**: Handles message processing and forwarding
 - **Welcomer Component**: Handles new user welcoming
+- **Webhook Component**: Handles webhook server for self-bot communication
+- **Commands Component**: Handles slash command system and execution
 - **Logger Component**: Centralized logging system
 
 ## Troubleshooting
@@ -146,3 +173,6 @@ Each feature is organized as a component for easy maintenance:
 2. **Official bot not forwarding**: Check target channel IDs and bot permissions
 3. **Communication issues**: Verify webhook URL or shared storage path
 4. **Token issues**: Ensure tokens are valid and have proper permissions
+5. **Slash commands not appearing**: Commands are automatically deployed on bot startup
+6. **Permission errors**: Admin commands require Administrator permissions
+7. **Bot appears paused**: Use `/pause` command to resume the bot

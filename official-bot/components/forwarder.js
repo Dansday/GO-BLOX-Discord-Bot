@@ -121,7 +121,7 @@ export async function processMessageFromSelfBot(messageData, client) {
 }
 
 
-function init(client) {
+function init() {
     logger.log("📡 Using webhook communication");
 }
 
