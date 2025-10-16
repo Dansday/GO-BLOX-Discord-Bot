@@ -1,6 +1,7 @@
 import { ModalBuilder, TextInputBuilder, ActionRowBuilder, EmbedBuilder, StringSelectMenuBuilder, ChannelSelectMenuBuilder, RoleSelectMenuBuilder, ButtonBuilder, ButtonStyle, ChannelType, AttachmentBuilder } from 'discord.js';
 import { EMBED } from "../../../config.js";
 import logger from "../../../logger.js";
+import { replyWithAutoDelete } from "../../../utils.js";
 
 // Handle send message button - shows channel selector first
 export async function handleSendMessageButton(interaction, client) {
@@ -17,19 +18,19 @@ export async function handleSendMessageButton(interaction, client) {
 
         const selectRow = new ActionRowBuilder().addComponents(channelSelect);
 
-        await interaction.reply({
+        await replyWithAutoDelete(interaction, {
             content: '📤 **Send Custom Message**\n\nPlease select the channel where you want to send the message:',
             components: [selectRow],
             flags: 64
-        });
+        }, 300000); // 5 minutes
 
         await logger.log(`📤 Send message channel selector opened by ${interaction.user.tag} (${interaction.user.id})`);
 
     } catch (error) {
-        await interaction.reply({
+        await replyWithAutoDelete(interaction, {
             content: `❌ Failed to open send message form: ${error.message}`,
             flags: 64
-        });
+        }, 300000); // 5 minutes
         await logger.log(`❌ Send message error: ${error.message}`);
     }
 }
@@ -264,28 +265,28 @@ export async function handleSendMessageModal(interaction, client) {
         // Get the target channel
         const targetChannel = await client.channels.fetch(channelId).catch(() => null);
         if (!targetChannel) {
-            await interaction.reply({
+            await replyWithAutoDelete(interaction, {
                 content: '❌ Channel not found. Please try again.',
                 flags: 64
-            });
+            }, 300000); // 5 minutes
             return;
         }
 
         // Check if it's a text-based channel
         if (!targetChannel.isTextBased()) {
-            await interaction.reply({
+            await replyWithAutoDelete(interaction, {
                 content: '❌ The specified channel is not a text channel.',
                 flags: 64
-            });
+            }, 300000); // 5 minutes
             return;
         }
 
         // Validate that both title and description are provided (now required)
         if (!title || !description) {
-            await interaction.reply({
+            await replyWithAutoDelete(interaction, {
                 content: '❌ Both title and description are required for the embed.',
                 flags: 64
-            });
+            }, 300000); // 5 minutes
             return;
         }
 
@@ -299,22 +300,14 @@ export async function handleSendMessageModal(interaction, client) {
             } else if (colorInput.startsWith('0x') && /^0x[0-9A-Fa-f]{6}$/.test(colorInput)) {
                 embedColor = parseInt(colorInput, 16);
             } else {
-                await interaction.reply({
+                await replyWithAutoDelete(interaction, {
                     content: '❌ Invalid color format. Please use hex format like #FF0000 or 0xFF0000.',
                     flags: 64
-                });
+                }, 300000); // 5 minutes
                 return;
             }
         }
 
-        // Validate that at least title or description is provided
-        if (!title && !description) {
-            await interaction.reply({
-                content: '❌ Please provide at least a title or description for the embed.',
-                flags: 64
-            });
-            return;
-        }
 
         // Create embed with custom or auto-generated footer
         const embed = new EmbedBuilder()
@@ -355,19 +348,21 @@ export async function handleSendMessageModal(interaction, client) {
 
         await targetChannel.send(messageOptions);
 
-        // Reply to the user
-        await interaction.reply({
+        // Reply to the user with auto-delete
+        await replyWithAutoDelete(interaction, {
             content: `✅ Custom message sent successfully to ${targetChannel}!`,
             flags: 64
-        });
+        }, 300000); // 5 minutes
 
         await logger.log(`📤 Custom message sent by ${interaction.user.tag} (${interaction.user.id}) to ${targetChannel.name} (${targetChannel.id})`);
 
     } catch (error) {
-        await interaction.reply({
+        // Reply to the user with auto-delete for error
+        await replyWithAutoDelete(interaction, {
             content: `❌ Failed to send message: ${error.message}`,
             flags: 64
-        });
+        }, 300000); // 5 minutes
+
         await logger.log(`❌ Send message error: ${error.message}`);
     }
 }

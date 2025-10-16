@@ -1,10 +1,11 @@
 import logger from "../../../logger.js";
+import { replyWithAutoDelete } from "../../../utils.js";
 
 // Handle pause button
 export async function handlePauseButton(interaction, client) {
     // Check if user has permission
     if (!interaction.member.permissions.has('Administrator')) {
-        await interaction.reply({
+        await replyWithAutoDelete({
             content: '❌ You need Administrator permissions to use this button.',
             flags: 64
         });
@@ -15,13 +16,13 @@ export async function handlePauseButton(interaction, client) {
     client.isPaused = !client.isPaused;
 
     if (client.isPaused) {
-        await interaction.reply({
+        await replyWithAutoDelete({
             content: '⏸️ Bot has been **paused**. All commands are now unavailable except the Pause/Resume button.',
             flags: 64
         });
         await logger.log(`⏸️ Bot paused by ${interaction.user.tag} (${interaction.user.id}) via button`);
     } else {
-        await interaction.reply({
+        await replyWithAutoDelete({
             content: '▶️ Bot has been **resumed**. All commands are now available.',
             flags: 64
         });

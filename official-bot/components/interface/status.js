@@ -1,5 +1,6 @@
 import { EMBED } from "../../../config.js";
 import logger from "../../../logger.js";
+import { replyWithAutoDelete } from "../../../utils.js";
 
 // Handle status button
 export async function handleStatusButton(interaction) {
@@ -36,7 +37,7 @@ export async function handleStatusButton(interaction) {
         timestamp: new Date().toISOString()
     };
 
-    await interaction.reply({
+    await replyWithAutoDelete(interaction, {
         embeds: [statusEmbed],
         flags: 64
     });

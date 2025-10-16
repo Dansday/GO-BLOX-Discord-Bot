@@ -1,5 +1,6 @@
 import { EMBED } from "../../config.js";
 import { ActionRowBuilder, ButtonBuilder, ButtonStyle } from 'discord.js';
+import { replyWithAutoDelete } from "../../utils.js";
 import logger from "../../logger.js";
 import { handleStatusButton } from './interface/status.js';
 import { handleHelpButton } from './interface/help.js';
@@ -12,7 +13,7 @@ export async function handleButtonInteraction(interaction, client) {
 
     // Check if bot is paused (except for pause button)
     if (client.isPaused && customId !== 'bot_pause') {
-        await interaction.reply({
+        await replyWithAutoDelete({
             content: '⏸️ Bot is currently paused. Use the Pause/Resume button to resume.',
             flags: 64
         });
@@ -38,7 +39,7 @@ export async function handleButtonInteraction(interaction, client) {
                 await handleCompleteSetup(interaction, client);
             } else {
                 await logger.log(`🔍 Unknown button interaction: ${customId}`);
-                await interaction.reply({
+                await replyWithAutoDelete(interaction, {
                     content: '❌ Unknown button interaction.',
                     flags: 64
                 });
@@ -105,7 +106,7 @@ export async function sendInterfaceToChannel(targetChannel, interaction, client)
             components: [buttonRow]
         });
 
-        await interaction.reply({
+        await replyWithAutoDelete({
             content: `✅ Bot interface sent to ${targetChannel}!`,
             flags: 64
         });
@@ -113,7 +114,7 @@ export async function sendInterfaceToChannel(targetChannel, interaction, client)
         await logger.log(`🎮 Bot interface sent to ${targetChannel.name} by ${interaction.user.tag} (${interaction.user.id})`);
 
     } catch (error) {
-        await interaction.reply({
+        await replyWithAutoDelete({
             content: `❌ Failed to send interface: ${error.message}`,
             flags: 64
         });
@@ -133,7 +134,7 @@ function init(client) {
                 await logger.log(`❌ Button interaction error: ${error.message}`);
                 
                 try {
-                    await interaction.reply({
+                    await replyWithAutoDelete({
                         content: `❌ **Button Error**: An error occurred while processing your button click.\n\nPlease try again or contact an administrator.`,
                         flags: 64
                     });
@@ -151,7 +152,7 @@ function init(client) {
                 await logger.log(`❌ Modal submission error: ${error.message}`);
                 
                 try {
-                    await interaction.reply({
+                    await replyWithAutoDelete({
                         content: `❌ **Modal Error**: An error occurred while processing your form submission.\n\nPlease try again or contact an administrator.`,
                         flags: 64
                     });
@@ -169,7 +170,7 @@ function init(client) {
                 await logger.log(`❌ Channel selection error: ${error.message}`);
                 
                 try {
-                    await interaction.reply({
+                    await replyWithAutoDelete({
                         content: `❌ **Selection Error**: An error occurred while processing your channel selection.\n\nPlease try again or contact an administrator.`,
                         flags: 64
                     });
@@ -188,7 +189,7 @@ function init(client) {
                 await logger.log(`❌ Role selection error stack: ${error.stack}`);
                 
                 try {
-                    await interaction.reply({
+                    await replyWithAutoDelete({
                         content: `❌ **Selection Error**: An error occurred while processing your role selection.\n\nPlease try again or contact an administrator.`,
                         flags: 64
                     });
