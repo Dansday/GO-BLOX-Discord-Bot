@@ -51,8 +51,3 @@ export function hasPermission(member, action) {
     // No permission
     return false;
 }
-
-// Get permission error message
-export function getPermissionError(action) {
-    return `❌ You don't have permission to use ${action}.`;
-}

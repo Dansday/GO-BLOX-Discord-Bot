@@ -257,9 +257,5 @@ function init(client) {
 }
 
 export default {
-    init,
-    handleButtonInteraction,
-    createInterfaceEmbed,
-    createInterfaceButtons,
-    sendInterfaceToChannel
+    init
 };

@@ -13,13 +13,17 @@ A Discord bot system that separates self-bot monitoring from official bot forwar
   - Handles historical message fetching
 
 ### Official Bot (`official-bot/`)
-- **Purpose**: Forwards messages to target channels, welcomes new users, and provides slash commands
+- **Purpose**: Forwards messages to target channels, welcomes new users, provides interactive interface, and manages server features
 - **Technology**: `discord.js` (official bot)
 - **Functionality**:
   - Receives message data from self-bot
   - Forwards messages to target channels with role mentions
   - Welcomes new users with random messages
-  - Provides slash commands for bot management
+  - Provides interactive button-based interface
+  - Tracks moderation actions (bans, unbans, kicks)
+  - Finds inactive members
+  - Manages custom supporter roles
+  - Role-based permission system
 
 ## Project Structure
 
@@ -42,14 +46,18 @@ go-blox-bot/
         ├── webhook.js    # Webhook server component
         ├── commands.js   # Slash command system
         ├── interface.js  # Interface component
+        ├── moderation.js # Moderation tracking component
+        ├── permissions.js # Permission checking system
         ├── commands/     # Command definitions
         │   └── admin/
-        │       └── interface.js  # Interface command
+        │       └── setup.js  # Setup command
         └── interface/    # Interface button handlers
             ├── status.js # Status button handler
             ├── help.js   # Help button handler
             ├── pause.js  # Pause button handler
-            └── sendmessage.js # Send message button handler
+            ├── sendmessage.js # Send message button handler
+            ├── inactive.js # Inactive members button handler
+            └── customsupporterrole.js # Custom supporter role handler
 ```
 
 ## Setup
@@ -103,10 +111,59 @@ The official bot provides a single slash command for bot management:
 - `/interface` - Send bot interface with buttons to target channel
 
 ### Interface Features
-- **📊 Status Button** - Shows bot status, uptime, and component information
-- **❓ Help Button** - Shows help information for all interface features
-- **⏸️ Pause/Resume Button** - Pauses or resumes the bot (Admin only)
-- **📤 Send Message Button** - Send custom embeds with customizable title (required), description (required), image URL, color, footer, and role mentions. Step-by-step process: Select channel → Choose role (optional) → Fill embed details → Send
+
+#### 📊 Status Button
+- Shows bot status, uptime, and component information
+- **Permission:** Member+
+
+#### ❓ Help Button
+- Displays comprehensive help information for all interface features
+- **Permission:** Member+
+
+#### ⏸️ Pause/Resume Button
+- Pauses or resumes the bot's operations
+- When paused, all bot features are disabled except this button
+- **Permission:** Admin only
+
+#### 📤 Send Message Button
+- Send custom embed messages to any channel
+- Features:
+  - Select target channel from dropdown
+  - Optionally mention one or more roles
+  - Custom title (required)
+  - Custom description (required)
+  - Optional image URL
+  - Optional color customization (hex/decimal/name)
+  - Optional footer text
+- Step-by-step process: Select channel → Choose role (optional) → Fill embed details → Send
+- **Permission:** Staff+
+
+#### 📊 Inactive Members Button
+- Find members who haven't chatted in the configured inactivity period
+- Default: 90 days of inactivity
+- Searches through all text and voice text channels in specified categories
+- Results show member tags and last activity time
+- **Permission:** Staff+
+
+#### 💎 Custom Supporter Role Button
+- Create, edit, or delete a custom role
+- **Create Features:**
+  - Set custom role name (1-100 characters)
+  - Set role color (hex format like #FF5733, decimal number, or color name)
+  - Set role icon (Unicode emoji or JPG/PNG image URL)
+  - Role automatically positioned between Supporter and Staff roles
+- **Edit Features:**
+  - Modify existing role name, color, or icon
+  - Pre-filled with current values
+  - Clear icon field to remove icon
+- **Delete Features:**
+  - Permanently delete your custom role
+  - Role and all permissions removed
+- **Auto-Cleanup:**
+  - Unused roles (no members) are automatically removed
+  - Cleanup runs on bot startup and every 6 hours
+  - Roles removed when members lose permission or leave server
+- **Permission:** Supporter, Staff, or Admin
 
 ### Command Features
 - **Ephemeral responses** - All command responses are private to the user
@@ -119,10 +176,8 @@ The official bot provides a single slash command for bot management:
 The `/interface` command creates a visual interface with buttons that users can click instead of using slash commands:
 
 ### Interface Features
-- **📊 Status Button** - Shows bot status and uptime
-- **❓ Help Button** - Shows available commands and features
-- **⏸️ Pause/Resume Button** - Pauses or resumes the bot (admin only)
-- **📤 Send Message Button** - Send custom embeds with title (required), description (required), image URL, color, footer, and role mentions
+
+See the full interface features list in the "Slash Commands" section above.
 
 ### How to Use
 1. Admin uses `/interface #channel` to send the interface to any text channel
@@ -130,12 +185,43 @@ The `/interface` command creates a visual interface with buttons that users can 
 3. All button responses are ephemeral (private to the user)
 4. Pause/Resume button requires Administrator permissions
 
-### Send Message Feature
+### Feature Details
+
+#### Send Message Feature
 The Send Message button provides a step-by-step process:
-1. **Select Channel** - Choose which channel to send the message to
-2. **Choose Role** - Optionally select a role to mention (can skip)
+1. **Select Channel** - Choose which channel to send the message to using channel selector
+2. **Choose Role** - Optionally select one or more roles to mention (can skip)
 3. **Fill Embed Details** - Enter title (required), description (required), image URL, color, and footer
 4. **Send** - Message is sent with role mentions and embed formatting
+
+#### Inactive Members Feature
+- Searches through configured category channels for member activity
+- Calculates last message timestamp for each member
+- Lists members who haven't sent messages within the inactivity period
+- Results displayed as an embed with member information and last activity time
+
+#### Custom Supporter Role Feature
+**First Time Use:**
+1. Click "💎 Custom Supporter Role" button
+2. Modal opens for role creation
+3. Fill in role name (required), color (optional), and icon (optional)
+4. Role is created and assigned to you
+
+**Subsequent Uses (If You Have a Role):**
+1. Click "💎 Custom Supporter Role" button
+2. Options appear: "✏️ Edit Role" or "🗑️ Delete Role"
+3. Choose to edit (modify existing role) or delete (permanently remove role)
+
+**Icon Options:**
+- **Emoji:** Enter a Unicode emoji (e.g., 🔥, ⚡, 💎)
+- **Image URL:** Must be a valid JPG or PNG image URL (e.g., `https://example.com/icon.png`)
+- **Remove Icon:** Clear the icon field when editing to remove the icon
+
+**Auto-Cleanup System:**
+- Automatically removes custom roles that have no members assigned
+- Runs cleanup on bot startup (after 10 seconds) and every 6 hours
+- Removes roles when members lose required permissions
+- Removes roles when members leave the server
 
 ### Benefits
 - **User-friendly** - No need to remember slash command syntax
@@ -170,11 +256,28 @@ The Send Message button provides a step-by-step process:
 
 All configuration is centralized in `config.js`:
 
+### Core Configuration
 - **Source Channels**: Configure which channels to monitor
 - **Target Channels**: Configure where to forward messages
 - **Role Mentions**: Configure role mentions for each group
 - **Welcome Messages**: Configure welcome message templates
 - **Excluded Users**: Configure users to exclude from forwarding
+- **Main Channel**: Configure main channel for moderation logs (production/test)
+
+### Permissions Configuration
+Role-based permission system with the following roles:
+- **ADMIN_ROLE**: Full access to all commands and interfaces
+- **STAFF_ROLE**: All interfaces except pause
+- **SUPPORTER_ROLE**: Can use custom supporter role feature
+- **MEMBER_ROLE**: Can only use status and help
+
+### Activity Tracker Configuration
+- **ALLOWED_CATEGORIES**: Categories to search for member activity
+- **INACTIVITY_DAYS**: Number of days of inactivity (default: 90)
+
+### Custom Supporter Role Configuration
+- **ROLE_ABOVE**: Custom roles must be above this role (typically Supporter role)
+- **ROLE_BELOW**: Custom roles must be below this role (typically Staff role)
 
 ## Data Management
 
@@ -197,11 +300,33 @@ All configuration is centralized in `config.js`:
 Each feature is organized as a component for easy maintenance:
 
 - **Forwarder Component**: Handles message processing and forwarding
-- **Welcomer Component**: Handles new user welcoming
+- **Welcomer Component**: Handles new user welcoming with beautiful embeds
 - **Webhook Component**: Handles webhook server for self-bot communication
 - **Commands Component**: Handles slash command system and execution
 - **Interface Component**: Handles button interface creation and interactions
+- **Moderation Component**: Tracks bans, unbans, and kicks in real-time, logs to main channel
 - **Logger Component**: Centralized logging system
+- **Permissions Component**: Role-based permission checking system
+
+### Moderation Component
+
+The moderation component automatically tracks moderation actions:
+- **Bans**: Logs when members are banned, including moderator and reason
+- **Unbans**: Logs when members are unbanned, including moderator and reason
+- **Kicks**: Logs when members are kicked, including moderator and reason
+- **Audit Log Integration**: Uses Discord audit logs to identify moderators
+- **Main Channel Logging**: All moderation actions are logged to the configured main channel
+- **Simplified Format**: Shows only user tags and moderator tags (no IDs)
+
+### Interface Components
+
+Located in `official-bot/components/interface/`:
+- **status.js**: Status button handler - displays bot information
+- **help.js**: Help button handler - displays comprehensive help
+- **pause.js**: Pause/Resume button handler - bot control
+- **sendmessage.js**: Send message button handler - embed message creation
+- **inactive.js**: Inactive members button handler - activity tracking
+- **customsupporterrole.js**: Custom role button handler - role management
 
 ## Troubleshooting
 

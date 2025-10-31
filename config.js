@@ -2,7 +2,7 @@
 
 // Environment Configuration
 export const ENV = {
-    PRODUCTION: false // Set to true for production, false for testing
+    PRODUCTION: true // Set to true for production, false for testing
 };
 
 // Self-Bot Token (for monitoring source servers)
