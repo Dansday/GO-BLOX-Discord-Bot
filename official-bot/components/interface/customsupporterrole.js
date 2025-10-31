@@ -45,6 +45,41 @@ async function hasSupporterRole(member) {
     return { has: false };
 }
 
+// Validate image URL (must be http/https and JPG/PNG only)
+function isValidImageUrl(url) {
+    if (!url || typeof url !== 'string') return false;
+
+    const trimmed = url.trim();
+
+    // Must start with http:// or https://
+    if (!trimmed.startsWith('http://') && !trimmed.startsWith('https://')) {
+        return false;
+    }
+
+    // Check file extension (case insensitive) - only JPG/PNG
+    const lowerUrl = trimmed.toLowerCase();
+    const validExtensions = ['.jpg', '.jpeg', '.png'];
+
+    // Check if URL ends with valid extension
+    const hasExtension = validExtensions.some(ext => lowerUrl.endsWith(ext));
+
+    // Also check if it has extension before query parameters
+    if (!hasExtension) {
+        // Try to find extension before ? or #
+        const urlWithoutParams = lowerUrl.split('?')[0].split('#')[0];
+        const hasExtensionInPath = validExtensions.some(ext => urlWithoutParams.endsWith(ext));
+        if (hasExtensionInPath) {
+            return true;
+        }
+    } else {
+        return true;
+    }
+
+    // Some URLs might not have explicit extension but still be images
+    // Allow it and let Discord validate
+    return true;
+}
+
 // Parse color input (hex, decimal, or name)
 function parseColor(colorInput) {
     if (!colorInput || colorInput.trim() === '') {
@@ -131,8 +166,17 @@ export async function handleCustomSupporterRoleButton(interaction) {
         // Get current role values for editing
         const currentName = has && existingRole ? existingRole.name : '';
         const currentColor = has && existingRole ? existingRole.hexColor : '';
-        // Icon is not easily retrievable as string, so leave empty
-        const currentIcon = '';
+        // Get current icon (emoji or URL) if it exists
+        let currentIcon = '';
+        if (has && existingRole && existingRole.icon) {
+            // Check if it's a Unicode emoji or image URL
+            if (existingRole.unicodeEmoji) {
+                currentIcon = existingRole.unicodeEmoji;
+            } else {
+                // It's an image URL icon
+                currentIcon = existingRole.iconURL({ extension: 'png', size: 256 }) || '';
+            }
+        }
 
         // Role name input
         const nameInput = new TextInputBuilder()
@@ -154,14 +198,14 @@ export async function handleCustomSupporterRoleButton(interaction) {
             .setMaxLength(20)
             .setValue(currentColor); // Pre-fill with current color if editing
 
-        // Role icon input (emoji)
+        // Role icon input (emoji or image URL - JPG/PNG)
         const iconInput = new TextInputBuilder()
             .setCustomId('role_icon')
-            .setLabel('Role Icon (Emoji)')
+            .setLabel('Role Icon (Emoji or Image URL)')
             .setStyle(TextInputStyle.Short)
-            .setPlaceholder('🔥 or leave empty (optional)')
+            .setPlaceholder('🔥 or https://example.com/icon.png (optional)')
             .setRequired(false)
-            .setMaxLength(50)
+            .setMaxLength(500)
             .setValue(currentIcon); // Pre-fill with current icon if editing
 
         const nameRow = new ActionRowBuilder().addComponents(nameInput);
@@ -232,39 +276,68 @@ export async function handleCustomSupporterRoleModal(interaction) {
                 // Update the role
                 await existingRole.edit(updateData);
 
-                // Update icon if provided
-                if (iconInput) {
+                // Update or remove icon based on input (continue even if icon fails)
+                const trimmedIconInput = iconInput?.trim() || '';
+                let iconStatus = 'unchanged';
+                let iconError = null;
+
+                if (trimmedIconInput) {
+                    // Icon provided - try to update (emoji or image URL)
                     try {
-                        let emojiToSet = iconInput.trim();
-                        if (emojiToSet.startsWith('<:') && emojiToSet.endsWith('>')) {
-                            await logger.log(`⚠️ Custom emoji format detected but not supported. Use Unicode emojis like 🔥 or ⭐`);
+                        // Check if it's a URL or emoji
+                        if (trimmedIconInput.startsWith('http://') || trimmedIconInput.startsWith('https://')) {
+                            // It's a URL - validate and set
+                            if (isValidImageUrl(trimmedIconInput)) {
+                                await existingRole.setIcon(trimmedIconInput, { reason: updateData.reason });
+                                await logger.log(`✅ Set role icon to image URL: ${trimmedIconInput}`);
+                                iconStatus = 'updated';
+                            } else {
+                                await logger.log(`⚠️ Invalid image URL format. Must be JPG/PNG image URL (http:// or https://).`);
+                                iconStatus = 'invalid';
+                                iconError = 'Invalid URL format or file type';
+                            }
                         } else {
-                            await existingRole.setIcon(emojiToSet, { reason: updateData.reason });
-                            await logger.log(`✅ Set role icon to: ${emojiToSet}`);
+                            // It's an emoji - use edit() with unicodeEmoji property
+                            await existingRole.edit({
+                                unicodeEmoji: trimmedIconInput,
+                                reason: updateData.reason
+                            });
+                            await logger.log(`✅ Set role icon to emoji: ${trimmedIconInput}`);
+                            iconStatus = 'updated';
                         }
                     } catch (err) {
                         await logger.log(`⚠️ Could not set role icon: ${err.message}`);
-                        await logger.log(`⚠️ Note: Role icons require server boost level 2 or higher`);
+                        await logger.log(`⚠️ Note: Role still updated successfully. Icon requires server boost level 2+ and accessible JPG/PNG image or valid emoji.`);
+                        iconStatus = 'failed';
+                        iconError = err.message;
                     }
                 } else if (existingRole.icon) {
-                    // If icon input is empty but role has icon, remove it
+                    // Icon field is empty and role has icon - remove it
                     try {
                         await existingRole.setIcon(null, { reason: updateData.reason });
                         await logger.log(`✅ Removed role icon`);
+                        iconStatus = 'removed';
                     } catch (err) {
                         await logger.log(`⚠️ Could not remove role icon: ${err.message}`);
+                        iconStatus = 'remove_failed';
                     }
                 }
 
                 // Create success embed
+                let iconStatusText = 'Unchanged';
+                if (iconStatus === 'updated') iconStatusText = 'Updated';
+                else if (iconStatus === 'removed') iconStatusText = 'Removed';
+                else if (iconStatus === 'failed') iconStatusText = `Failed (role updated without icon)`;
+                else if (iconStatus === 'invalid') iconStatusText = 'Invalid format (role updated without icon)';
+
                 const successEmbed = new EmbedBuilder()
                     .setColor(EMBED.COLOR)
                     .setTitle('✅ Custom Supporter Role Updated!')
-                    .setDescription(`Your custom role **${roleName}** has been updated!`)
+                    .setDescription(`Your custom role **${roleName}** has been updated!${iconError ? '\n\n⚠️ Note: Icon could not be set, but role was updated successfully.' : ''}`)
                     .addFields([
                         {
                             name: '🎨 Role Details',
-                            value: `**Name:** ${roleName}\n**Color:** ${colorInput || 'Unchanged'}\n**Icon:** ${iconInput || 'Unchanged'}`,
+                            value: `**Name:** ${roleName}\n**Color:** ${colorInput || 'Unchanged'}\n**Icon:** ${iconStatusText}`,
                             inline: false
                         },
                         {
@@ -315,8 +388,27 @@ export async function handleCustomSupporterRoleModal(interaction) {
         const roleColor = parseColor(colorInput);
         const finalColor = roleColor !== null ? roleColor : EMBED.COLOR;
 
+        // Check icon type before creating role
+        const trimmedIconInput = iconInput?.trim() || '';
+        let iconStatus = 'none';
+        let iconError = null;
+        let iconToSet = null;
+        let isEmojiIcon = false;
+
+        if (trimmedIconInput) {
+            // Check if it's a URL or emoji
+            if (trimmedIconInput.startsWith('http://') || trimmedIconInput.startsWith('https://')) {
+                // It's a URL
+                iconToSet = trimmedIconInput;
+                isEmojiIcon = false;
+            } else {
+                // It's an emoji
+                iconToSet = trimmedIconInput;
+                isEmojiIcon = true;
+            }
+        }
+
         // Prepare role options
-        // Note: Using 'color' instead of 'colors' - the deprecation warning may be misleading
         const roleData = {
             name: roleName,
             color: finalColor,
@@ -324,6 +416,11 @@ export async function handleCustomSupporterRoleModal(interaction) {
             hoist: true, // Show members with this role separately
             reason: `Custom supporter role for ${member.user.tag} (${member.user.id})`
         };
+
+        // Add unicodeEmoji if it's an emoji (can't be set with icon at same time)
+        if (isEmojiIcon && iconToSet) {
+            roleData.unicodeEmoji = iconToSet;
+        }
 
         // Get position
         const position = await getRolePosition(guild);
@@ -338,25 +435,29 @@ export async function handleCustomSupporterRoleModal(interaction) {
             await logger.log(`⚠️ Could not set role position: ${err.message}`);
         }
 
-        // Set icon if provided (Unicode emoji only - requires server boost level 2+)
-        if (iconInput) {
+        // Set icon if it's an image URL (emoji was set during creation)
+        if (iconToSet && !isEmojiIcon) {
             try {
-                let emojiToSet = iconInput.trim();
-
-                // Remove <:emoji:123456789> format if present (custom emojis need different handling)
-                if (emojiToSet.startsWith('<:') && emojiToSet.endsWith('>')) {
-                    await logger.log(`⚠️ Custom emoji format detected but not supported. Use Unicode emojis like 🔥 or ⭐`);
+                // Validate and set image URL
+                if (isValidImageUrl(iconToSet)) {
+                    await newRole.setIcon(iconToSet, { reason: roleData.reason });
+                    await logger.log(`✅ Set role icon to image URL: ${iconToSet}`);
+                    iconStatus = 'success';
                 } else {
-                    // Set as Unicode emoji (just pass the emoji string directly)
-                    // Discord.js will handle Unicode emojis automatically
-                    await newRole.setIcon(emojiToSet, { reason: roleData.reason });
-                    await logger.log(`✅ Set role icon to: ${emojiToSet}`);
+                    await logger.log(`⚠️ Invalid image URL format. Must be JPG/PNG image URL (http:// or https://). Role created without icon.`);
+                    iconStatus = 'invalid';
+                    iconError = 'Invalid URL format or file type';
                 }
             } catch (err) {
                 await logger.log(`⚠️ Could not set role icon: ${err.message}`);
-                await logger.log(`⚠️ Note: Role icons require server boost level 2 or higher`);
-                // Icon setting failed, continue without it - role will still be created
+                await logger.log(`⚠️ Note: Role created successfully without icon. Icon requires server boost level 2+ and accessible JPG/PNG image.`);
+                iconStatus = 'failed';
+                iconError = err.message;
             }
+        } else if (isEmojiIcon && iconToSet) {
+            // Emoji was set during creation
+            iconStatus = 'success';
+            await logger.log(`✅ Set role icon to emoji during creation: ${iconToSet}`);
         }
 
         // Assign role to member
@@ -366,14 +467,19 @@ export async function handleCustomSupporterRoleModal(interaction) {
         supporterRoles.set(member.id, newRole.id);
 
         // Create success embed
+        let iconStatusText = 'None';
+        if (iconStatus === 'success') iconStatusText = 'Set';
+        else if (iconStatus === 'failed') iconStatusText = 'Failed (role created without icon)';
+        else if (iconStatus === 'invalid') iconStatusText = 'Invalid format (role created without icon)';
+
         const successEmbed = new EmbedBuilder()
             .setColor(EMBED.COLOR)
             .setTitle('✅ Custom Supporter Role Created!')
-            .setDescription(`Your custom role **${roleName}** has been created and assigned to you!`)
+            .setDescription(`Your custom role **${roleName}** has been created and assigned to you!${iconError ? '\n\n⚠️ Note: Icon could not be set, but role was created successfully.' : ''}`)
             .addFields([
                 {
                     name: '🎨 Role Details',
-                    value: `**Name:** ${roleName}\n**Color:** ${colorInput || 'Default'}\n**Icon:** ${iconInput || 'None'}`,
+                    value: `**Name:** ${roleName}\n**Color:** ${colorInput || 'Default'}\n**Icon:** ${iconStatusText}`,
                     inline: false
                 },
                 {
