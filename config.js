@@ -98,8 +98,8 @@ export const BOOSTER = {
 // Custom Supporter Role Configuration
 export const CUSTOM_SUPPORTER_ROLE = {
     // Role position constraints
-    ROLE_ABOVE: "1369054578754060288",      // Custom role must be above this role
-    ROLE_BELOW: "1376631063035777054"       // Custom role must be below this role
+    ROLE_BELOW: "1433928533000061028",       // Custom role must be below this role
+    ROLE_ABOVE: "1433928639010836520"      // Custom role must be above this role
 };
 
 // Activity Tracker Configuration

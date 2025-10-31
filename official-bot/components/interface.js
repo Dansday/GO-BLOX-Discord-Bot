@@ -110,11 +110,12 @@ export function createInterfaceButtons() {
         .setStyle(ButtonStyle.Success);
 
     // Create action rows with buttons (max 5 buttons per row)
+    // Status and Help always go in the last row
     const buttonRow1 = new ActionRowBuilder()
-        .addComponents(sendMessageButton, inactiveButton, statusButton, helpButton, pauseButton);
+        .addComponents(sendMessageButton, inactiveButton, pauseButton, customSupporterRoleButton);
     
     const buttonRow2 = new ActionRowBuilder()
-        .addComponents(customSupporterRoleButton);
+        .addComponents(statusButton, helpButton);
 
     return [buttonRow1, buttonRow2];
 }

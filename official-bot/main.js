@@ -8,6 +8,7 @@ import moderation from "./components/moderation.js";
 import webhook from "./components/webhook.js";
 import commands from "./components/commands.js";
 import interfaceComponent from "./components/interface.js";
+import customSupporterRole from "./components/interface/customsupporterrole.js";
 
 const client = new Client({
     intents: [
@@ -32,6 +33,7 @@ client.on("clientReady", async () => {
     moderation.init(client);
     commands.init(client);
     interfaceComponent.init(client);
+    customSupporterRole.init(client);
 
     // Start webhook server
     webhook.startWebhookServer(client);

@@ -1,7 +1,7 @@
 import { ModalBuilder, TextInputBuilder, ActionRowBuilder, TextInputStyle, EmbedBuilder } from 'discord.js';
-import { EMBED, CUSTOM_SUPPORTER_ROLE, PERMISSIONS } from '../../../config.js';
+import { EMBED, CUSTOM_SUPPORTER_ROLE } from '../../../config.js';
 import logger from '../../../logger.js';
-import { hasPermission, isSupporter } from '../permissions.js';
+import { hasPermission } from '../permissions.js';
 
 // Store supporter roles created (userId -> roleId)
 // In production, you might want to store this in a database
@@ -111,39 +111,28 @@ export async function handleCustomSupporterRoleButton(interaction) {
     try {
         const member = interaction.member;
 
-        // Check permissions (supporters can use this)
+        // Check permissions (supporters, staff, and admin can use this)
         if (!hasPermission(member, 'custom_supporter_role')) {
             await interaction.reply({
-                content: '❌ You don\'t have permission to create a custom role. Supporter role required.',
-                flags: 64
-            });
-            return;
-        }
-
-        // Check if member has supporter role
-        if (!isSupporter(member)) {
-            await interaction.reply({
-                content: '❌ **Supporter Role Required**\n\nYou need the <@&' + PERMISSIONS.SUPPORTER_ROLE + '> role to create a custom role! 💎',
+                content: '❌ You don\'t have permission to create a custom role. Supporter, Staff, or Admin role required.',
                 flags: 64
             });
             return;
         }
 
         // Check if member already has a custom supporter role
-        const { has, role } = await hasSupporterRole(member);
+        const { has, role: existingRole } = await hasSupporterRole(member);
 
-        if (has) {
-            await interaction.reply({
-                content: `❌ **Already Have Custom Role**\n\nYou already have a custom role: <@&${role.id}>\n\nEach supporter can only have one custom role.`,
-                flags: 64
-            });
-            return;
-        }
-
-        // Show modal for role creation
+        // Show modal for role creation/update
         const modal = new ModalBuilder()
             .setCustomId('custom_supporter_role_create')
-            .setTitle('💎 Create Custom Supporter Role');
+            .setTitle(has ? '💎 Edit Custom Supporter Role' : '💎 Create Custom Supporter Role');
+
+        // Get current role values for editing
+        const currentName = has && existingRole ? existingRole.name : '';
+        const currentColor = has && existingRole ? existingRole.hexColor : '';
+        // Icon is not easily retrievable as string, so leave empty
+        const currentIcon = '';
 
         // Role name input
         const nameInput = new TextInputBuilder()
@@ -152,7 +141,8 @@ export async function handleCustomSupporterRoleButton(interaction) {
             .setStyle(TextInputStyle.Short)
             .setPlaceholder('Enter your custom role name...')
             .setRequired(true)
-            .setMaxLength(100);
+            .setMaxLength(100)
+            .setValue(currentName); // Pre-fill with current name if editing
 
         // Role color input
         const colorInput = new TextInputBuilder()
@@ -161,7 +151,8 @@ export async function handleCustomSupporterRoleButton(interaction) {
             .setStyle(TextInputStyle.Short)
             .setPlaceholder('#FF5733 or 16729395 or red (optional)')
             .setRequired(false)
-            .setMaxLength(20);
+            .setMaxLength(20)
+            .setValue(currentColor); // Pre-fill with current color if editing
 
         // Role icon input (emoji)
         const iconInput = new TextInputBuilder()
@@ -170,7 +161,8 @@ export async function handleCustomSupporterRoleButton(interaction) {
             .setStyle(TextInputStyle.Short)
             .setPlaceholder('🔥 or leave empty (optional)')
             .setRequired(false)
-            .setMaxLength(50);
+            .setMaxLength(50)
+            .setValue(currentIcon); // Pre-fill with current icon if editing
 
         const nameRow = new ActionRowBuilder().addComponents(nameInput);
         const colorRow = new ActionRowBuilder().addComponents(colorInput);
@@ -198,21 +190,112 @@ export async function handleCustomSupporterRoleModal(interaction) {
         const member = interaction.member;
         const guild = interaction.guild;
 
-        // Verify member still has supporter role
-        if (!isSupporter(member)) {
+        // Verify member still has permission
+        if (!hasPermission(member, 'custom_supporter_role')) {
             await interaction.editReply({
-                content: '❌ **Supporter Role Required**\n\nYou need the <@&' + PERMISSIONS.SUPPORTER_ROLE + '> role to create a custom role! 💎'
+                content: '❌ You don\'t have permission to create a custom role. Supporter, Staff, or Admin role required.'
             });
             return;
         }
 
-        // Check if they already have a role
-        const { has, role: existingRole } = await hasSupporterRole(member);
-        if (has) {
-            await interaction.editReply({
-                content: `❌ **Already Have Custom Role**\n\nYou already have a custom role: <@&${existingRole.id}>`
-            });
-            return;
+        // Check if they already have a role - if so, edit it instead of creating new one
+        const { has: hasExistingRole, role: existingRole } = await hasSupporterRole(member);
+
+        if (hasExistingRole && existingRole) {
+            // Edit existing role instead of creating new one
+            try {
+                // Get form data
+                const roleName = interaction.fields.getTextInputValue('role_name').trim();
+                const colorInput = interaction.fields.getTextInputValue('role_color')?.trim() || '';
+                const iconInput = interaction.fields.getTextInputValue('role_icon')?.trim() || '';
+
+                // Validate role name
+                if (!roleName || roleName.length < 1 || roleName.length > 100) {
+                    await interaction.editReply({
+                        content: '❌ **Invalid Role Name**\n\nRole name must be between 1 and 100 characters.'
+                    });
+                    return;
+                }
+
+                // Parse color
+                const roleColor = parseColor(colorInput);
+                const updateData = {
+                    name: roleName,
+                    reason: `Custom supporter role updated for ${member.user.tag} (${member.user.id})`
+                };
+
+                // Only update color if provided and valid (use 'color' for editing, not 'colors')
+                if (roleColor !== null) {
+                    updateData.color = roleColor;
+                }
+
+                // Update the role
+                await existingRole.edit(updateData);
+
+                // Update icon if provided
+                if (iconInput) {
+                    try {
+                        let emojiToSet = iconInput.trim();
+                        if (emojiToSet.startsWith('<:') && emojiToSet.endsWith('>')) {
+                            await logger.log(`⚠️ Custom emoji format detected but not supported. Use Unicode emojis like 🔥 or ⭐`);
+                        } else {
+                            await existingRole.setIcon(emojiToSet, { reason: updateData.reason });
+                            await logger.log(`✅ Set role icon to: ${emojiToSet}`);
+                        }
+                    } catch (err) {
+                        await logger.log(`⚠️ Could not set role icon: ${err.message}`);
+                        await logger.log(`⚠️ Note: Role icons require server boost level 2 or higher`);
+                    }
+                } else if (existingRole.icon) {
+                    // If icon input is empty but role has icon, remove it
+                    try {
+                        await existingRole.setIcon(null, { reason: updateData.reason });
+                        await logger.log(`✅ Removed role icon`);
+                    } catch (err) {
+                        await logger.log(`⚠️ Could not remove role icon: ${err.message}`);
+                    }
+                }
+
+                // Create success embed
+                const successEmbed = new EmbedBuilder()
+                    .setColor(EMBED.COLOR)
+                    .setTitle('✅ Custom Supporter Role Updated!')
+                    .setDescription(`Your custom role **${roleName}** has been updated!`)
+                    .addFields([
+                        {
+                            name: '🎨 Role Details',
+                            value: `**Name:** ${roleName}\n**Color:** ${colorInput || 'Unchanged'}\n**Icon:** ${iconInput || 'Unchanged'}`,
+                            inline: false
+                        },
+                        {
+                            name: '💎 Role',
+                            value: `<@&${existingRole.id}>`,
+                            inline: true
+                        }
+                    ])
+                    .setTimestamp()
+                    .setFooter({ text: guild.name });
+
+                await interaction.editReply({
+                    embeds: [successEmbed]
+                });
+
+                await logger.log(`✅ Updated custom supporter role "${roleName}" (${existingRole.id}) for ${member.user.tag} (${member.user.id})`);
+                return;
+
+            } catch (err) {
+                await logger.log(`❌ Error updating supporter role: ${err.message}`);
+                await logger.log(`❌ Stack: ${err.stack}`);
+
+                try {
+                    await interaction.editReply({
+                        content: `❌ **Failed to Update Role**\n\nError: ${err.message}\n\nPlease make sure:\n- The bot has permission to manage roles\n- Role constraints are valid`
+                    });
+                } catch (editErr) {
+                    // Interaction might have already been replied to
+                }
+                return;
+            }
         }
 
         // Get form data
@@ -228,13 +311,15 @@ export async function handleCustomSupporterRoleModal(interaction) {
             return;
         }
 
-        // Parse color
-        const roleColor = parseColor(colorInput) || EMBED.COLOR; // Use default embed color if invalid
+        // Parse color - always provide a valid color number
+        const roleColor = parseColor(colorInput);
+        const finalColor = roleColor !== null ? roleColor : EMBED.COLOR;
 
         // Prepare role options
+        // Note: Using 'color' instead of 'colors' - the deprecation warning may be misleading
         const roleData = {
             name: roleName,
-            color: roleColor,
+            color: finalColor,
             mentionable: false,
             hoist: true, // Show members with this role separately
             reason: `Custom supporter role for ${member.user.tag} (${member.user.id})`
@@ -295,11 +380,6 @@ export async function handleCustomSupporterRoleModal(interaction) {
                     name: '💎 Role',
                     value: `<@&${newRole.id}>`,
                     inline: true
-                },
-                {
-                    name: '📍 Position',
-                    value: `Between <@&${CUSTOM_SUPPORTER_ROLE.ROLE_ABOVE}> and <@&${CUSTOM_SUPPORTER_ROLE.ROLE_BELOW}>`,
-                    inline: true
                 }
             ])
             .setTimestamp()
@@ -324,3 +404,57 @@ export async function handleCustomSupporterRoleModal(interaction) {
         }
     }
 }
+
+// Remove custom role if user no longer has permission
+async function removeCustomRoleIfNoPermission(member) {
+    const { has, role } = await hasSupporterRole(member);
+    if (!has || !role) {
+        return; // No custom role to remove
+    }
+
+    // Check if user still has permission
+    if (hasPermission(member, 'custom_supporter_role')) {
+        return; // User still has permission, keep the role
+    }
+
+    // User lost permission, remove the custom role
+    try {
+        // Remove role from member
+        await member.roles.remove(role, `User lost permission for custom role`);
+
+        // Delete the role
+        await role.delete(`User ${member.user.tag} (${member.user.id}) lost permission for custom role`);
+
+        // Remove from map
+        supporterRoles.delete(member.id);
+
+        await logger.log(`🗑️ Removed custom role ${role.name} (${role.id}) from ${member.user.tag} (${member.user.id}) - no longer has permission`);
+    } catch (err) {
+        await logger.log(`⚠️ Could not remove custom role for ${member.user.tag}: ${err.message}`);
+    }
+}
+
+// Initialize - listen for member updates to check permissions
+export function init(client) {
+    client.on('guildMemberUpdate', async (oldMember, newMember) => {
+        try {
+            // Check if roles changed
+            const oldRoles = oldMember.roles.cache;
+            const newRoles = newMember.roles.cache;
+
+            // If roles didn't change, skip
+            if (oldRoles.size === newRoles.size && oldRoles.every(r => newRoles.has(r.id))) {
+                return;
+            }
+
+            // Check if user lost permission and remove custom role if needed
+            await removeCustomRoleIfNoPermission(newMember);
+        } catch (err) {
+            await logger.log(`❌ Error checking custom role permissions on member update: ${err.message}`);
+        }
+    });
+
+    logger.log("💎 Custom supporter role component initialized - Permission monitoring active");
+}
+
+export default { init };

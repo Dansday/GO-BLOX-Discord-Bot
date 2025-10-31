@@ -32,8 +32,8 @@ export function hasPermission(member, action) {
         return true;
     }
 
-    // Staff permissions: all interfaces except pause
-    // Actions: status, help, send_message, inactive (but not pause or setup)
+    // Staff permissions: all interfaces except pause (including custom supporter role)
+    // Actions: status, help, send_message, inactive, custom_supporter_role (but not pause or setup)
     if (isStaff(member)) {
         return action !== 'pause' && action !== 'setup';
     }
