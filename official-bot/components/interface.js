@@ -6,7 +6,7 @@ import { handleHelpButton } from './interface/help.js';
 import { handlePauseButton } from './interface/pause.js';
 import { handleSendMessageButton, handleSendMessageModal, handleChannelSelection, handleRoleSelection, handleCompleteSetup } from './interface/sendmessage.js';
 import { handleInactiveButton } from './interface/inactive.js';
-import { handleCustomSupporterRoleButton, handleCustomSupporterRoleModal } from './interface/customsupporterrole.js';
+import { handleCustomSupporterRoleButton, handleCustomSupporterRoleModal, handleEditCustomSupporterRole, handleDeleteCustomSupporterRole } from './interface/customsupporterrole.js';
 
 // Handle button interactions
 export async function handleButtonInteraction(interaction, client) {
@@ -44,6 +44,12 @@ export async function handleButtonInteraction(interaction, client) {
             break;
         case 'bot_custom_supporter_role':
             await handleCustomSupporterRoleButton(interaction);
+            break;
+        case 'custom_supporter_role_edit':
+            await handleEditCustomSupporterRole(interaction);
+            break;
+        case 'custom_supporter_role_delete':
+            await handleDeleteCustomSupporterRole(interaction);
             break;
         default:
             // Handle send message related buttons
@@ -113,7 +119,7 @@ export function createInterfaceButtons() {
     // Status and Help always go in the last row
     const buttonRow1 = new ActionRowBuilder()
         .addComponents(sendMessageButton, inactiveButton, pauseButton, customSupporterRoleButton);
-    
+
     const buttonRow2 = new ActionRowBuilder()
         .addComponents(statusButton, helpButton);
 
@@ -178,7 +184,7 @@ function init(client) {
                 if (interaction.customId.startsWith('send_message_modal_')) {
                     await handleSendMessageModal(interaction);
                 } else if (interaction.customId === 'custom_supporter_role_create') {
-                await handleCustomSupporterRoleModal(interaction);
+                    await handleCustomSupporterRoleModal(interaction);
                 } else {
                     await logger.log(`⚠️ Unknown modal: "${customId}" by ${user.tag} (${user.id})`);
                 }

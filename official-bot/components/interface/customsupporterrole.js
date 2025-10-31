@@ -1,4 +1,4 @@
-import { ModalBuilder, TextInputBuilder, ActionRowBuilder, TextInputStyle, EmbedBuilder } from 'discord.js';
+import { ModalBuilder, TextInputBuilder, ActionRowBuilder, TextInputStyle, EmbedBuilder, ButtonBuilder, ButtonStyle } from 'discord.js';
 import { EMBED, CUSTOM_SUPPORTER_ROLE } from '../../../config.js';
 import logger from '../../../logger.js';
 import { hasPermission } from '../permissions.js';
@@ -158,22 +158,128 @@ export async function handleCustomSupporterRoleButton(interaction) {
         // Check if member already has a custom supporter role
         const { has, role: existingRole } = await hasSupporterRole(member);
 
-        // Show modal for role creation/update
+        // If user already has a custom role, show edit/delete options
+        if (has && existingRole) {
+            const editButton = new ButtonBuilder()
+                .setCustomId('custom_supporter_role_edit')
+                .setLabel('✏️ Edit Role')
+                .setStyle(ButtonStyle.Primary);
+
+            const deleteButton = new ButtonBuilder()
+                .setCustomId('custom_supporter_role_delete')
+                .setLabel('🗑️ Delete Role')
+                .setStyle(ButtonStyle.Danger);
+
+            const buttonRow = new ActionRowBuilder().addComponents(editButton, deleteButton);
+
+            const embed = new EmbedBuilder()
+                .setColor(EMBED.COLOR)
+                .setTitle('💎 Custom Supporter Role')
+                .setDescription(`You already have a custom role: **${existingRole.name}**\n\nChoose an action:`)
+                .addFields({
+                    name: '📋 Current Role',
+                    value: `<@&${existingRole.id}>`,
+                    inline: false
+                })
+                .setTimestamp();
+
+            await interaction.reply({
+                embeds: [embed],
+                components: [buttonRow],
+                flags: 64
+            });
+            await logger.log(`💎 Supporter role options shown to ${member.user.tag} (${member.user.id})`);
+            return;
+        }
+
+        // Show modal for role creation
         const modal = new ModalBuilder()
             .setCustomId('custom_supporter_role_create')
-            .setTitle(has ? '💎 Edit Custom Supporter Role' : '💎 Create Custom Supporter Role');
+            .setTitle('💎 Create Custom Supporter Role');
 
-        // Get current role values for editing
-        const currentName = has && existingRole ? existingRole.name : '';
-        const currentColor = has && existingRole ? existingRole.hexColor : '';
-        // Get current icon (emoji or URL) if it exists
+        // Role name input
+        const nameInput = new TextInputBuilder()
+            .setCustomId('role_name')
+            .setLabel('Role Name')
+            .setStyle(TextInputStyle.Short)
+            .setPlaceholder('Enter your custom role name...')
+            .setRequired(true)
+            .setMaxLength(100);
+
+        // Role color input
+        const colorInput = new TextInputBuilder()
+            .setCustomId('role_color')
+            .setLabel('Role Color (Hex/Decimal/Name)')
+            .setStyle(TextInputStyle.Short)
+            .setPlaceholder('#FF5733 or 16729395 or red (optional)')
+            .setRequired(false)
+            .setMaxLength(20);
+
+        // Role icon input (emoji or image URL - JPG/PNG)
+        const iconInput = new TextInputBuilder()
+            .setCustomId('role_icon')
+            .setLabel('Role Icon (Emoji or Image URL)')
+            .setStyle(TextInputStyle.Short)
+            .setPlaceholder('🔥 or https://example.com/icon.png (optional)')
+            .setRequired(false)
+            .setMaxLength(500);
+
+        const nameRow = new ActionRowBuilder().addComponents(nameInput);
+        const colorRow = new ActionRowBuilder().addComponents(colorInput);
+        const iconRow = new ActionRowBuilder().addComponents(iconInput);
+
+        modal.addComponents(nameRow, colorRow, iconRow);
+
+        await interaction.showModal(modal);
+        await logger.log(`💎 Supporter role creation modal shown to ${member.user.tag} (${member.user.id})`);
+
+    } catch (error) {
+        await logger.log(`❌ Error showing supporter role modal: ${error.message}`);
+        await interaction.reply({
+            content: `❌ Failed to open role creation form: ${error.message}`,
+            flags: 64
+        });
+    }
+}
+
+// Handle edit button click
+export async function handleEditCustomSupporterRole(interaction) {
+    try {
+        const member = interaction.member;
+
+        // Check permissions
+        if (!hasPermission(member, 'custom_supporter_role')) {
+            await interaction.reply({
+                content: '❌ You don\'t have permission to edit a custom role.',
+                flags: 64
+            });
+            return;
+        }
+
+        // Check if member has a custom supporter role
+        const { has, role: existingRole } = await hasSupporterRole(member);
+
+        if (!has || !existingRole) {
+            await interaction.reply({
+                content: '❌ You don\'t have a custom role to edit.',
+                flags: 64
+            });
+            return;
+        }
+
+        // Show modal for role editing
+        const modal = new ModalBuilder()
+            .setCustomId('custom_supporter_role_create')
+            .setTitle('💎 Edit Custom Supporter Role');
+
+        // Get current role values
+        const currentName = existingRole.name;
+        const currentColor = existingRole.hexColor;
         let currentIcon = '';
-        if (has && existingRole && existingRole.icon) {
-            // Check if it's a Unicode emoji or image URL
+        if (existingRole.icon) {
             if (existingRole.unicodeEmoji) {
                 currentIcon = existingRole.unicodeEmoji;
             } else {
-                // It's an image URL icon
                 currentIcon = existingRole.iconURL({ extension: 'png', size: 256 }) || '';
             }
         }
@@ -186,7 +292,7 @@ export async function handleCustomSupporterRoleButton(interaction) {
             .setPlaceholder('Enter your custom role name...')
             .setRequired(true)
             .setMaxLength(100)
-            .setValue(currentName); // Pre-fill with current name if editing
+            .setValue(currentName);
 
         // Role color input
         const colorInput = new TextInputBuilder()
@@ -196,7 +302,7 @@ export async function handleCustomSupporterRoleButton(interaction) {
             .setPlaceholder('#FF5733 or 16729395 or red (optional)')
             .setRequired(false)
             .setMaxLength(20)
-            .setValue(currentColor); // Pre-fill with current color if editing
+            .setValue(currentColor);
 
         // Role icon input (emoji or image URL - JPG/PNG)
         const iconInput = new TextInputBuilder()
@@ -206,7 +312,7 @@ export async function handleCustomSupporterRoleButton(interaction) {
             .setPlaceholder('🔥 or https://example.com/icon.png (optional)')
             .setRequired(false)
             .setMaxLength(500)
-            .setValue(currentIcon); // Pre-fill with current icon if editing
+            .setValue(currentIcon);
 
         const nameRow = new ActionRowBuilder().addComponents(nameInput);
         const colorRow = new ActionRowBuilder().addComponents(colorInput);
@@ -215,13 +321,72 @@ export async function handleCustomSupporterRoleButton(interaction) {
         modal.addComponents(nameRow, colorRow, iconRow);
 
         await interaction.showModal(modal);
-        await logger.log(`💎 Supporter role modal shown to ${member.user.tag} (${member.user.id})`);
+        await logger.log(`💎 Supporter role edit modal shown to ${member.user.tag} (${member.user.id})`);
 
     } catch (error) {
-        await logger.log(`❌ Error showing supporter role modal: ${error.message}`);
+        await logger.log(`❌ Error showing edit modal: ${error.message}`);
         await interaction.reply({
-            content: `❌ Failed to open role creation form: ${error.message}`,
+            content: `❌ Failed to open edit form: ${error.message}`,
             flags: 64
+        });
+    }
+}
+
+// Handle delete button click
+export async function handleDeleteCustomSupporterRole(interaction) {
+    try {
+        await interaction.deferReply({ flags: 64 });
+
+        const member = interaction.member;
+        const guild = interaction.guild;
+
+        // Check permissions
+        if (!hasPermission(member, 'custom_supporter_role')) {
+            await interaction.editReply({
+                content: '❌ You don\'t have permission to delete a custom role.'
+            });
+            return;
+        }
+
+        // Check if member has a custom supporter role
+        const { has, role: existingRole } = await hasSupporterRole(member);
+
+        if (!has || !existingRole) {
+            await interaction.editReply({
+                content: '❌ You don\'t have a custom role to delete.'
+            });
+            return;
+        }
+
+        const roleName = existingRole.name;
+        const roleId = existingRole.id;
+
+        // Remove role from member
+        await member.roles.remove(existingRole, `User deleted their custom supporter role`);
+
+        // Delete the role
+        await existingRole.delete(`Custom supporter role deleted by ${member.user.tag} (${member.user.id})`);
+
+        // Remove from map
+        supporterRoles.delete(member.id);
+
+        const successEmbed = new EmbedBuilder()
+            .setColor(EMBED.COLOR)
+            .setTitle('✅ Custom Supporter Role Deleted')
+            .setDescription(`Your custom role **${roleName}** has been deleted.`)
+            .setTimestamp()
+            .setFooter({ text: guild.name });
+
+        await interaction.editReply({
+            embeds: [successEmbed]
+        });
+
+        await logger.log(`🗑️ Deleted custom supporter role "${roleName}" (${roleId}) for ${member.user.tag} (${member.user.id})`);
+
+    } catch (error) {
+        await logger.log(`❌ Error deleting supporter role: ${error.message}`);
+        await interaction.editReply({
+            content: `❌ Failed to delete role: ${error.message}`
         });
     }
 }
@@ -540,8 +705,74 @@ async function removeCustomRoleIfNoPermission(member) {
     }
 }
 
+// Clean up unused custom roles (roles with no members)
+async function cleanupUnusedCustomRoles(client) {
+    try {
+        await logger.log(`🧹 Checking for unused custom roles...`);
+
+        const aboveRoleId = CUSTOM_SUPPORTER_ROLE.ROLE_ABOVE;
+        const belowRoleId = CUSTOM_SUPPORTER_ROLE.ROLE_BELOW;
+        let cleanedCount = 0;
+
+        // Check all guilds the bot is in
+        for (const guild of client.guilds.cache.values()) {
+            try {
+                const aboveRole = guild.roles.cache.get(aboveRoleId);
+                const belowRole = guild.roles.cache.get(belowRoleId);
+
+                if (!aboveRole || !belowRole) {
+                    continue;
+                }
+
+                // Get all roles between the constraints
+                const customRoles = guild.roles.cache.filter(role =>
+                    role.position < belowRole.position &&
+                    role.position > aboveRole.position &&
+                    !role.managed // Exclude bot-managed roles
+                );
+
+                // Check each custom role
+                for (const role of customRoles.values()) {
+                    // Get member count for this role
+                    const members = role.members;
+
+                    if (members.size === 0) {
+                        // Role has no members, delete it
+                        try {
+                            await role.delete(`Auto-cleanup: Custom role has no members`);
+                            await logger.log(`🗑️ Deleted unused custom role: ${role.name} (${role.id}) - no members`);
+                            cleanedCount++;
+
+                            // Remove from map if it exists
+                            for (const [userId, roleId] of supporterRoles.entries()) {
+                                if (roleId === role.id) {
+                                    supporterRoles.delete(userId);
+                                    break;
+                                }
+                            }
+                        } catch (err) {
+                            await logger.log(`⚠️ Could not delete unused role ${role.name} (${role.id}): ${err.message}`);
+                        }
+                    }
+                }
+            } catch (err) {
+                await logger.log(`⚠️ Error checking guild ${guild.name} for unused roles: ${err.message}`);
+            }
+        }
+
+        if (cleanedCount > 0) {
+            await logger.log(`✅ Cleanup complete: Removed ${cleanedCount} unused custom role(s)`);
+        } else {
+            await logger.log(`✅ Cleanup complete: No unused roles found`);
+        }
+    } catch (err) {
+        await logger.log(`❌ Error during custom role cleanup: ${err.message}`);
+    }
+}
+
 // Initialize - listen for member updates to check permissions
 export function init(client) {
+    // Monitor member role changes
     client.on('guildMemberUpdate', async (oldMember, newMember) => {
         try {
             // Check if roles changed
@@ -560,7 +791,42 @@ export function init(client) {
         }
     });
 
-    logger.log("💎 Custom supporter role component initialized - Permission monitoring active");
+    // Monitor when members leave - check if they had a custom role
+    client.on('guildMemberRemove', async (member) => {
+        try {
+            const { has, role } = await hasSupporterRole(member);
+            if (has && role) {
+                // Member left with a custom role - check if role is now unused
+                // Wait a moment for Discord to update, then check
+                setTimeout(async () => {
+                    try {
+                        const updatedRole = member.guild.roles.cache.get(role.id);
+                        if (updatedRole && updatedRole.members.size === 0) {
+                            await updatedRole.delete(`Auto-cleanup: Member left server and role has no members`);
+                            await logger.log(`🗑️ Deleted custom role ${role.name} (${role.id}) - member left and role unused`);
+                            supporterRoles.delete(member.id);
+                        }
+                    } catch (err) {
+                        // Role might already be deleted
+                    }
+                }, 5000); // Wait 5 seconds
+            }
+        } catch (err) {
+            await logger.log(`❌ Error checking custom role on member leave: ${err.message}`);
+        }
+    });
+
+    // Run cleanup on startup
+    setTimeout(async () => {
+        await cleanupUnusedCustomRoles(client);
+    }, 10000); // Wait 10 seconds after bot start to ensure everything is loaded
+
+    // Run cleanup periodically (every 6 hours)
+    setInterval(async () => {
+        await cleanupUnusedCustomRoles(client);
+    }, 6 * 60 * 60 * 1000); // 6 hours in milliseconds
+
+    logger.log("💎 Custom supporter role component initialized - Permission monitoring and cleanup active");
 }
 
 export default { init };
