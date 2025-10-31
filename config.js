@@ -57,7 +57,7 @@ export const WELCOMER = {
 // Booster Configuration
 export const BOOSTER = {
     CHANNELS: {
-        "1364374298307072010": "1364374299359707212" // Same channel as welcomer, or configure different channels
+        "1364374298307072010": "1364374299359707212"
     },
     MESSAGES: [
         "Terima kasih banyak, {user}! Server boost kamu sangat berarti untuk kami! 💎",
@@ -108,7 +108,6 @@ export const FORWARDER = {
         "1408932641859829852": { group: "growagarden", type: "weather" }, //Jandel Fan | weather
         "1408933312596279377": { group: "growagarden", type: "merchants" }, //Jandel Fan | merchants
         "1394790732300161195": { group: "growagarden", type: "adminabuse" }, //Jandel Fan | admin-abuse
-        "1428373619490160650": { group: "botaccess", type: "receivemessage" }, //for testing purposes
     },
     // Test source channels (limited for testing)
     TEST_SOURCE_CHANNELS: {
@@ -173,9 +172,6 @@ export const FORWARDER = {
         "dig": "<@&1396355600690184212>",
         "fisch": "<@&1377005118599467259>",
         "growagarden": "<@&1377005009304158421>",
-
-        //for testing purposes
-        "botaccess": "<@&1428374816263508019>"
     },
     EXCLUDED_USERS: [
         "678344927997853742",
