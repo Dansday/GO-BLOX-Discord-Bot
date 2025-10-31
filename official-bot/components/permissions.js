@@ -43,9 +43,9 @@ export function hasPermission(member, action) {
         return action === 'custom_supporter_role';
     }
 
-    // Member permissions: status, help
+    // Member permissions: status, help, feedback
     if (isMember(member)) {
-        return action === 'status' || action === 'help';
+        return action === 'status' || action === 'help' || action === 'feedback';
     }
 
     // No permission

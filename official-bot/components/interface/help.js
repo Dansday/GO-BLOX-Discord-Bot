@@ -27,6 +27,11 @@ export async function handleHelpButton(interaction) {
                 inline: false
             },
             {
+                name: "💬 Feedback Button",
+                value: "Submit feedback, suggestions, or concerns to the server staff. All submissions are logged with submission number and user information.\n**Permission:** Member+",
+                inline: false
+            },
+            {
                 name: "⏸️ Pause/Resume Button",
                 value: "Pause or resume the bot's operations. When paused, all bot features are disabled except this button.\n**Permission:** Admin only",
                 inline: false
@@ -53,7 +58,7 @@ export async function handleHelpButton(interaction) {
             },
             {
                 name: "🔐 Permissions",
-                value: "**Admin:** Full access to all features\n**Staff:** All features except Pause/Resume\n**Supporter:** Can use Custom Supporter Role, Status, and Help\n**Member:** Can only use Status and Help",
+                value: "**Admin:** Full access to all features\n**Staff:** All features except Pause/Resume\n**Supporter:** Can use Custom Supporter Role, Status, and Help\n**Member:** Can use Status, Help, and Feedback",
                 inline: false
             }
         ],

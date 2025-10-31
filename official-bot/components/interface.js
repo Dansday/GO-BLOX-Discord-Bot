@@ -7,6 +7,7 @@ import { handlePauseButton } from './interface/pause.js';
 import { handleSendMessageButton, handleSendMessageModal, handleChannelSelection, handleRoleSelection, handleCompleteSetup } from './interface/sendmessage.js';
 import { handleInactiveButton } from './interface/inactive.js';
 import { handleCustomSupporterRoleButton, handleCustomSupporterRoleModal, handleEditCustomSupporterRole, handleDeleteCustomSupporterRole } from './interface/customsupporterrole.js';
+import { handleFeedbackButton, handleFeedbackModal } from './interface/feedback.js';
 
 // Handle button interactions
 export async function handleButtonInteraction(interaction, client) {
@@ -51,6 +52,9 @@ export async function handleButtonInteraction(interaction, client) {
         case 'custom_supporter_role_delete':
             await handleDeleteCustomSupporterRole(interaction);
             break;
+        case 'bot_feedback':
+            await handleFeedbackButton(interaction);
+            break;
         default:
             // Handle send message related buttons
             if (customId.startsWith('send_message_complete_')) {
@@ -69,13 +73,13 @@ export async function handleButtonInteraction(interaction, client) {
 export function createInterfaceEmbed(client) {
     const interfaceEmbed = {
         color: EMBED.COLOR,
-        title: "GO BLOX Bot Interface",
+        title: "GO BLOX Bot Panel",
         description: "Use the buttons below to interact with the bot",
         thumbnail: {
             url: client.user.displayAvatarURL()
         },
         footer: {
-            text: "GO BLOX Bot System"
+            text: "GO BLOX Bot"
         },
         timestamp: new Date().toISOString()
     };
@@ -93,6 +97,11 @@ export function createInterfaceButtons() {
     const helpButton = new ButtonBuilder()
         .setCustomId('bot_help')
         .setLabel('❓ Help')
+        .setStyle(ButtonStyle.Secondary);
+
+    const feedbackButton = new ButtonBuilder()
+        .setCustomId('bot_feedback')
+        .setLabel('💬 Feedback')
         .setStyle(ButtonStyle.Secondary);
 
     const pauseButton = new ButtonBuilder()
@@ -121,7 +130,7 @@ export function createInterfaceButtons() {
         .addComponents(sendMessageButton, inactiveButton, pauseButton, customSupporterRoleButton);
 
     const buttonRow2 = new ActionRowBuilder()
-        .addComponents(statusButton, helpButton);
+        .addComponents(statusButton, helpButton, feedbackButton);
 
     return [buttonRow1, buttonRow2];
 }
@@ -185,6 +194,8 @@ function init(client) {
                     await handleSendMessageModal(interaction);
                 } else if (interaction.customId === 'custom_supporter_role_create') {
                     await handleCustomSupporterRoleModal(interaction);
+                } else if (interaction.customId === 'feedback_submit') {
+                    await handleFeedbackModal(interaction);
                 } else {
                     await logger.log(`⚠️ Unknown modal: "${customId}" by ${user.tag} (${user.id})`);
                 }
