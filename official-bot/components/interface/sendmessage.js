@@ -175,10 +175,10 @@ export async function handleRoleSelection(interaction) {
         // Description input
         const descriptionInput = new TextInputBuilder()
             .setCustomId('embed_description')
-            .setLabel('Embed Description')
+            .setLabel('Embed Description (Optional)')
             .setStyle(TextInputStyle.Paragraph)
-            .setPlaceholder('Enter the embed description...')
-            .setRequired(true);
+            .setPlaceholder('Enter the embed description (optional)...')
+            .setRequired(false);
 
         // Image URL input
         const imageInput = new TextInputBuilder()
@@ -266,10 +266,10 @@ export async function handleCompleteSetup(interaction) {
         // Description input
         const descriptionInput = new TextInputBuilder()
             .setCustomId('embed_description')
-            .setLabel('Embed Description')
+            .setLabel('Embed Description (Optional)')
             .setStyle(TextInputStyle.Paragraph)
-            .setPlaceholder('Enter the embed description...')
-            .setRequired(true);
+            .setPlaceholder('Enter the embed description (optional)...')
+            .setRequired(false);
 
         // Image URL input
         const imageInput = new TextInputBuilder()
@@ -365,10 +365,10 @@ export async function handleSendMessageModal(interaction) {
             return;
         }
 
-        // Validate that both title and description are provided (now required)
-        if (!title || !description) {
+        // Validate that at least title is provided (title is required)
+        if (!title || !title.trim()) {
             await interaction.reply({
-                content: '❌ Both title and description are required for the embed.',
+                content: '❌ Title is required for the embed.',
                 flags: 64
             });
             return;

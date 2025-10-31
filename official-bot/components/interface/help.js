@@ -39,7 +39,7 @@ export async function handleHelpButton(interaction) {
             },
             {
                 name: "📤 Send Message Button",
-                value: "Send custom embed messages to any channel. Features:\n• Select target channel\n• Optionally mention roles\n• Custom title (required)\n• Custom description (required)\n• Optional image URL\n• Optional color customization (hex/decimal/name)\n• Optional footer text (defaults to config footer if empty)\n**Permission:** Staff+",
+                value: "Send custom embed messages to any channel. Features:\n• Select target channel\n• Optionally mention roles\n• Custom title (required)\n• Custom description (optional)\n• Optional image URL\n• Optional color customization (hex/decimal/name)\n• Optional footer text (defaults to config footer if empty)\n**Permission:** Staff+",
                 inline: false
             },
             {
