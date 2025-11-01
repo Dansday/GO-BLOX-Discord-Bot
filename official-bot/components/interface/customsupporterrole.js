@@ -705,10 +705,10 @@ async function removeCustomRoleIfNoPermission(member) {
     }
 }
 
-// Clean up unused custom roles (roles with no members)
-async function cleanupUnusedCustomRoles(client) {
+// Clean up custom roles - removes roles with no members OR roles where owner lost permission
+async function cleanupCustomRoles(client) {
     try {
-        await logger.log(`🧹 Checking for unused custom roles...`);
+        await logger.log(`🧹 Checking for custom roles to clean up...`);
 
         const aboveRoleId = CUSTOM_SUPPORTER_ROLE.ROLE_ABOVE;
         const belowRoleId = CUSTOM_SUPPORTER_ROLE.ROLE_BELOW;
@@ -724,6 +724,10 @@ async function cleanupUnusedCustomRoles(client) {
                     continue;
                 }
 
+                // Fetch all members to ensure cache is up to date before checking member counts
+                // This prevents false positives where roles appear to have no members due to incomplete cache
+                await guild.members.fetch();
+
                 // Get all roles between the constraints
                 const customRoles = guild.roles.cache.filter(role =>
                     role.position < belowRole.position &&
@@ -733,37 +737,78 @@ async function cleanupUnusedCustomRoles(client) {
 
                 // Check each custom role
                 for (const role of customRoles.values()) {
-                    // Get member count for this role
-                    const members = role.members;
+                    try {
+                        // Get member count for this role (cache should now be accurate)
+                        const members = role.members;
+                        
+                        // Check if role has no members
+                        if (members.size === 0) {
+                            // Role has no members, delete it
+                            try {
+                                await role.delete(`Auto-cleanup: Custom role has no members`);
+                                await logger.log(`🗑️ Deleted unused custom role: ${role.name} (${role.id}) - no members`);
+                                cleanedCount++;
 
-                    if (members.size === 0) {
-                        // Role has no members, delete it
-                        try {
-                            await role.delete(`Auto-cleanup: Custom role has no members`);
-                            await logger.log(`🗑️ Deleted unused custom role: ${role.name} (${role.id}) - no members`);
-                            cleanedCount++;
+                                // Remove from map if it exists
+                                for (const [userId, roleId] of supporterRoles.entries()) {
+                                    if (roleId === role.id) {
+                                        supporterRoles.delete(userId);
+                                        break;
+                                    }
+                                }
+                            } catch (err) {
+                                await logger.log(`⚠️ Could not delete unused role ${role.name} (${role.id}): ${err.message}`);
+                            }
+                            continue; // Skip permission check for roles with no members
+                        }
 
-                            // Remove from map if it exists
-                            for (const [userId, roleId] of supporterRoles.entries()) {
-                                if (roleId === role.id) {
-                                    supporterRoles.delete(userId);
-                                    break;
+                        // Role has members - check if owner still has permission
+                        // Find the owner in our map
+                        let ownerId = null;
+                        for (const [userId, roleId] of supporterRoles.entries()) {
+                            if (roleId === role.id) {
+                                ownerId = userId;
+                                break;
+                            }
+                        }
+
+                        if (ownerId) {
+                            // We know the owner, check their permission
+                            const owner = guild.members.cache.get(ownerId);
+                            if (!owner) {
+                                // Owner no longer in guild, but role still has members
+                                // Don't delete - let the guildMemberRemove handler handle it
+                                continue;
+                            }
+
+                            // Check if owner still has permission
+                            if (!hasPermission(owner, 'custom_supporter_role')) {
+                                // Owner lost permission, remove and delete role
+                                try {
+                                    await owner.roles.remove(role, `User lost permission for custom role`);
+                                    await role.delete(`Auto-cleanup: Owner no longer has permission`);
+                                    await logger.log(`🗑️ Deleted custom role: ${role.name} (${role.id}) - owner ${owner.user.tag} (${ownerId}) no longer has permission`);
+                                    supporterRoles.delete(ownerId);
+                                    cleanedCount++;
+                                } catch (err) {
+                                    await logger.log(`⚠️ Could not delete role ${role.name} (${role.id}): ${err.message}`);
                                 }
                             }
-                        } catch (err) {
-                            await logger.log(`⚠️ Could not delete unused role ${role.name} (${role.id}): ${err.message}`);
                         }
+                        // If role not in our map, we can't verify owner permission, so leave it alone
+                    } catch (err) {
+                        await logger.log(`⚠️ Error checking role ${role.name} (${role.id}): ${err.message}`);
                     }
                 }
             } catch (err) {
-                await logger.log(`⚠️ Error checking guild ${guild.name} for unused roles: ${err.message}`);
+                await logger.log(`⚠️ Error checking guild ${guild.name} for cleanup: ${err.message}`);
             }
         }
 
         if (cleanedCount > 0) {
-            await logger.log(`✅ Cleanup complete: Removed ${cleanedCount} unused custom role(s)`);
+            await logger.log(`✅ Cleanup complete: Removed ${cleanedCount} custom role(s)`);
         } else {
-            await logger.log(`✅ Cleanup complete: No unused roles found`);
+            await logger.log(`✅ Cleanup complete: No roles to remove`);
         }
     } catch (err) {
         await logger.log(`❌ Error during custom role cleanup: ${err.message}`);
@@ -816,14 +861,11 @@ export function init(client) {
         }
     });
 
-    // Run cleanup on startup
-    setTimeout(async () => {
-        await cleanupUnusedCustomRoles(client);
-    }, 10000); // Wait 10 seconds after bot start to ensure everything is loaded
-
-    // Run cleanup periodically (every 6 hours)
+    // Run cleanup periodically (every 6 hours) - removes roles with no members OR without permission
+    // Note: We do NOT run cleanup on startup to avoid deleting roles that still have members
+    // (cache might not be fully loaded on startup, causing false positives)
     setInterval(async () => {
-        await cleanupUnusedCustomRoles(client);
+        await cleanupCustomRoles(client);
     }, 6 * 60 * 60 * 1000); // 6 hours in milliseconds
 
     logger.log("💎 Custom supporter role component initialized - Permission monitoring and cleanup active");

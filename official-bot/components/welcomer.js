@@ -21,10 +21,6 @@ async function welcomeUser(member, client) {
     }
 
     try {
-        // Check if user might be returning (account age vs join date)
-        // If account is much older than their join date, they might be returning
-        const isReturningMember = member.user.createdTimestamp < Date.now() - (7 * 24 * 60 * 60 * 1000); // Account older than 7 days
-
         // Fetch member to ensure we have full data
         try {
             await member.fetch();
@@ -34,13 +30,10 @@ async function welcomeUser(member, client) {
 
         const welcomeMessage = getRandomMessage().replace("{user}", `<@${member.user.id}>`);
 
-        // Adjust title for returning members
-        const title = isReturningMember ? "🎉 Welcome Back to the Server!" : "🎉 Welcome to the Server!";
-
         // Create simple welcome embed
         const welcomeEmbed = new EmbedBuilder()
             .setColor(EMBED.COLOR)
-            .setTitle(title)
+            .setTitle("🎉 Welcome to the Server!")
             .setDescription(welcomeMessage)
             .setThumbnail(member.user.displayAvatarURL({ dynamic: true, size: 256 }))
             .addFields([
@@ -59,7 +52,7 @@ async function welcomeUser(member, client) {
             .setTimestamp();
 
         await welcomeChannel.send({ embeds: [welcomeEmbed] });
-        await logger.log(`✅ Welcomed ${member.user.tag} (${member.user.id}) in ${member.guild.name} - Returning: ${isReturningMember}`);
+        await logger.log(`✅ Welcomed ${member.user.tag} (${member.user.id}) in ${member.guild.name}`);
     } catch (err) {
         await logger.log(`❌ Failed to welcome ${member.user.tag} (${member.user.id}): ${err.message}`);
     }

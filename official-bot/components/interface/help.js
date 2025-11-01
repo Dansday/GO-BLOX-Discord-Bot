@@ -29,12 +29,12 @@ export async function handleHelpButton(interaction) {
             },
             {
                 name: "⏸️ Pause/Resume",
-                value: "Pause or resume the bot's operations.\n**Permission:** Admin only",
+                value: "Pause or resume the bot's operations.\n**Permission:** Admin+",
                 inline: false
             },
             {
                 name: "💎 Custom Supporter Role",
-                value: "Create, edit, or delete a custom role with name, color, and icon.\n**Permission:** Supporter, Staff, or Admin",
+                value: "Create, edit, or delete a custom role with name, color, and icon.\n**Permission:** Supporter+ or Staff+",
                 inline: false
             },
             {
