@@ -16,7 +16,7 @@ async function findBotByToken(token) {
                 return bot;
             }
         }
-        
+
         // Fallback to searching by token
         const bots = await db.getAllBots();
         const bot = bots.find(b => b.token === token);
@@ -53,16 +53,16 @@ async function syncGuildData(guild) {
 
         // Separate channels and categories (excludes threads automatically)
         const { categories, channels } = separateChannelsAndCategories(guild.channels.cache);
-        
+
         // Sync categories first
         const categoryMap = await db.syncCategories(serverId, mapCategoriesForSync(categories));
-        
+
         // Sync channels (with category reference)
         await db.syncChannels(serverId, mapChannelsForSync(channels), categoryMap);
 
         // Get all roles
         const roles = Array.from(guild.roles.cache.values());
-        
+
         // Sync roles to database
         await db.syncRoles(serverId, roles.map(role => ({
             id: role.id,
@@ -84,7 +84,7 @@ async function syncAllGuilds() {
 
     try {
         const guilds = client.guilds.cache;
-        
+
         for (const [guildId, guild] of guilds) {
             await syncGuildData(guild);
         }
@@ -98,7 +98,7 @@ async function updateBotInfo() {
     if (!botId || !client || !client.user) {
         return;
     }
-    
+
     try {
         const avatarUrl = client.user.displayAvatarURL({ dynamic: true, size: 256 });
         // Use display name (globalName) if available, otherwise fall back to username
@@ -115,7 +115,7 @@ async function updateBotInfo() {
 
 async function init(discordClient, botToken) {
     client = discordClient;
-    
+
     // Find bot in database by token
     const bot = await findBotByToken(botToken);
     if (!bot) {
@@ -124,7 +124,7 @@ async function init(discordClient, botToken) {
     } else {
         botId = bot.id;
         logger.log(`✅ Found bot in database: ${bot.name} (${bot.bot_type})`);
-        
+
         // Update bot info immediately if client is already ready
         if (client.user) {
             await updateBotInfo();
@@ -228,4 +228,3 @@ function stop() {
 }
 
 export default { init, stop, syncGuildData, syncAllGuilds };
-

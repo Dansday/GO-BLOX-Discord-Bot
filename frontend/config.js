@@ -6,5 +6,5 @@ dotenv.config();
 // Control Panel Configuration
 export const CONTROL_PANEL = {
     // Port for control panel web interface
-    PORT: parseInt(process.env.CONTROL_PANEL_PORT) || 8888
+    PORT: parseInt(process.env.CONTROL_PANEL_PORT)
 };

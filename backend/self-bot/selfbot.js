@@ -12,10 +12,10 @@ const client = new Client();
 
 client.on("ready", async () => {
     console.log(`Self-bot logged in as ${client.user.tag}`);
-    
+
     // Initialize sync component to sync servers
     await sync.init(client, BOT_ID);
-    
+
     logger.init(client);
     forwarder.init(client);
 });

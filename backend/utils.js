@@ -11,7 +11,7 @@
 export function separateChannelsAndCategories(guildChannels) {
     // Convert to array first
     const channelsArray = Array.from(guildChannels.values());
-    
+
     // Helper function to check if a channel is a thread
     const isThreadType = (type) => {
         // Check numeric types: 11 = GUILD_PUBLIC_THREAD, 12 = GUILD_PRIVATE_THREAD, 13 = GUILD_NEWS_THREAD
@@ -20,13 +20,13 @@ export function separateChannelsAndCategories(guildChannels) {
         }
         // Check string constants
         if (typeof type === 'string') {
-            return type === 'GUILD_PUBLIC_THREAD' || 
-                   type === 'GUILD_PRIVATE_THREAD' || 
-                   type === 'GUILD_NEWS_THREAD';
+            return type === 'GUILD_PUBLIC_THREAD' ||
+                type === 'GUILD_PRIVATE_THREAD' ||
+                type === 'GUILD_NEWS_THREAD';
         }
         return false;
     };
-    
+
     // Helper function to check if a channel is a category
     const isCategoryType = (type) => {
         if (typeof type === 'number') {
@@ -37,7 +37,7 @@ export function separateChannelsAndCategories(guildChannels) {
         }
         return false;
     };
-    
+
     // Helper function to check if a channel is text or news
     const isTextOrNewsType = (type) => {
         if (typeof type === 'number') {
@@ -48,29 +48,29 @@ export function separateChannelsAndCategories(guildChannels) {
         }
         return false;
     };
-    
+
     // Exclude threads - check both isThread() method and type
     const allChannels = channelsArray.filter(ch => {
         // Check if it's a thread using the method (if available)
         const isThreadMethod = ch.isThread ? ch.isThread() : false;
-        
+
         // Check by type
         const isThreadByType = isThreadType(ch.type);
-        
+
         return !isThreadMethod && !isThreadByType;
     });
-    
+
     // Separate categories - these go to categories table
     const categories = allChannels.filter(ch => {
         return isCategoryType(ch.type);
     });
-    
+
     // Only include GUILD_TEXT and GUILD_NEWS for channels table
     // Exclude all other types (voice, stage, forum, etc.)
     const channels = allChannels.filter(ch => {
         return isTextOrNewsType(ch.type);
     });
-    
+
     return { categories, channels };
 }
 

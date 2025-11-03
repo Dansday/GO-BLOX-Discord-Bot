@@ -27,7 +27,7 @@ async function syncGuildData(guild) {
 
         // Fetch complete guild data
         await guild.fetch();
-        
+
         // Sync server info first (always sync this)
         const serverData = await db.upsertServer(botId, guild);
 
@@ -46,17 +46,17 @@ async function syncGuildData(guild) {
             } catch (fetchError) {
                 logger.log(`⚠️  Could not fetch channels for ${guild.name}: ${fetchError.message}`);
             }
-            
+
             if (guild.channels.cache.size > 0) {
                 // Separate channels and categories (excludes threads automatically)
                 const { categories, channels } = separateChannelsAndCategories(guild.channels.cache);
-                
+
                 // Sync categories first
                 const categoryMap = await db.syncCategories(serverId, mapCategoriesForSync(categories));
-                
+
                 // Sync channels (with category reference) - only text and news channels
                 await db.syncChannels(serverId, mapChannelsForSync(channels), categoryMap);
-                
+
                 logger.log(`✅ Synced server: ${guild.name} (${guild.memberCount} members, ${categories.length} categories, ${channels.length} channels)`);
             } else {
                 logger.log(`✅ Synced server info: ${guild.name} (${guild.memberCount} members)`);
@@ -119,7 +119,7 @@ async function init(discordClient, botIdFromEnv) {
         const bot = await findBotById(botId);
         if (bot) {
             logger.log(`✅ Found selfbot in database: ${bot.name} (${bot.bot_type})`);
-            
+
             // Update bot info immediately if client is already ready
             if (client.user) {
                 await updateBotInfo();

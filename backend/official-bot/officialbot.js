@@ -41,7 +41,7 @@ client.on("clientReady", async () => {
     interfaceComponent.init(client);
     customSupporterRole.init(client);
     afk.init(client);
-    
+
     // Initialize sync BEFORE other components to ensure bot info syncs
     await sync.init(client, BOT_TOKEN); // Sync channels and roles to database
 

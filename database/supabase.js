@@ -29,7 +29,7 @@ export const supabase = createClient(supabaseUrl, supabaseKey, {
 // Read and execute schema SQL (only if tables don't exist)
 async function runMigration() {
     const databaseUrl = process.env.DATABASE_URL;
-    
+
     if (!databaseUrl) {
         throw new Error(
             'Please set DATABASE_URL in .env file.\n' +
@@ -38,7 +38,7 @@ async function runMigration() {
     }
 
     const client = new Client({ connectionString: databaseUrl });
-    
+
     try {
         logger.log('🔌 Connecting to database...');
         await client.connect();
@@ -47,15 +47,15 @@ async function runMigration() {
         // Read schema file
         const schemaPath = join(__dirname, 'schema.sql');
         const schemaSQL = readFileSync(schemaPath, 'utf-8');
-        
+
         logger.log('📦 Executing schema...');
-        
+
         await client.query(schemaSQL);
-        
+
         logger.log('✅ Database schema created successfully!');
         logger.log('📊 Tables created: servers, channels, roles, server_settings');
         logger.log('📈 Indexes created: all indexes');
-        
+
     } catch (error) {
         logger.log(`❌ Migration failed: ${error.message}`);
         if (error.code === '28P01') {
@@ -82,9 +82,9 @@ async function setupDatabase() {
         { name: 'channels', required: true },
         { name: 'roles', required: true }
     ];
-    
+
     const missingTables = [];
-    
+
     for (const table of tables) {
         try {
             const { error } = await supabase
@@ -116,7 +116,7 @@ async function setupDatabase() {
     // If tables are missing, try to migrate
     if (missingTables.length > 0) {
         logger.log(`❌ Missing tables: ${missingTables.join(', ')}`);
-        
+
         // Only migrate if DATABASE_URL is set
         if (process.env.DATABASE_URL) {
             try {
@@ -148,7 +148,7 @@ let dbInitialized = false;
 
 export async function initializeDatabase() {
     if (dbInitialized) return;
-    
+
     try {
         await setupDatabase();
         dbInitialized = true;
@@ -167,7 +167,7 @@ export async function getAllBots() {
             .from('bots')
             .select('*')
             .order('created_at', { ascending: false });
-        
+
         if (error) throw error;
         return data || [];
     } catch (error) {
@@ -184,7 +184,7 @@ export async function getBot(botId) {
             .select('*')
             .eq('id', botId)
             .single();
-        
+
         if (error) throw error;
         return data;
     } catch (error) {
@@ -209,12 +209,13 @@ export async function createBot(botData) {
                 application_id: botData.application_id,
                 bot_type: botData.bot_type, // 'official' or 'selfbot'
                 bot_icon: botData.bot_icon || null, // Will be updated from Discord avatar
-                port: botData.port || 7777,
+                port: botData.port !== undefined ? botData.port : (botData.bot_type === 'official' ? 7777 : null), // Port only for official bots, null for selfbots
+                secret_key: botData.secret_key || null,
                 connect_to: botData.connect_to || null
             })
             .select()
             .single();
-        
+
         if (error) throw error;
         return data;
     } catch (error) {
@@ -229,12 +230,12 @@ export async function updateBot(botId, botData) {
             ...botData,
             updated_at: new Date().toISOString()
         };
-        
+
         // If status changes to running, set uptime_started_at
         if (botData.status === 'running' && !botData.uptime_started_at) {
             updateData.uptime_started_at = new Date().toISOString();
         }
-        
+
         // If status changes to stopped, clear uptime_started_at and process_id
         if (botData.status === 'stopped') {
             updateData.uptime_started_at = null;
@@ -247,7 +248,7 @@ export async function updateBot(botId, botData) {
             .eq('id', botId)
             .select()
             .single();
-        
+
         if (error) throw error;
         return data;
     } catch (error) {
@@ -262,7 +263,7 @@ export async function deleteBot(botId) {
             .from('bots')
             .delete()
             .eq('id', botId);
-        
+
         if (error) throw error;
         return true;
     } catch (error) {
@@ -279,7 +280,7 @@ export async function getServersForBot(botId) {
             .select('*')
             .eq('bot_id', botId)
             .order('name', { ascending: true });
-        
+
         if (error) throw error;
         return data || [];
     } catch (error) {
@@ -296,7 +297,7 @@ export async function getServerByDiscordId(botId, discordServerId) {
             .eq('bot_id', botId)
             .eq('discord_server_id', discordServerId)
             .single();
-        
+
         if (error && error.code !== 'PGRST116') throw error;
         return data || null;
     } catch (error) {
@@ -308,7 +309,7 @@ export async function getServerByDiscordId(botId, discordServerId) {
 export async function upsertServer(botId, guild) {
     try {
         const iconUrl = guild.iconURL ? guild.iconURL({ dynamic: true }) : null;
-        
+
         // Convert premiumTier enum to integer (TIER_0 = 0, TIER_1 = 1, etc.)
         let boostLevel = 0;
         if (guild.premiumTier) {
@@ -327,7 +328,7 @@ export async function upsertServer(botId, guild) {
                 boostLevel = parseInt(tierString, 10) || 0;
             }
         }
-        
+
         const { data, error } = await supabase
             .from('servers')
             .upsert({
@@ -345,7 +346,7 @@ export async function upsertServer(botId, guild) {
             })
             .select()
             .single();
-        
+
         if (error) throw error;
         return data;
     } catch (error) {
@@ -362,7 +363,7 @@ export async function getChannels(serverId) {
             .select('*')
             .eq('server_id', serverId)
             .order('name', { ascending: true });
-        
+
         if (error) throw error;
         return data || [];
     } catch (error) {
@@ -386,7 +387,7 @@ export async function upsertCategory(serverId, categoryData) {
             })
             .select()
             .single();
-        
+
         if (error) throw error;
         return data;
     } catch (error) {
@@ -400,19 +401,19 @@ export async function syncCategories(serverId, categories) {
         if (!categories || categories.length === 0) {
             return new Map();
         }
-        
+
         // Process in batches to avoid overwhelming the database
         const batchSize = 20;
         const batches = [];
-        
+
         for (let i = 0; i < categories.length; i += batchSize) {
             batches.push(categories.slice(i, i + batchSize));
         }
-        
+
         const allResults = [];
-        
+
         for (const batch of batches) {
-            const operations = batch.map(category => 
+            const operations = batch.map(category =>
                 upsertCategory(serverId, {
                     id: category.id,
                     name: category.name
@@ -421,16 +422,16 @@ export async function syncCategories(serverId, categories) {
                     return null; // Return null on error, continue with others
                 })
             );
-            
+
             const batchResults = await Promise.all(operations);
             allResults.push(...batchResults.filter(r => r !== null));
-            
+
             // Small delay between batches to avoid rate limiting
             if (batches.length > 1) {
                 await new Promise(resolve => setTimeout(resolve, 100));
             }
         }
-        
+
         // Create a map of discord_category_id to category UUID for channel reference
         const categoryMap = new Map();
         allResults.forEach(cat => {
@@ -438,7 +439,7 @@ export async function syncCategories(serverId, categories) {
                 categoryMap.set(cat.discord_category_id, cat.id);
             }
         });
-        
+
         return categoryMap;
     } catch (error) {
         console.error('Error syncing categories:', error);
@@ -453,7 +454,7 @@ export async function upsertChannel(serverId, channelData, categoryMap = null) {
         if (channelData.parent_id && categoryMap) {
             categoryId = categoryMap.get(channelData.parent_id) || null;
         }
-        
+
         const { data, error } = await supabase
             .from('channels')
             .upsert({
@@ -468,7 +469,7 @@ export async function upsertChannel(serverId, channelData, categoryMap = null) {
             })
             .select()
             .single();
-        
+
         if (error) throw error;
         return data;
     } catch (error) {
@@ -481,7 +482,7 @@ export async function syncChannels(serverId, channels, categoryMap = null) {
     try {
         // Ensure no categories (type 4) are included in channels
         const validChannels = channels.filter(ch => ch.type !== 4);
-        
+
         // Also delete any existing category channels that might be in the channels table
         try {
             const { data: existingCategoryChannels } = await supabase
@@ -489,7 +490,7 @@ export async function syncChannels(serverId, channels, categoryMap = null) {
                 .select('id, discord_channel_id')
                 .eq('server_id', serverId)
                 .eq('type', '4');
-            
+
             if (existingCategoryChannels && existingCategoryChannels.length > 0) {
                 const categoryIds = existingCategoryChannels.map(ch => ch.id);
                 await supabase
@@ -501,17 +502,17 @@ export async function syncChannels(serverId, channels, categoryMap = null) {
         } catch (cleanupError) {
             console.error('Error cleaning up categories from channels table:', cleanupError.message);
         }
-        
+
         // Process in batches to avoid overwhelming the database
         const batchSize = 20;
         const batches = [];
-        
+
         for (let i = 0; i < validChannels.length; i += batchSize) {
             batches.push(validChannels.slice(i, i + batchSize));
         }
-        
+
         for (const batch of batches) {
-            const operations = batch.map(channel => 
+            const operations = batch.map(channel =>
                 upsertChannel(serverId, {
                     id: channel.id,
                     name: channel.name,
@@ -522,15 +523,15 @@ export async function syncChannels(serverId, channels, categoryMap = null) {
                     return null; // Return null on error, continue with others
                 })
             );
-            
+
             await Promise.all(operations);
-            
+
             // Small delay between batches to avoid rate limiting
             if (batches.length > 1) {
                 await new Promise(resolve => setTimeout(resolve, 100));
             }
         }
-        
+
         return true;
     } catch (error) {
         console.error('Error syncing channels:', error);
@@ -546,7 +547,7 @@ export async function getRoles(serverId) {
             .select('*')
             .eq('server_id', serverId)
             .order('position', { ascending: false });
-        
+
         if (error) throw error;
         return data || [];
     } catch (error) {
@@ -572,7 +573,7 @@ export async function upsertRole(serverId, roleData) {
             })
             .select()
             .single();
-        
+
         if (error) throw error;
         return data;
     } catch (error) {
@@ -586,17 +587,17 @@ export async function syncRoles(serverId, roles) {
         if (!roles || roles.length === 0) {
             return true;
         }
-        
+
         // Process in batches to avoid overwhelming the database
         const batchSize = 20;
         const batches = [];
-        
+
         for (let i = 0; i < roles.length; i += batchSize) {
             batches.push(roles.slice(i, i + batchSize));
         }
-        
+
         for (const batch of batches) {
-            const operations = batch.map(role => 
+            const operations = batch.map(role =>
                 upsertRole(serverId, {
                     id: role.id,
                     name: role.name,
@@ -608,15 +609,15 @@ export async function syncRoles(serverId, roles) {
                     return null; // Return null on error, continue with others
                 })
             );
-            
+
             await Promise.all(operations);
-            
+
             // Small delay between batches to avoid rate limiting
             if (batches.length > 1) {
                 await new Promise(resolve => setTimeout(resolve, 100));
             }
         }
-        
+
         return true;
     } catch (error) {
         console.error('Error syncing roles:', error);

@@ -92,6 +92,7 @@
                 opacity: 0;
                 transform: translateY(-10px);
             }
+
             to {
                 opacity: 1;
                 transform: translateY(0);
@@ -412,7 +413,10 @@
         }
 
         /* Light mode styles */
-        body.light h1, body.light h2, body.light h3, body.light h4 {
+        body.light h1,
+        body.light h2,
+        body.light h3,
+        body.light h4 {
             color: #000000;
         }
 
@@ -475,8 +479,18 @@
         }
 
         /* Smooth transitions for all elements */
-        h1, h2, h3, h4, .subtitle, .bot-card, .form-section, .server-card,
-        .form-group input, .form-group select, .bot-card-header, .bot-info h3 {
+        h1,
+        h2,
+        h3,
+        h4,
+        .subtitle,
+        .bot-card,
+        .form-section,
+        .server-card,
+        .form-group input,
+        .form-group select,
+        .bot-card-header,
+        .bot-info h3 {
             transition: color 0.5s ease, background-color 0.5s ease, border-color 0.5s ease;
         }
 
@@ -515,6 +529,7 @@
         }
     </style>
 </head>
+
 <body>
     <!-- Theme Toggle Button -->
     <button class="theme-toggle" id="themeToggle" title="Toggle Dark/Light Mode">
@@ -570,11 +585,20 @@
                 </div>
 
                 <div class="form-group" id="portGroup">
-                    <label for="botPort">Port:</label>
-                    <input type="number" id="botPort" placeholder="7777" value="7777">
+                    <label for="botPort">Port <span style="color: red;">*</span>:</label>
+                    <input type="number" id="botPort" placeholder="7777" required>
                 </div>
 
-                <p class="form-hint" style="color: #cccccc; font-size: 12px; margin-top: -10px; margin-bottom: 10px; transition: color 0.5s ease;">
+                <div class="form-group" id="secretKeyGroup">
+                    <label for="botSecretKey">Secret Key (for Webhook Authentication) <span style="color: red;">*</span>:</label>
+                    <input type="password" id="botSecretKey" placeholder="Secret key (required for webhook auth)" required>
+                    <p class="form-hint" style="color: #999; font-size: 11px; margin-top: 5px;">
+                        Used to authenticate incoming webhooks to this bot
+                    </p>
+                </div>
+
+                <p class="form-hint"
+                    style="color: #cccccc; font-size: 12px; margin-top: -10px; margin-bottom: 10px; transition: color 0.5s ease;">
                     💡 Bot name and icon will be automatically synced from Discord when the bot is running
                 </p>
 
@@ -605,7 +629,7 @@
                 const bots = await res.json();
 
                 const botListEl = document.getElementById('botList');
-                
+
                 if (bots.length === 0) {
                     botListEl.innerHTML = `
                         <div style="grid-column: 1/-1; text-align: center; padding: 40px;">
@@ -644,7 +668,7 @@
             const minutes = Math.floor(seconds / 60);
             const hours = Math.floor(minutes / 60);
             const days = Math.floor(hours / 24);
-            
+
             if (days > 0) {
                 return `${days}d ${hours % 24}h`;
             } else if (hours > 0) {
@@ -660,7 +684,7 @@
             document.getElementById('botListView').style.display = 'none';
             document.getElementById('addBotForm').style.display = 'block';
             document.getElementById('botDetailView').style.display = 'none';
-            
+
             // Load official bots for connect_to dropdown
             loadOfficialBots();
         }
@@ -678,7 +702,7 @@
                 const res = await fetch('/api/bots');
                 const bots = await res.json();
                 const officialBots = bots.filter(b => b.bot_type === 'official');
-                
+
                 const select = document.getElementById('connectTo');
                 select.innerHTML = '<option value="">Select official bot...</option>' +
                     officialBots.map(bot => `<option value="${bot.id}">${bot.name}</option>`).join('');
@@ -692,19 +716,24 @@
             const connectToGroup = document.getElementById('connectToGroup');
             const applicationIdGroup = document.getElementById('applicationIdGroup');
             const portGroup = document.getElementById('portGroup');
-            
+            const secretKeyGroup = document.getElementById('secretKeyGroup');
+
             if (botType === 'selfbot') {
                 connectToGroup.style.display = 'block';
                 document.getElementById('connectTo').required = true;
                 applicationIdGroup.style.display = 'none';
                 document.getElementById('botApplicationId').required = false;
                 portGroup.style.display = 'none';
+                secretKeyGroup.style.display = 'none';
             } else {
                 connectToGroup.style.display = 'none';
                 document.getElementById('connectTo').required = false;
                 applicationIdGroup.style.display = 'block';
                 document.getElementById('botApplicationId').required = true;
                 portGroup.style.display = 'block';
+                document.getElementById('botPort').required = true;
+                secretKeyGroup.style.display = 'block';
+                document.getElementById('botSecretKey').required = true;
             }
         }
 
@@ -712,7 +741,9 @@
             const token = document.getElementById('botToken').value;
             const botType = document.getElementById('botType').value;
             const applicationId = botType === 'official' ? document.getElementById('botApplicationId').value : null;
-            const port = botType === 'official' ? (parseInt(document.getElementById('botPort').value) || 7777) : 7777;
+            const portInput = botType === 'official' ? document.getElementById('botPort').value : null;
+            const port = portInput ? parseInt(portInput) : null; // null for selfbots, parsed int or null for official bots
+            const secretKey = botType === 'official' ? document.getElementById('botSecretKey').value : null;
             const connectTo = botType === 'selfbot' ? document.getElementById('connectTo').value : null;
 
             if (!token || !botType) {
@@ -722,6 +753,16 @@
 
             if (botType === 'official' && !applicationId) {
                 showMessage('Application ID is required for official bots', 'error');
+                return;
+            }
+
+            if (botType === 'official' && !port) {
+                showMessage('Port is required for official bots', 'error');
+                return;
+            }
+
+            if (botType === 'official' && !secretKey) {
+                showMessage('Secret Key is required for official bots', 'error');
                 return;
             }
 
@@ -741,6 +782,7 @@
                         bot_type: botType,
                         bot_icon: null, // Will be set when bot connects
                         port,
+                        secret_key: secretKey || null,
                         connect_to: connectTo
                     })
                 });
@@ -763,7 +805,7 @@
 
         async function viewBot(botId) {
             currentBotId = botId;
-            
+
             try {
                 const [botRes, serversRes] = await Promise.all([
                     fetch(`/api/bots/${botId}`),
@@ -836,6 +878,37 @@
                                 <div class="info-value" style="font-weight: 600; color: #ffffff; transition: color 0.5s ease;">${bot.connected_bot_name}</div>
                             </div>
                             ` : ''}
+                            <div>
+                                <div class="info-label" style="color: #cccccc; font-size: 12px; margin-bottom: 8px; transition: color 0.5s ease;">Mode</div>
+                                <label style="display: flex; align-items: center; gap: 10px; cursor: pointer;">
+                                    <span style="font-size: 13px; color: ${bot.is_testing ? '#ffc107' : '#28a745'}; font-weight: 600; transition: color 0.3s ease;">
+                                        ${bot.is_testing ? '🧪 Testing' : '🚀 Production'}
+                                    </span>
+                                    <input type="checkbox" id="modeToggle_${bot.id}" ${bot.is_testing ? 'checked' : ''} 
+                                        onchange="toggleBotMode('${bot.id}')"
+                                        style="width: 48px; height: 24px; appearance: none; background: ${bot.is_testing ? '#ffc107' : '#28a745'}; border-radius: 12px; position: relative; cursor: pointer; transition: background 0.3s ease; outline: none;">
+                                    <style>
+                                        #modeToggle_${bot.id}::before {
+                                            content: '';
+                                            position: absolute;
+                                            width: 20px;
+                                            height: 20px;
+                                            border-radius: 50%;
+                                            background: white;
+                                            top: 2px;
+                                            left: ${bot.is_testing ? '26px' : '2px'};
+                                            transition: left 0.3s ease, box-shadow 0.3s ease;
+                                            box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+                                        }
+                                        #modeToggle_${bot.id}:checked {
+                                            background: #ffc107;
+                                        }
+                                        #modeToggle_${bot.id}:checked::before {
+                                            left: 26px;
+                                        }
+                                    </style>
+                                </label>
+                            </div>
                         </div>
                     </div>
 
@@ -866,12 +939,12 @@
             const startBtn = document.getElementById(`startBtn_${botId}`);
             const stopBtn = document.getElementById(`stopBtn_${botId}`);
             const restartBtn = document.getElementById(`restartBtn_${botId}`);
-            
+
             // Disable start button, enable stop/restart
             if (startBtn) startBtn.disabled = true;
             if (stopBtn) stopBtn.disabled = false;
             if (restartBtn) restartBtn.disabled = false;
-            
+
             try {
                 const res = await fetch('/api/start', {
                     method: 'POST',
@@ -902,12 +975,12 @@
             const startBtn = document.getElementById(`startBtn_${botId}`);
             const stopBtn = document.getElementById(`stopBtn_${botId}`);
             const restartBtn = document.getElementById(`restartBtn_${botId}`);
-            
+
             // Disable stop/restart buttons, enable start
             if (startBtn) startBtn.disabled = false;
             if (stopBtn) stopBtn.disabled = true;
             if (restartBtn) restartBtn.disabled = true;
-            
+
             try {
                 const res = await fetch('/api/stop', {
                     method: 'POST',
@@ -938,12 +1011,12 @@
             const startBtn = document.getElementById(`startBtn_${botId}`);
             const stopBtn = document.getElementById(`stopBtn_${botId}`);
             const restartBtn = document.getElementById(`restartBtn_${botId}`);
-            
+
             // Disable all buttons during restart
             if (startBtn) startBtn.disabled = true;
             if (stopBtn) stopBtn.disabled = true;
             if (restartBtn) restartBtn.disabled = true;
-            
+
             try {
                 const res = await fetch('/api/restart', {
                     method: 'POST',
@@ -979,12 +1052,44 @@
         setInterval(() => {
             if (currentBotId) {
                 // Refresh bot detail view
-                viewBot(currentBotId).catch(() => {});
+                viewBot(currentBotId).catch(() => { });
             } else {
                 // Refresh bot list
-                loadBots().catch(() => {});
+                loadBots().catch(() => { });
             }
         }, 5000);
+
+        async function toggleBotMode(botId) {
+            const toggle = document.getElementById(`modeToggle_${botId}`);
+            const isTesting = toggle.checked;
+
+            try {
+                const res = await fetch(`/api/bots/${botId}/mode`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ is_testing: isTesting })
+                });
+
+                const data = await res.json();
+
+                if (data.success) {
+                    showMessage(`Bot mode changed to ${isTesting ? 'Testing' : 'Production'}`, 'success');
+                    // Refresh bot detail view to show updated mode
+                    setTimeout(() => {
+                        viewBot(botId);
+                    }, 500);
+                } else {
+                    // Revert toggle on error
+                    toggle.checked = !isTesting;
+                    showMessage(`Failed to update mode: ${data.error}`, 'error');
+                }
+            } catch (err) {
+                // Revert toggle on error
+                toggle.checked = !isTesting;
+                showMessage('Failed to update bot mode', 'error');
+                console.error(err);
+            }
+        }
 
         async function deleteBot(botId) {
             if (!confirm('Are you sure you want to delete this bot? This will also delete all associated servers, channels, and roles.')) {
@@ -1017,14 +1122,14 @@
             msgEl.textContent = text;
             msgEl.className = `message ${type}`;
             msgEl.style.display = 'block';
-            
+
             setTimeout(() => {
                 msgEl.style.display = 'none';
             }, 5000);
         }
 
         // Theme Toggle Functionality
-        $(document).ready(function() {
+        $(document).ready(function () {
             // Check for saved theme preference or default to dark
             const savedTheme = localStorage.getItem('theme') || 'dark';
             if (savedTheme === 'light') {
@@ -1038,16 +1143,16 @@
             }
 
             // Theme toggle button click handler
-            $('#themeToggle').on('click', function() {
+            $('#themeToggle').on('click', function () {
                 $('body').toggleClass('light');
-                
+
                 if ($('body').hasClass('light')) {
                     $('html').removeClass('dark');
                     $(this).html('☀️').fadeIn(200);
                     localStorage.setItem('theme', 'light');
-                    
+
                     // Animate all cards smoothly
-                    $('.bot-card, .server-card, .form-section').each(function(index) {
+                    $('.bot-card, .server-card, .form-section').each(function (index) {
                         $(this).css('opacity', 0);
                         setTimeout(() => {
                             $(this).css('transition', 'opacity 0.3s ease');
@@ -1058,9 +1163,9 @@
                     $('html').addClass('dark');
                     $(this).html('🌙').fadeIn(200);
                     localStorage.setItem('theme', 'dark');
-                    
+
                     // Animate all cards smoothly
-                    $('.bot-card, .server-card, .form-section').each(function(index) {
+                    $('.bot-card, .server-card, .form-section').each(function (index) {
                         $(this).css('opacity', 0);
                         setTimeout(() => {
                             $(this).css('transition', 'opacity 0.3s ease');

@@ -49,7 +49,7 @@ function init(client) {
         hasPermission = false;
         return;
     }
-    
+
     // Check if bot has permission to send messages in the channel
     try {
         // For selfbots, permissions might not be available, so we'll catch errors when trying to send
