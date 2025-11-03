@@ -25,7 +25,7 @@ async function startBotById(botId, bot) {
         await db.updateBot(botId, { status: 'starting' });
     } catch (err) {
         logger.log(`⚠️  Failed to update bot status: ${err.message}`);
-}
+    }
 
     // Check if bot is already running
     const existing = botProcesses.get(botId);
@@ -80,7 +80,7 @@ async function startBotById(botId, bot) {
         };
 
         botProcesses.set(botId, processInfo);
-            
+
         // Handle output
         botProcess.stdout.on('data', (data) => {
             const output = data.toString();
@@ -100,8 +100,8 @@ async function startBotById(botId, bot) {
                 info.pid = null;
                 info.startTime = null;
                 info.process = null;
-                    }
-                    
+            }
+
             // Update bot status in database
             try {
                 await db.updateBot(botId, {
@@ -135,8 +135,8 @@ async function startBotById(botId, bot) {
             } catch (updateErr) { }
 
             logger.log(`Failed to start bot ${botId}: ${err.message}`);
-            });
-            
+        });
+
         // Wait a moment for process to fully start, then update status to running
         setTimeout(async () => {
             // Verify process is still running
@@ -154,7 +154,7 @@ async function startBotById(botId, bot) {
                 } catch (err) {
                     logger.log(`⚠️  Failed to update bot status to running: ${err.message}`);
                 }
-                            } catch (e) {
+            } catch (e) {
                 // Process doesn't exist or failed to start
                 logger.log(`⚠️  Bot process ${botProcess.pid} may have failed to start`);
                 try {
@@ -164,7 +164,7 @@ async function startBotById(botId, bot) {
                         uptime_started_at: null
                     });
                 } catch (updateErr) { }
-                            }
+            }
         }, 2000); // Wait 2 seconds for process to start
 
         logger.log(`✅ Started bot ${botId} (${bot.bot_type}) with PID ${botProcess.pid}`);
@@ -172,7 +172,7 @@ async function startBotById(botId, bot) {
     } catch (error) {
         return { success: false, error: error.message };
     }
-    }
+}
 
 // Stop a specific bot by ID
 async function stopBotById(botId) {
@@ -181,7 +181,7 @@ async function stopBotById(botId) {
         await db.updateBot(botId, { status: 'stopping' });
     } catch (err) {
         logger.log(`⚠️  Failed to update bot status: ${err.message}`);
-                        }
+    }
 
     const botInfo = botProcesses.get(botId);
 
@@ -218,8 +218,8 @@ async function stopBotById(botId) {
                     });
                 } catch (err) { }
                 return { success: false, error: 'Bot is not running' };
-                }
-}
+            }
+        }
 
         // Update status
         try {
@@ -229,7 +229,7 @@ async function stopBotById(botId) {
                 uptime_started_at: null
             });
         } catch (err) { }
-            return { success: false, error: 'Bot is not running' };
+        return { success: false, error: 'Bot is not running' };
     }
 
     botInfo.status = 'stopping';
@@ -275,14 +275,14 @@ async function stopBotById(botId) {
 // Restart a specific bot by ID
 async function restartBotById(botId, bot) {
     const stopResult = await stopBotById(botId);
-    
+
     if (!stopResult.success && stopResult.error !== 'Bot is not running') {
         return { success: false, error: `Failed to stop: ${stopResult.error}` };
     }
-    
+
     // Wait a moment for process to fully stop
     await new Promise(resolve => setTimeout(resolve, 2000));
-    
+
     // Now start
     const startResult = await startBotById(botId, bot);
     return startResult;
@@ -365,7 +365,7 @@ export async function init() {
 
     app = express();
     app.use(express.json());
-    
+
     // Session middleware
     app.use(session({
         secret: process.env.SESSION_SECRET || 'goblox-panel-secret-change-in-production',
@@ -377,24 +377,24 @@ export async function init() {
             maxAge: 24 * 60 * 60 * 1000 // 24 hours
         }
     }));
-    
+
     app.use(express.static(__dirname));
-    
+
     // Helper function to get client IP
     function getClientIp(req) {
-        return req.headers['x-forwarded-for']?.split(',')[0] || 
-               req.headers['x-real-ip'] || 
-               req.connection.remoteAddress || 
-               req.socket.remoteAddress ||
-               (req.connection.socket ? req.connection.socket.remoteAddress : null) ||
-               'unknown';
+        return req.headers['x-forwarded-for']?.split(',')[0] ||
+            req.headers['x-real-ip'] ||
+            req.connection.remoteAddress ||
+            req.socket.remoteAddress ||
+            (req.connection.socket ? req.connection.socket.remoteAddress : null) ||
+            'unknown';
     }
-    
+
     // Helper function to get user agent
     function getUserAgent(req) {
         return req.headers['user-agent'] || 'unknown';
     }
-    
+
     // Authentication middleware
     async function requireAuth(req, res, next) {
         if (req.session && req.session.authenticated) {
@@ -417,34 +417,34 @@ export async function init() {
     app.post('/api/panel/register', async (req, res) => {
         try {
             const { password } = req.body;
-            
+
             if (!password || password.length < 6) {
-                return res.status(400).json({ 
-                    success: false, 
-                    error: 'Password must be at least 6 characters long' 
+                return res.status(400).json({
+                    success: false,
+                    error: 'Password must be at least 6 characters long'
                 });
             }
-            
+
             // Check if panel already exists
             const existing = await db.getPanel();
             if (existing) {
-                return res.status(400).json({ 
-                    success: false, 
-                    error: 'Panel already registered. Please login instead.' 
+                return res.status(400).json({
+                    success: false,
+                    error: 'Panel already registered. Please login instead.'
                 });
             }
-            
+
             // Hash password
             const saltRounds = 10;
             const passwordHash = await bcrypt.hash(password, saltRounds);
-            
+
             // Create panel
             const panel = await db.createPanel(passwordHash);
-            
+
             // Set session
             req.session.authenticated = true;
             req.session.panel_id = panel.id;
-            
+
             // Wait for session to be saved before sending response
             await new Promise((resolve, reject) => {
                 req.session.save((err) => {
@@ -456,7 +456,7 @@ export async function init() {
                     }
                 });
             });
-            
+
             // Log registration (successful)
             await db.createPanelLog({
                 panel_id: panel.id,
@@ -464,26 +464,26 @@ export async function init() {
                 user_agent: getUserAgent(req),
                 success: true
             });
-            
+
             res.json({ success: true, message: 'Panel registered successfully' });
         } catch (error) {
             logger.log(`❌ Panel registration error: ${error.message}`);
             res.status(500).json({ success: false, error: error.message });
         }
     });
-    
+
     // Login endpoint
     app.post('/api/panel/login', async (req, res) => {
         try {
             const { password } = req.body;
-            
+
             if (!password) {
-                return res.status(400).json({ 
-                    success: false, 
-                    error: 'Password is required' 
+                return res.status(400).json({
+                    success: false,
+                    error: 'Password is required'
                 });
             }
-            
+
             // Get panel
             const panel = await db.getPanel();
             if (!panel) {
@@ -494,15 +494,15 @@ export async function init() {
                     user_agent: getUserAgent(req),
                     success: false
                 });
-                return res.status(401).json({ 
-                    success: false, 
-                    error: 'Panel not registered. Please register first.' 
+                return res.status(401).json({
+                    success: false,
+                    error: 'Panel not registered. Please register first.'
                 });
             }
-            
+
             // Verify password
             const isValid = await bcrypt.compare(password, panel.password_hash);
-            
+
             // Log attempt
             await db.createPanelLog({
                 panel_id: panel.id,
@@ -510,18 +510,18 @@ export async function init() {
                 user_agent: getUserAgent(req),
                 success: isValid
             });
-            
+
             if (!isValid) {
-                return res.status(401).json({ 
-                    success: false, 
-                    error: 'Invalid password' 
+                return res.status(401).json({
+                    success: false,
+                    error: 'Invalid password'
                 });
             }
-            
+
             // Set session
             req.session.authenticated = true;
             req.session.panel_id = panel.id;
-            
+
             // Wait for session to be saved before sending response
             await new Promise((resolve, reject) => {
                 req.session.save((err) => {
@@ -533,14 +533,14 @@ export async function init() {
                     }
                 });
             });
-            
+
             res.json({ success: true, message: 'Login successful' });
         } catch (error) {
             logger.log(`❌ Panel login error: ${error.message}`);
             res.status(500).json({ success: false, error: error.message });
         }
     });
-    
+
     // Logout endpoint
     app.post('/api/panel/logout', (req, res) => {
         req.session.destroy((err) => {
@@ -550,11 +550,11 @@ export async function init() {
             res.json({ success: true, message: 'Logged out successfully' });
         });
     });
-    
+
     // Check authentication status
     app.get('/api/panel/auth', (req, res) => {
-        res.json({ 
-            authenticated: req.session && req.session.authenticated || false 
+        res.json({
+            authenticated: req.session && req.session.authenticated || false
         });
     });
 
@@ -733,16 +733,16 @@ export async function init() {
         try {
             const { search } = req.query;
             let channels = await db.getChannelsForServer(req.params.id);
-            
+
             // Filter by search term if provided
             if (search) {
                 const searchLower = search.toLowerCase();
-                channels = channels.filter(ch => 
+                channels = channels.filter(ch =>
                     ch.name?.toLowerCase().includes(searchLower) ||
                     ch.discord_channel_id?.includes(searchLower)
                 );
             }
-            
+
             res.json(channels);
         } catch (error) {
             res.status(500).json({ error: error.message });
@@ -759,7 +759,7 @@ export async function init() {
 
             // Get all selfbots that connect to this official bot
             const allBots = await db.getAllBots();
-            const selfbots = allBots.filter(bot => 
+            const selfbots = allBots.filter(bot =>
                 bot.bot_type === 'selfbot' && bot.connect_to === req.params.id
             );
 
@@ -782,11 +782,11 @@ export async function init() {
             }
 
             let channels = await db.getChannelsForServer(serverId);
-            
+
             // Filter by search term if provided
             if (search) {
                 const searchLower = search.toLowerCase();
-                channels = channels.filter(ch => 
+                channels = channels.filter(ch =>
                     ch.name?.toLowerCase().includes(searchLower) ||
                     ch.discord_channel_id?.includes(searchLower)
                 );
@@ -823,7 +823,7 @@ export async function init() {
                 secret_key,
                 connect_to
             } = req.body;
-            
+
             // Get panel_id from session
             const panel_id = req.session.panel_id;
 
@@ -930,7 +930,7 @@ export async function init() {
             }
 
             const { is_testing } = req.body;
-            
+
             if (typeof is_testing !== 'boolean') {
                 return res.status(400).json({
                     success: false,
@@ -972,7 +972,7 @@ export async function init() {
             }
 
             const result = await startBotById(bot_id, bot);
-        res.json(result);
+            res.json(result);
         } catch (error) {
             res.json({ success: false, error: error.message });
         }
@@ -986,7 +986,7 @@ export async function init() {
 
         try {
             const result = await stopBotById(bot_id);
-        res.json(result);
+            res.json(result);
         } catch (error) {
             res.json({ success: false, error: error.message });
         }
@@ -1005,7 +1005,7 @@ export async function init() {
             }
 
             const result = await restartBotById(bot_id, bot);
-        res.json(result);
+            res.json(result);
         } catch (error) {
             res.json({ success: false, error: error.message });
         }

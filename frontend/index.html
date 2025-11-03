@@ -841,20 +841,15 @@
                                     style="display: block; margin-bottom: 8px; color: #ffffff; font-weight: 600;">Default Embed Footer</label>
                                 <input type="text" id="embedFooter" placeholder="e.g., Copyright © 2025 | Your Server Name"
                                     style="width: 100%; padding: 12px; background: #1a1a1a; border: 1px solid #333333; border-radius: 8px; color: #ffffff;">
-                                <div style="margin-top: 8px; padding: 12px; background: #0a0a0a; border: 1px solid #2a2a2a; border-radius: 6px; font-size: 12px;">
-                                    <div style="color: #28a745; font-weight: 600; margin-bottom: 6px;">💡 Available Placeholders:</div>
-                                    <div style="color: #cccccc; line-height: 1.6;">
-                                        <div style="margin-bottom: 4px;">• <code style="background: #1a1a1a; padding: 2px 6px; border-radius: 3px; color: #dc3545;">{server}</code> - Server name</div>
-                                        <div style="margin-bottom: 4px;">• <code style="background: #1a1a1a; padding: 2px 6px; border-radius: 3px; color: #dc3545;">{year}</code> - Current year</div>
-                                        <div style="margin-bottom: 4px;">• <code style="background: #1a1a1a; padding: 2px 6px; border-radius: 3px; color: #dc3545;">{date}</code> - Current date</div>
-                                        <div style="margin-bottom: 4px;">• <code style="background: #1a1a1a; padding: 2px 6px; border-radius: 3px; color: #dc3545;">{time}</code> - Current time</div>
-                                    </div>
-                                    <div style="margin-top: 10px; padding-top: 10px; border-top: 1px solid #2a2a2a; color: #999; font-size: 11px;">
-                                        <strong>Examples:</strong><br>
-                                        "Copyright © {year} {server}"<br>
-                                        "{server} • {date} {time}"<br>
-                                        "Powered by GO BLOX"
-                                    </div>
+                                <div style="margin-top: 8px; padding: 12px; background: #1a1a1a; border-radius: 8px; border: 1px solid #333333;">
+                                    <p style="color: #999; font-size: 11px; margin: 0 0 8px 0; font-weight: 600;">💡 Available Placeholders:</p>
+                                    <ul style="color: #cccccc; font-size: 11px; margin: 0; padding-left: 20px;">
+                                        <li><code style="color: #dc3545;">{server}</code> - Server name</li>
+                                        <li><code style="color: #dc3545;">{year}</code> - Current year</li>
+                                        <li><code style="color: #dc3545;">{date}</code> - Current date</li>
+                                        <li><code style="color: #dc3545;">{time}</code> - Current time</li>
+                                    </ul>
+                                    <p style="color: #999; font-size: 11px; margin: 8px 0 0 0;">Examples: <code style="color: #28a745;">Copyright © {year} {server}</code> | <code style="color: #28a745;">{server} • {date} {time}</code> | <code style="color: #28a745;">Powered by GO BLOX</code></p>
                                 </div>
                             </div>
 
@@ -955,6 +950,106 @@
                             </div>
 
                             <button class="btn btn-success" onclick="savePermissionsConfig()" style="width: 100%;">💾 Save Permissions</button>
+                        </div>
+                    </div>
+
+                    <!-- Welcomer Component -->
+                    <div id="serverSettingsWelcomer" style="display: none;">
+                        <h3 style="margin-bottom: 20px;">👋 Welcomer Configuration</h3>
+                        <div class="form-section" style="background: #0d0d0d; border-radius: 12px; padding: 24px; border: 1px solid #333333;">
+                            <div class="form-group" style="margin-bottom: 20px;">
+                                <label style="display: block; margin-bottom: 8px; color: #ffffff; font-weight: 600;">Welcome Channels:</label>
+                                <p class="form-hint" style="color: #999; font-size: 11px; margin-bottom: 8px;">Select channels to send welcome messages. If none selected, will use main config channel.</p>
+                                <div style="border: 1px solid #333333; border-radius: 8px; background: #0d0d0d; overflow: hidden;">
+                                    <div style="padding: 12px; border-bottom: 1px solid #333333; background: #0a0a0a;">
+                                        <input type="text" id="welcomerChannelsSearch" placeholder="🔍 Search channels..." 
+                                            oninput="filterWelcomerChannels(this.value)"
+                                            style="width: 100%; padding: 8px 12px; background: #1a1a1a; border: 1px solid #333333; border-radius: 6px; color: #ffffff; font-size: 14px; outline: none; transition: border-color 0.3s ease;"
+                                            onfocus="this.style.borderColor='#dc3545'"
+                                            onblur="this.style.borderColor='#333333'">
+                                    </div>
+                                    <div id="welcomerChannels" style="max-height: 200px; overflow-y: auto; padding: 8px;">
+                                        <p style="color: #999; margin: 0; padding: 20px; text-align: center;">Loading channels...</p>
+                                    </div>
+                                    <div id="welcomerChannelsSelected" style="padding: 10px; border-top: 1px solid #333333; background: #0a0a0a; font-size: 12px; color: #28a745; display: none;">
+                                        <span id="welcomerChannelsCount">0</span> channel(s) selected
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="form-group" style="margin-bottom: 20px;">
+                                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                                    <label style="display: block; color: #ffffff; font-weight: 600;">Welcome Messages:</label>
+                                    <button class="btn btn-success" onclick="showAddWelcomerMessageForm()" style="padding: 6px 12px; font-size: 13px;">➕ Add Message</button>
+                                </div>
+                                <p class="form-hint" style="color: #999; font-size: 11px; margin-bottom: 12px;">Add custom messages to send when a member joins. One message will be randomly selected.</p>
+                                <div id="welcomerMessagesList" style="background: #0d0d0d; border-radius: 8px; padding: 12px; border: 1px solid #333333; min-height: 100px;">
+                                    <p style="color: #999; margin: 0; padding: 20px; text-align: center;">No messages configured. Click "Add Message" to add one.</p>
+                                </div>
+                                <div style="margin-top: 12px; padding: 12px; background: #1a1a1a; border-radius: 8px; border: 1px solid #333333;">
+                                    <p style="color: #999; font-size: 11px; margin: 0 0 8px 0; font-weight: 600;">💡 Available Placeholders:</p>
+                                    <ul style="color: #cccccc; font-size: 11px; margin: 0; padding-left: 20px;">
+                                        <li><code style="color: #dc3545;">{user}</code> - Mentions the new member</li>
+                                        <li><code style="color: #dc3545;">{server}</code> - Server name</li>
+                                        <li><code style="color: #dc3545;">{memberCount}</code> - Total member count</li>
+                                        <li><code style="color: #dc3545;">{accountAge}</code> - Account age (e.g., "2 days ago")</li>
+                                        <li><code style="color: #dc3545;">{date}</code> - Current date</li>
+                                        <li><code style="color: #dc3545;">{time}</code> - Current time</li>
+                                    </ul>
+                                    <p style="color: #999; font-size: 11px; margin: 8px 0 0 0;">Example: <code style="color: #28a745;">Welcome {user} to {server}! You are member #{memberCount}.</code></p>
+                                </div>
+                            </div>
+
+                            <button class="btn btn-success" onclick="saveWelcomerConfig()" style="width: 100%;">💾 Save Welcomer Config</button>
+                        </div>
+                    </div>
+
+                    <!-- Booster Component -->
+                    <div id="serverSettingsBooster" style="display: none;">
+                        <h3 style="margin-bottom: 20px;">💎 Booster Configuration</h3>
+                        <div class="form-section" style="background: #0d0d0d; border-radius: 12px; padding: 24px; border: 1px solid #333333;">
+                            <div class="form-group" style="margin-bottom: 20px;">
+                                <label style="display: block; margin-bottom: 8px; color: #ffffff; font-weight: 600;">Booster Channels:</label>
+                                <p class="form-hint" style="color: #999; font-size: 11px; margin-bottom: 8px;">Select channels to send booster thank you messages. If none selected, will use main config channel.</p>
+                                <div style="border: 1px solid #333333; border-radius: 8px; background: #0d0d0d; overflow: hidden;">
+                                    <div style="padding: 12px; border-bottom: 1px solid #333333; background: #0a0a0a;">
+                                        <input type="text" id="boosterChannelsSearch" placeholder="🔍 Search channels..." 
+                                            oninput="filterBoosterChannels(this.value)"
+                                            style="width: 100%; padding: 8px 12px; background: #1a1a1a; border: 1px solid #333333; border-radius: 6px; color: #ffffff; font-size: 14px; outline: none; transition: border-color 0.3s ease;"
+                                            onfocus="this.style.borderColor='#dc3545'"
+                                            onblur="this.style.borderColor='#333333'">
+                                    </div>
+                                    <div id="boosterChannels" style="max-height: 200px; overflow-y: auto; padding: 8px;">
+                                        <p style="color: #999; margin: 0; padding: 20px; text-align: center;">Loading channels...</p>
+                                    </div>
+                                    <div id="boosterChannelsSelected" style="padding: 10px; border-top: 1px solid #333333; background: #0a0a0a; font-size: 12px; color: #28a745; display: none;">
+                                        <span id="boosterChannelsCount">0</span> channel(s) selected
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="form-group" style="margin-bottom: 20px;">
+                                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                                    <label style="display: block; color: #ffffff; font-weight: 600;">Booster Messages:</label>
+                                    <button class="btn btn-success" onclick="showAddBoosterMessageForm()" style="padding: 6px 12px; font-size: 13px;">➕ Add Message</button>
+                                </div>
+                                <p class="form-hint" style="color: #999; font-size: 11px; margin-bottom: 12px;">Add custom messages to send when a member boosts the server. One message will be randomly selected.</p>
+                                <div id="boosterMessagesList" style="background: #0d0d0d; border-radius: 8px; padding: 12px; border: 1px solid #333333; min-height: 100px;">
+                                    <p style="color: #999; margin: 0; padding: 20px; text-align: center;">No messages configured. Click "Add Message" to add one.</p>
+                                </div>
+                                <div style="margin-top: 12px; padding: 12px; background: #1a1a1a; border-radius: 8px; border: 1px solid #333333;">
+                                    <p style="color: #999; font-size: 11px; margin: 0 0 8px 0; font-weight: 600;">💡 Available Placeholders:</p>
+                                    <ul style="color: #cccccc; font-size: 11px; margin: 0; padding-left: 20px;">
+                                        <li><code style="color: #dc3545;">{user}</code> - Mentions the booster</li>
+                                        <li><code style="color: #dc3545;">{server}</code> - Server name</li>
+                                        <li><code style="color: #dc3545;">{boostLevel}</code> - Current boost level (e.g., "Level 2")</li>
+                                        <li><code style="color: #dc3545;">{totalBoosts}</code> - Total number of boosts</li>
+                                    </ul>
+                                    <p style="color: #999; font-size: 11px; margin: 8px 0 0 0;">Example: <code style="color: #28a745;">Thank you {user} for boosting {server}! 🚀</code></p>
+                                </div>
+                            </div>
+
+                            <button class="btn btn-success" onclick="saveBoosterConfig()" style="width: 100%;">💾 Save Booster Config</button>
                         </div>
                     </div>
 
@@ -1082,10 +1177,33 @@
                     </div>
                 </div>
             </div>
-        </div>
-    </div>
+                    </div>
+                </div>
 
-    <!-- Confirmation Modal (outside all views, always accessible) -->
+                <!-- Add/Edit Welcomer Message Modal -->
+                <div id="welcomerMessageModal" style="display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.8); z-index: 2000; align-items: center; justify-content: center;" onclick="if(event.target.id === 'welcomerMessageModal') closeWelcomerMessageModal()">
+                    <div style="background: #1a1a1a; border-radius: 12px; padding: 30px; max-width: 600px; width: 90%; max-height: 90vh; overflow-y: auto; border: 1px solid #333333;" onclick="event.stopPropagation()">
+                        <h3 id="welcomerMessageModalTitle" style="margin-top: 0;">Add Welcome Message</h3>
+                        <div class="form-section">
+                            <div class="form-group">
+                                <label>Message <span style="color: red;">*</span>:</label>
+                                <textarea id="welcomerMessageText" rows="4" placeholder="Enter welcome message..."
+                                    style="width: 100%; padding: 12px; background: #1a1a1a; border: 1px solid #333333; border-radius: 8px; color: #ffffff; font-size: 14px; font-family: inherit; resize: vertical; outline: none; transition: border-color 0.3s ease;"
+                                    onfocus="this.style.borderColor='#dc3545'"
+                                    onblur="this.style.borderColor='#333333'"></textarea>
+                                <p class="form-hint" style="color: #999; font-size: 11px; margin-top: 5px;">
+                                    Use placeholders like {user}, {server}, {memberCount}, etc.
+                                </p>
+                            </div>
+                            <div style="margin-top: 20px; display: flex; gap: 10px; justify-content: flex-end;">
+                                <button class="btn btn-secondary" onclick="closeWelcomerMessageModal()">Cancel</button>
+                                <button class="btn btn-success" onclick="saveWelcomerMessage()">Save</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Confirmation Modal (outside all views, always accessible) -->
     <div id="confirmModal" style="display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.8); z-index: 3000; align-items: center; justify-content: center;">
         <div style="background: #1a1a1a; border-radius: 12px; padding: 30px; max-width: 500px; width: 90%; border: 1px solid #dc3545; box-shadow: 0 8px 32px rgba(220, 53, 69, 0.3);">
             <div style="text-align: center; margin-bottom: 24px;">
@@ -1906,24 +2024,58 @@
             // Load component list
             loadComponentList();
 
+            // For selfbots, don't load any component config (they use official bot's config)
+            if (currentServerBotType === 'selfbot') {
+                // Hide all component views and show message
+                document.getElementById('serverSettingsMainConfig').style.display = 'none';
+                document.getElementById('serverSettingsWelcomer').style.display = 'none';
+                document.getElementById('serverSettingsPermissions').style.display = 'none';
+                document.getElementById('serverSettingsForwarder').style.display = 'none';
+                document.getElementById('serverSettingsPlaceholder').style.display = 'block';
+                document.getElementById('serverSettingsPlaceholder').innerHTML = `
+                    <div style="text-align: center; padding: 40px;">
+                        <p style="color: #999; font-size: 16px; margin-bottom: 10px;">ℹ️ Selfbot Configuration</p>
+                        <p style="color: #666; font-size: 14px; margin: 0;">
+                            This selfbot uses the connected official bot's configuration.<br>
+                            Please configure settings on the official bot's server settings page.
+                        </p>
+                    </div>
+                `;
+                return;
+            }
+
             // Load Main Config by default (this will load server-specific settings)
             await loadComponentConfig('main_config');
         }
 
         function loadComponentList() {
             const componentList = document.getElementById('componentList');
+            
+            // Selfbots cannot configure components - they use the connected official bot's config
+            if (currentServerBotType === 'selfbot') {
+                componentList.innerHTML = `
+                    <div style="background: #1a1a1a; border-radius: 8px; padding: 20px; border: 1px solid #333333; text-align: center;">
+                        <p style="color: #999; margin: 0; font-size: 14px;">
+                            ℹ️ Selfbots use the connected official bot's configuration.
+                        </p>
+                        <p style="color: #666; margin: 10px 0 0 0; font-size: 12px;">
+                            Configure settings on the official bot's server settings page.
+                        </p>
+                    </div>
+                `;
+                return;
+            }
+
             const allComponents = [
                 { id: 'main_config', name: '⚙️ Main Config' },
+                { id: 'welcomer', name: '👋 Welcomer' },
+                { id: 'booster', name: '💎 Booster' },
                 { id: 'permissions', name: '🔐 Permissions' },
                 { id: 'forwarder', name: '📡 Forwarder' }
             ];
 
-            // Filter components based on bot type
-            // Selfbots only have Main Config
-            // Forwarder and Permissions are only available for official bots
-            const components = currentServerBotType === 'selfbot' 
-                ? allComponents.filter(comp => comp.id === 'main_config')
-                : allComponents;
+            // All components available for official bots
+            const components = allComponents;
 
             componentList.innerHTML = components.map(comp => `
                 <div class="component-item" onclick="loadComponentConfig('${comp.id}')" id="component_${comp.id}">
@@ -1949,21 +2101,43 @@
 
             if (componentId === 'main_config') {
                 document.getElementById('serverSettingsMainConfig').style.display = 'block';
+                document.getElementById('serverSettingsWelcomer').style.display = 'none';
+                document.getElementById('serverSettingsBooster').style.display = 'none';
                 document.getElementById('serverSettingsPermissions').style.display = 'none';
                 document.getElementById('serverSettingsForwarder').style.display = 'none';
                 await loadMainConfig();
+            } else if (componentId === 'welcomer') {
+                document.getElementById('serverSettingsMainConfig').style.display = 'none';
+                document.getElementById('serverSettingsWelcomer').style.display = 'block';
+                document.getElementById('serverSettingsBooster').style.display = 'none';
+                document.getElementById('serverSettingsPermissions').style.display = 'none';
+                document.getElementById('serverSettingsForwarder').style.display = 'none';
+                await loadWelcomerConfig();
+            } else if (componentId === 'booster') {
+                document.getElementById('serverSettingsMainConfig').style.display = 'none';
+                document.getElementById('serverSettingsWelcomer').style.display = 'none';
+                document.getElementById('serverSettingsBooster').style.display = 'block';
+                document.getElementById('serverSettingsPermissions').style.display = 'none';
+                document.getElementById('serverSettingsForwarder').style.display = 'none';
+                await loadBoosterConfig();
             } else if (componentId === 'permissions') {
                 document.getElementById('serverSettingsMainConfig').style.display = 'none';
+                document.getElementById('serverSettingsWelcomer').style.display = 'none';
+                document.getElementById('serverSettingsBooster').style.display = 'none';
                 document.getElementById('serverSettingsPermissions').style.display = 'block';
                 document.getElementById('serverSettingsForwarder').style.display = 'none';
                 await loadPermissionsConfig();
             } else if (componentId === 'forwarder') {
                 document.getElementById('serverSettingsMainConfig').style.display = 'none';
+                document.getElementById('serverSettingsWelcomer').style.display = 'none';
+                document.getElementById('serverSettingsBooster').style.display = 'none';
                 document.getElementById('serverSettingsPermissions').style.display = 'none';
                 document.getElementById('serverSettingsForwarder').style.display = 'block';
                 await loadForwarderConfig();
             } else {
                 document.getElementById('serverSettingsMainConfig').style.display = 'none';
+                document.getElementById('serverSettingsWelcomer').style.display = 'none';
+                document.getElementById('serverSettingsBooster').style.display = 'none';
                 document.getElementById('serverSettingsPermissions').style.display = 'none';
                 document.getElementById('serverSettingsForwarder').style.display = 'none';
                 document.getElementById('serverSettingsPlaceholder').style.display = 'block';
@@ -2792,6 +2966,560 @@
             } catch (err) {
                 console.error('Error saving permissions config:', err);
                 showMessage('Failed to save permissions', 'error');
+            }
+        }
+
+        // Welcomer Configuration Functions
+        let allWelcomerChannels = []; // Store all channels for filtering
+
+        async function loadWelcomerConfig() {
+            try {
+                if (!currentServerId) {
+                    showMessage('No server selected', 'error');
+                    return;
+                }
+
+                // Load channels for the server
+                const channelsRes = await fetch(`/api/servers/${currentServerId}/channels`, {
+                    credentials: 'include'
+                });
+
+                if (channelsRes.status === 401) {
+                    isAuthenticated = false;
+                    await checkAuthStatus();
+                    return;
+                }
+
+                const channels = await channelsRes.json();
+                allWelcomerChannels = channels || [];
+
+                // Load welcomer settings
+                const settingsRes = await fetch(`/api/servers/${currentServerId}/settings?component=welcomer`, {
+                    credentials: 'include'
+                });
+
+                if (settingsRes.status === 401) {
+                    isAuthenticated = false;
+                    await checkAuthStatus();
+                    return;
+                }
+
+                const settings = await settingsRes.json();
+                const welcomerConfig = settings && settings.settings ? settings.settings : {
+                    channels: [],
+                    messages: []
+                };
+
+                // Render channels
+                renderWelcomerChannels(welcomerConfig.channels || []);
+
+                // Render messages list
+                renderWelcomerMessagesList(welcomerConfig.messages || []);
+            } catch (err) {
+                console.error('Error loading welcomer config:', err);
+                showMessage('Failed to load welcomer configuration', 'error');
+            }
+        }
+
+        function renderWelcomerChannels(selectedChannelIds) {
+            const container = document.getElementById('welcomerChannels');
+            const searchInput = document.getElementById('welcomerChannelsSearch');
+            
+            if (!container || !searchInput) return;
+
+            if (!allWelcomerChannels || allWelcomerChannels.length === 0) {
+                container.innerHTML = '<p style="color: #999; margin: 0; padding: 20px; text-align: center;">No channels found</p>';
+                searchInput.disabled = true;
+                updateWelcomerChannelsCount();
+                return;
+            }
+
+            searchInput.disabled = false;
+            filterWelcomerChannels(searchInput.value || '', selectedChannelIds);
+            updateWelcomerChannelsCount();
+        }
+
+        function filterWelcomerChannels(searchTerm, selectedChannelIds = null) {
+            const container = document.getElementById('welcomerChannels');
+            if (!container) return;
+
+            // Get selected channels if not provided
+            if (selectedChannelIds === null) {
+                selectedChannelIds = Array.from(document.querySelectorAll('#welcomerChannels input[type="checkbox"]:checked'))
+                    .map(cb => cb.value);
+            }
+
+            const searchLower = searchTerm.toLowerCase();
+            
+            const filteredChannels = searchTerm 
+                ? allWelcomerChannels.filter(channel => {
+                    const channelName = (channel.name || channel.discord_channel_id || '').toLowerCase();
+                    const channelId = (channel.discord_channel_id || '').toString();
+                    return channelName.includes(searchLower) || channelId.includes(searchTerm);
+                })
+                : allWelcomerChannels;
+
+            if (filteredChannels.length === 0) {
+                container.innerHTML = '<p style="color: #999; margin: 0; padding: 20px; text-align: center;">No channels match your search</p>';
+                return;
+            }
+
+            container.innerHTML = filteredChannels.map(channel => {
+                const channelName = channel.name || channel.discord_channel_id || 'Unknown';
+                const channelId = channel.discord_channel_id;
+                const isChecked = selectedChannelIds.includes(channelId);
+                
+                return `
+                    <label class="welcomer-channel-item" style="display: flex; align-items: center; padding: 10px 12px; cursor: pointer; border-radius: 6px; margin-bottom: 4px; transition: all 0.2s ease; background: ${isChecked ? '#2a1a1a' : '#1a1a1a'}; border: 1px solid ${isChecked ? '#dc3545' : '#2a2a2a'};">
+                        <input type="checkbox" value="${channelId}" data-channel-name="${channelName}" 
+                            onchange="updateWelcomerChannelState(this)"
+                            ${isChecked ? 'checked' : ''}
+                            style="margin-right: 12px; width: 18px; height: 18px; cursor: pointer; accent-color: #dc3545;">
+                        <span style="font-size: 14px; flex: 1; user-select: none; color: #ffffff;">
+                            <span style="color: #999;">#</span><span style="font-weight: 500;">${channelName}</span>
+                        </span>
+                    </label>
+                `;
+            }).join('');
+
+            // Add hover effect with better styling
+            container.querySelectorAll('.welcomer-channel-item').forEach(label => {
+                label.addEventListener('mouseenter', () => {
+                    label.style.background = '#252525';
+                    label.style.borderColor = '#dc3545';
+                    label.style.transform = 'translateX(4px)';
+                });
+                label.addEventListener('mouseleave', () => {
+                    const checkbox = label.querySelector('input[type="checkbox"]');
+                    label.style.background = checkbox?.checked ? '#2a1a1a' : '#1a1a1a';
+                    label.style.borderColor = checkbox?.checked ? '#dc3545' : '#2a2a2a';
+                    label.style.transform = 'translateX(0)';
+                });
+                
+                // Update checked state styling
+                const checkbox = label.querySelector('input[type="checkbox"]');
+                if (checkbox) {
+                    checkbox.addEventListener('change', () => {
+                        if (checkbox.checked) {
+                            label.style.background = '#2a1a1a';
+                            label.style.borderColor = '#dc3545';
+                        } else {
+                            label.style.background = '#1a1a1a';
+                            label.style.borderColor = '#2a2a2a';
+                        }
+                    });
+                }
+            });
+        }
+
+        function updateWelcomerChannelState(checkbox) {
+            const label = checkbox.closest('.welcomer-channel-item');
+            if (label) {
+                if (checkbox.checked) {
+                    label.style.background = '#2a1a1a';
+                    label.style.borderColor = '#dc3545';
+                } else {
+                    label.style.background = '#1a1a1a';
+                    label.style.borderColor = '#2a2a2a';
+                }
+            }
+            updateWelcomerChannelsCount();
+        }
+
+        function updateWelcomerChannelsCount() {
+            const checkedCount = document.querySelectorAll('#welcomerChannels input[type="checkbox"]:checked').length;
+            const countElement = document.getElementById('welcomerChannelsCount');
+            const selectedDiv = document.getElementById('welcomerChannelsSelected');
+            
+            if (countElement) {
+                countElement.textContent = checkedCount;
+            }
+            
+            if (selectedDiv) {
+                selectedDiv.style.display = checkedCount > 0 ? 'block' : 'none';
+            }
+        }
+
+        // Welcomer Messages List Functions
+        let currentWelcomerMessages = [];
+        let currentWelcomerMessageEditId = null;
+
+        function renderWelcomerMessagesList(messages) {
+            const listElement = document.getElementById('welcomerMessagesList');
+            currentWelcomerMessages = messages || [];
+
+            if (!messages || messages.length === 0) {
+                listElement.innerHTML = '<p style="color: #999; margin: 0; padding: 20px; text-align: center;">No messages configured. Click "Add Message" to add one.</p>';
+                return;
+            }
+
+            listElement.innerHTML = messages.map((message, index) => {
+                // Escape HTML for display
+                const escapedMessage = message.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+                return `
+                    <div style="background: #1a1a1a; border-radius: 8px; padding: 15px; margin-bottom: 10px; border: 1px solid #333333;">
+                        <div style="display: flex; justify-content: space-between; align-items: start;">
+                            <div style="flex: 1;">
+                                <p style="color: #ffffff; margin: 0; word-break: break-word; font-size: 14px;">${escapedMessage}</p>
+                            </div>
+                            <div style="display: flex; gap: 8px; margin-left: 12px;">
+                                <button class="btn btn-secondary" onclick="editWelcomerMessage(${index})" style="padding: 6px 12px; font-size: 12px;">Edit</button>
+                                <button class="btn" onclick="deleteWelcomerMessage(${index})" style="padding: 6px 12px; font-size: 12px; background: #dc3545; color: #ffffff; border: none;">Delete</button>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        function showAddWelcomerMessageForm() {
+            currentWelcomerMessageEditId = null;
+            document.getElementById('welcomerMessageModalTitle').textContent = 'Add Welcome Message';
+            document.getElementById('welcomerMessageText').value = '';
+            document.getElementById('welcomerMessageModal').style.display = 'flex';
+        }
+
+        function editWelcomerMessage(index) {
+            if (index < 0 || index >= currentWelcomerMessages.length) return;
+            
+            currentWelcomerMessageEditId = index;
+            document.getElementById('welcomerMessageModalTitle').textContent = 'Edit Welcome Message';
+            document.getElementById('welcomerMessageText').value = currentWelcomerMessages[index];
+            document.getElementById('welcomerMessageModal').style.display = 'flex';
+        }
+
+        async function deleteWelcomerMessage(index) {
+            if (index < 0 || index >= currentWelcomerMessages.length) return;
+            
+            const confirmed = await showConfirmModal(
+                'Delete Welcome Message',
+                'Are you sure you want to delete this welcome message?'
+            );
+            
+            if (confirmed) {
+                currentWelcomerMessages.splice(index, 1);
+                renderWelcomerMessagesList(currentWelcomerMessages);
+            }
+        }
+
+        function closeWelcomerMessageModal() {
+            document.getElementById('welcomerMessageModal').style.display = 'none';
+            currentWelcomerMessageEditId = null;
+            document.getElementById('welcomerMessageText').value = '';
+        }
+
+        async function saveWelcomerMessage() {
+            const messageText = document.getElementById('welcomerMessageText').value.trim();
+            
+            if (!messageText) {
+                showMessage('Please enter a message', 'error');
+                return;
+            }
+
+            if (currentWelcomerMessageEditId !== null) {
+                // Update existing message
+                currentWelcomerMessages[currentWelcomerMessageEditId] = messageText;
+            } else {
+                // Add new message
+                currentWelcomerMessages.push(messageText);
+            }
+
+            renderWelcomerMessagesList(currentWelcomerMessages);
+            closeWelcomerMessageModal();
+        }
+
+        async function saveWelcomerConfig() {
+            try {
+                if (!currentServerId) {
+                    showMessage('No server selected', 'error');
+                    return;
+                }
+
+                const channels = Array.from(document.querySelectorAll('#welcomerChannels input[type="checkbox"]:checked'))
+                    .map(cb => cb.value);
+
+                const settings = {
+                    channels: channels,
+                    messages: currentWelcomerMessages
+                };
+
+                const res = await fetch(`/api/servers/${currentServerId}/settings`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    credentials: 'include',
+                    body: JSON.stringify({
+                        component_name: 'welcomer',
+                        settings: settings
+                    })
+                });
+
+                if (res.status === 401) {
+                    isAuthenticated = false;
+                    await checkAuthStatus();
+                    return;
+                }
+
+                const data = await res.json();
+
+                if (data.success) {
+                    showMessage('Welcomer config saved successfully!', 'success');
+                } else {
+                    showMessage('Failed to save welcomer config', 'error');
+                }
+            } catch (err) {
+                console.error('Error saving welcomer config:', err);
+                showMessage('Failed to save welcomer config', 'error');
+            }
+        }
+
+        // Booster Configuration Functions
+        let allBoosterChannels = [];
+        let currentBoosterMessages = [];
+        let currentBoosterMessageEditId = null;
+
+        async function loadBoosterConfig() {
+            try {
+                if (!currentServerId) {
+                    showMessage('No server selected', 'error');
+                    return;
+                }
+
+                // Load channels
+                const channelsRes = await fetch(`/api/servers/${currentServerId}/channels`, {
+                    credentials: 'include'
+                });
+
+                if (channelsRes.status === 401) {
+                    isAuthenticated = false;
+                    await checkAuthStatus();
+                    return;
+                }
+
+                const channels = await channelsRes.json();
+                allBoosterChannels = channels || [];
+
+                // Load booster settings
+                const settingsRes = await fetch(`/api/servers/${currentServerId}/settings?component=booster`, {
+                    credentials: 'include'
+                });
+
+                if (settingsRes.status === 401) {
+                    isAuthenticated = false;
+                    await checkAuthStatus();
+                    return;
+                }
+
+                const settings = await settingsRes.json();
+                const boosterConfig = settings && settings.settings ? settings.settings : {
+                    channels: [],
+                    messages: []
+                };
+
+                // Render channels
+                renderBoosterChannels(boosterConfig.channels || []);
+
+                // Render messages list
+                renderBoosterMessagesList(boosterConfig.messages || []);
+            } catch (err) {
+                console.error('Error loading booster config:', err);
+                showMessage('Failed to load booster configuration', 'error');
+            }
+        }
+
+        function renderBoosterChannels(selectedChannels) {
+            const channelList = document.getElementById('boosterChannels');
+            const searchInput = document.getElementById('boosterChannelsSearch');
+            const searchTerm = searchInput ? searchInput.value.toLowerCase() : '';
+
+            let filteredChannels = allBoosterChannels;
+            if (searchTerm) {
+                filteredChannels = allBoosterChannels.filter(ch =>
+                    ch.name?.toLowerCase().includes(searchTerm) ||
+                    ch.discord_channel_id?.includes(searchTerm)
+                );
+            }
+
+            if (!filteredChannels || filteredChannels.length === 0) {
+                channelList.innerHTML = '<p style="color: #999; margin: 0; padding: 20px; text-align: center;">No channels found</p>';
+                updateBoosterChannelsCount();
+                return;
+            }
+
+            channelList.innerHTML = filteredChannels.map(channel => {
+                const isSelected = selectedChannels.includes(channel.discord_channel_id);
+                return `
+                    <label class="welcomer-channel-item" style="display: flex; align-items: center; padding: 10px; margin-bottom: 6px; background: ${isSelected ? '#2a1a1a' : '#1a1a1a'}; border: 1px solid ${isSelected ? '#dc3545' : '#2a2a2a'}; border-radius: 6px; cursor: pointer; transition: all 0.2s;">
+                        <input type="checkbox" value="${channel.discord_channel_id}" 
+                            ${isSelected ? 'checked' : ''}
+                            onchange="updateBoosterChannelState(this)"
+                            style="margin-right: 10px; width: 18px; height: 18px; cursor: pointer;">
+                        <span style="color: #ffffff; font-size: 14px;">#${channel.name || channel.discord_channel_id}</span>
+                    </label>
+                `;
+            }).join('');
+
+            updateBoosterChannelsCount();
+        }
+
+        function filterBoosterChannels(searchTerm) {
+            const selectedChannels = Array.from(document.querySelectorAll('#boosterChannels input[type="checkbox"]:checked'))
+                .map(cb => cb.value);
+            renderBoosterChannels(selectedChannels);
+        }
+
+        function updateBoosterChannelState(checkbox) {
+            const label = checkbox.closest('.welcomer-channel-item');
+            if (label) {
+                if (checkbox.checked) {
+                    label.style.background = '#2a1a1a';
+                    label.style.borderColor = '#dc3545';
+                } else {
+                    label.style.background = '#1a1a1a';
+                    label.style.borderColor = '#2a2a2a';
+                }
+            }
+            updateBoosterChannelsCount();
+        }
+
+        function updateBoosterChannelsCount() {
+            const checkedCount = document.querySelectorAll('#boosterChannels input[type="checkbox"]:checked').length;
+            const countElement = document.getElementById('boosterChannelsCount');
+            const selectedDiv = document.getElementById('boosterChannelsSelected');
+            
+            if (countElement) {
+                countElement.textContent = checkedCount;
+            }
+            
+            if (selectedDiv) {
+                selectedDiv.style.display = checkedCount > 0 ? 'block' : 'none';
+            }
+        }
+
+        function renderBoosterMessagesList(messages) {
+            const listElement = document.getElementById('boosterMessagesList');
+            currentBoosterMessages = messages || [];
+
+            if (!messages || messages.length === 0) {
+                listElement.innerHTML = '<p style="color: #999; margin: 0; padding: 20px; text-align: center;">No messages configured. Click "Add Message" to add one.</p>';
+                return;
+            }
+
+            listElement.innerHTML = messages.map((message, index) => {
+                // Escape HTML for display
+                const escapedMessage = message.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+                return `
+                    <div style="background: #1a1a1a; border-radius: 8px; padding: 15px; margin-bottom: 10px; border: 1px solid #333333;">
+                        <div style="display: flex; justify-content: space-between; align-items: start;">
+                            <div style="flex: 1;">
+                                <p style="color: #ffffff; margin: 0; word-break: break-word; font-size: 14px;">${escapedMessage}</p>
+                            </div>
+                            <div style="display: flex; gap: 8px; margin-left: 12px;">
+                                <button class="btn btn-secondary" onclick="editBoosterMessage(${index})" style="padding: 6px 12px; font-size: 12px;">Edit</button>
+                                <button class="btn" onclick="deleteBoosterMessage(${index})" style="padding: 6px 12px; font-size: 12px; background: #dc3545; color: #ffffff; border: none;">Delete</button>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        function showAddBoosterMessageForm() {
+            currentBoosterMessageEditId = null;
+            document.getElementById('boosterMessageModalTitle').textContent = 'Add Booster Message';
+            document.getElementById('boosterMessageText').value = '';
+            document.getElementById('boosterMessageModal').style.display = 'flex';
+        }
+
+        function editBoosterMessage(index) {
+            if (index < 0 || index >= currentBoosterMessages.length) return;
+            
+            currentBoosterMessageEditId = index;
+            document.getElementById('boosterMessageModalTitle').textContent = 'Edit Booster Message';
+            document.getElementById('boosterMessageText').value = currentBoosterMessages[index];
+            document.getElementById('boosterMessageModal').style.display = 'flex';
+        }
+
+        async function deleteBoosterMessage(index) {
+            if (index < 0 || index >= currentBoosterMessages.length) return;
+            
+            const confirmed = await showConfirmModal(
+                'Delete Booster Message',
+                'Are you sure you want to delete this booster message?'
+            );
+            
+            if (confirmed) {
+                currentBoosterMessages.splice(index, 1);
+                renderBoosterMessagesList(currentBoosterMessages);
+            }
+        }
+
+        function closeBoosterMessageModal() {
+            document.getElementById('boosterMessageModal').style.display = 'none';
+            currentBoosterMessageEditId = null;
+            document.getElementById('boosterMessageText').value = '';
+        }
+
+        async function saveBoosterMessage() {
+            const messageText = document.getElementById('boosterMessageText').value.trim();
+            
+            if (!messageText) {
+                showMessage('Please enter a message', 'error');
+                return;
+            }
+
+            if (currentBoosterMessageEditId !== null) {
+                // Update existing message
+                currentBoosterMessages[currentBoosterMessageEditId] = messageText;
+            } else {
+                // Add new message
+                currentBoosterMessages.push(messageText);
+            }
+
+            renderBoosterMessagesList(currentBoosterMessages);
+            closeBoosterMessageModal();
+        }
+
+        async function saveBoosterConfig() {
+            try {
+                if (!currentServerId) {
+                    showMessage('No server selected', 'error');
+                    return;
+                }
+
+                const channels = Array.from(document.querySelectorAll('#boosterChannels input[type="checkbox"]:checked'))
+                    .map(cb => cb.value);
+
+                const settings = {
+                    channels: channels,
+                    messages: currentBoosterMessages
+                };
+
+                const res = await fetch(`/api/servers/${currentServerId}/settings`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    credentials: 'include',
+                    body: JSON.stringify({
+                        component_name: 'booster',
+                        settings: settings
+                    })
+                });
+
+                if (res.status === 401) {
+                    isAuthenticated = false;
+                    await checkAuthStatus();
+                    return;
+                }
+
+                const data = await res.json();
+
+                if (data.success) {
+                    showMessage('Booster config saved successfully!', 'success');
+                } else {
+                    showMessage('Failed to save booster config', 'error');
+                }
+            } catch (err) {
+                console.error('Error saving booster config:', err);
+                showMessage('Failed to save booster config', 'error');
             }
         }
 

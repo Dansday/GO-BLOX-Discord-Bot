@@ -23,7 +23,7 @@ async function loadBotConfig() {
     let port = bot.port;
     let secret_key = bot.secret_key;
     let is_testing = bot.is_testing || false;
-    
+
     if (bot.bot_type === 'selfbot' && bot.connect_to) {
         const connectedBot = await db.getBot(bot.connect_to);
         if (connectedBot) {
@@ -115,17 +115,28 @@ export async function getMainChannel(guildId) {
         throw new Error('Guild ID is required to get main channel.');
     }
 
-    const server = await getServerByDiscordId(guildId);
-    const settings = await db.getServerSettings(server.id, 'main_config');
-    
+    // For selfbots, use the connected official bot's server config
+    let officialBotId = botConfig.id;
+    if (botConfig.bot_type === 'selfbot' && botConfig.connect_to) {
+        officialBotId = botConfig.connect_to;
+    }
+
+    // Get the official bot's server for this Discord guild
+    const officialBotServer = await db.getServerByDiscordId(officialBotId, guildId);
+    if (!officialBotServer) {
+        throw new Error(`Server not found for guild ${guildId} in official bot ${officialBotId}`);
+    }
+
+    const settings = await db.getServerSettings(officialBotServer.id, 'main_config');
+
     if (!settings || !settings.settings) {
         throw new Error(`Server settings not found for guild ${guildId}`);
     }
 
-    const channelId = botConfig.is_testing 
-        ? settings.settings.test_channel 
+    const channelId = botConfig.is_testing
+        ? settings.settings.test_channel
         : settings.settings.production_channel;
-    
+
     if (!channelId) {
         throw new Error(`Channel not configured for ${botConfig.is_testing ? 'testing' : 'production'} mode in guild ${guildId}`);
     }
@@ -148,7 +159,7 @@ export const PERMISSIONS = {
         }
 
         const settings = await db.getServerSettings(server.id, 'permissions');
-        
+
         if (!settings || !settings.settings) {
             throw new Error(`Permissions not configured for guild ${guildId}`);
         }
@@ -211,15 +222,26 @@ export async function getEmbedConfig(guildId) {
         throw new Error('Guild ID is required to get embed config.');
     }
 
-    const server = await getServerByDiscordId(guildId);
-    const settings = await db.getServerSettings(server.id, 'main_config');
-    
+    // For selfbots, use the connected official bot's server config
+    let officialBotId = botConfig.id;
+    if (botConfig.bot_type === 'selfbot' && botConfig.connect_to) {
+        officialBotId = botConfig.connect_to;
+    }
+
+    // Get the official bot's server for this Discord guild
+    const officialBotServer = await db.getServerByDiscordId(officialBotId, guildId);
+    if (!officialBotServer) {
+        throw new Error(`Server not found for guild ${guildId} in official bot ${officialBotId}`);
+    }
+
+    const settings = await db.getServerSettings(officialBotServer.id, 'main_config');
+
     if (!settings || !settings.settings) {
         throw new Error(`Server settings not found for guild ${guildId}`);
     }
 
     const config = settings.settings;
-    
+
     if (!config.embed_color) {
         throw new Error(`Embed color not configured for guild ${guildId}`);
     }
@@ -227,7 +249,7 @@ export async function getEmbedConfig(guildId) {
     // Convert hex color to integer
     const hex = config.embed_color.replace('#', '');
     const color = parseInt(hex, 16);
-    
+
     if (!config.embed_footer) {
         throw new Error(`Embed footer not configured for guild ${guildId}`);
     }
@@ -235,11 +257,11 @@ export async function getEmbedConfig(guildId) {
     // Replace placeholders in footer text
     let footerText = config.embed_footer;
     if (footerText) {
-        const server = await getServerByDiscordId(guildId);
+        // Use the officialBotServer we already fetched above
         const now = new Date();
-        
+
         footerText = footerText
-            .replace(/{server}/g, server?.name || 'Server')
+            .replace(/{server}/g, officialBotServer?.name || 'Server')
             .replace(/{year}/g, now.getFullYear().toString())
             .replace(/{date}/g, now.toLocaleDateString())
             .replace(/{time}/g, now.toLocaleTimeString());
@@ -260,9 +282,20 @@ export async function getLoggerChannel(guildId) {
         throw new Error('Guild ID is required to get logger channel.');
     }
 
-    const server = await getServerByDiscordId(guildId);
-    const settings = await db.getServerSettings(server.id, 'main_config');
-    
+    // For selfbots, use the connected official bot's server config
+    let officialBotId = botConfig.id;
+    if (botConfig.bot_type === 'selfbot' && botConfig.connect_to) {
+        officialBotId = botConfig.connect_to;
+    }
+
+    // Get the official bot's server for this Discord guild
+    const officialBotServer = await db.getServerByDiscordId(officialBotId, guildId);
+    if (!officialBotServer) {
+        throw new Error(`Server not found for guild ${guildId} in official bot ${officialBotId}`);
+    }
+
+    const settings = await db.getServerSettings(officialBotServer.id, 'main_config');
+
     if (!settings || !settings.settings) {
         throw new Error(`Server settings not found for guild ${guildId}`);
     }
@@ -276,40 +309,143 @@ export async function getLoggerChannel(guildId) {
 
 // Welcomer Configuration
 export const WELCOMER = {
-    async getChannel(guildId) {
-        return await getMainChannel(guildId);
+    // Get welcome channels for a guild (from database)
+    async getChannels(guildId) {
+        if (!botConfig) {
+            throw new Error('Bot config not loaded. Call initializeConfig() first.');
+        }
+        if (!guildId) {
+            throw new Error('Guild ID is required to get welcomer channels.');
+        }
+
+        // For selfbots, use the connected official bot's server config
+        let officialBotId = botConfig.id;
+        if (botConfig.bot_type === 'selfbot' && botConfig.connect_to) {
+            officialBotId = botConfig.connect_to;
+        }
+
+        // Get the official bot's server for this Discord guild
+        const officialBotServer = await db.getServerByDiscordId(officialBotId, guildId);
+        if (!officialBotServer) {
+            throw new Error(`Server not found for guild ${guildId} in official bot ${officialBotId}`);
+        }
+
+        const settings = await db.getServerSettings(officialBotServer.id, 'welcomer');
+
+        // If welcomer config exists and has channels, use them
+        if (settings && settings.settings && settings.settings.channels && settings.settings.channels.length > 0) {
+            return settings.settings.channels;
+        }
+
+        // Otherwise, fallback to main channel
+        const mainChannel = await getMainChannel(guildId);
+        return mainChannel ? [mainChannel] : [];
     },
-    MESSAGES: [
-        "Selamat datang, {user}! Semoga betah di sini ya 😄",
-        "Halo {user}, senang banget kamu join! Jangan sungkan buat ngobrol 👋",
-        "Yoo {user}! Selamat datang di server, semoga nyaman di sini 🚀",
-        "Hai {user}, jangan lupa kenalan sama yang lain ya! 🎉",
-        "Wah, ada {user} nih! Welcome welcome 🥳",
-        "{user} baru aja masuk ke server, kasih sambutan dong! 🙌",
-        "Selamat datang di komunitas kita, {user}! Ayo seru-seruan bareng 🔥",
-        "{user}, akhirnya kamu datang juga! Yuk ngobrol-ngobrol 🗨️",
-        "Haii {user}! Jangan lupa baca rules dan langsung nimbrung 😎",
-        "Server jadi makin rame nih gara-gara {user} join 🤩"
-    ]
+
+    // Get welcome messages for a guild (from database)
+    async getMessages(guildId) {
+        if (!botConfig) {
+            throw new Error('Bot config not loaded. Call initializeConfig() first.');
+        }
+        if (!guildId) {
+            throw new Error('Guild ID is required to get welcomer messages.');
+        }
+
+        // For selfbots, use the connected official bot's server config
+        let officialBotId = botConfig.id;
+        if (botConfig.bot_type === 'selfbot' && botConfig.connect_to) {
+            officialBotId = botConfig.connect_to;
+        }
+
+        // Get the official bot's server for this Discord guild
+        const officialBotServer = await db.getServerByDiscordId(officialBotId, guildId);
+        if (!officialBotServer) {
+            throw new Error(`Server not found for guild ${guildId} in official bot ${officialBotId}`);
+        }
+
+        const settings = await db.getServerSettings(officialBotServer.id, 'welcomer');
+        
+        // If welcomer config exists and has messages, use them
+        if (settings && settings.settings && settings.settings.messages && settings.settings.messages.length > 0) {
+            return settings.settings.messages;
+        }
+
+        // Otherwise, return empty array (no messages configured)
+        return [];
+    }
 };
 
 // Booster Configuration
 export const BOOSTER = {
-    async getChannel(guildId) {
-        return await getMainChannel(guildId);
+    // Get booster channels for a guild (from database)
+    async getChannels(guildId) {
+        if (!botConfig) {
+            throw new Error('Bot config not loaded. Call initializeConfig() first.');
+        }
+        if (!guildId) {
+            throw new Error('Guild ID is required to get booster channels.');
+        }
+
+        // For selfbots, use the connected official bot's server config
+        let officialBotId = botConfig.id;
+        if (botConfig.bot_type === 'selfbot' && botConfig.connect_to) {
+            officialBotId = botConfig.connect_to;
+        }
+
+        // Get the official bot's server for this Discord guild
+        const officialBotServer = await db.getServerByDiscordId(officialBotId, guildId);
+        if (!officialBotServer) {
+            throw new Error(`Server not found for guild ${guildId} in official bot ${officialBotId}`);
+        }
+
+        const settings = await db.getServerSettings(officialBotServer.id, 'booster');
+
+        // If booster config exists and has channels, use them
+        if (settings && settings.settings && settings.settings.channels && settings.settings.channels.length > 0) {
+            return settings.settings.channels;
+        }
+
+        // Otherwise, fallback to main channel
+        const mainChannel = await getMainChannel(guildId);
+        return mainChannel ? [mainChannel] : [];
     },
-    MESSAGES: [
-        "Terima kasih banyak, {user}! Server boost kamu sangat berarti untuk kami! 💎",
-        "Wah, {user} baru boost server nih! Terima kasih ya, kalian luar biasa! 🚀",
-        "Makasih banget {user} udah boost server! Komunitas kita jadi lebih keren nih! ✨",
-        "Yoo {user}! Terima kasih untuk boost-nya, kalian amazing! 💫",
-        "{user} baru boost server, thank you so much! 🙏",
-        "Terima kasih {user} udah support server dengan boost! Kalian the best! 🔥",
-        "{user} boost server nih! Thank you untuk dukungannya! 🌟",
-        "Keren banget {user}! Terima kasih udah boost server, sangat membantu! 💪",
-        "Wah {user} boost server! Makasih banyak, kalian spesial! 🎉",
-        "{user} baru boost nih! Terima kasih, kalian membuat server ini lebih baik! ❤️"
-    ]
+
+    async getChannel(guildId) {
+        const channels = await this.getChannels(guildId);
+        return channels.length > 0 ? channels[0] : await getMainChannel(guildId);
+    },
+
+    // Get booster messages for a guild (from database)
+    async getMessages(guildId) {
+        if (!botConfig) {
+            throw new Error('Bot config not loaded. Call initializeConfig() first.');
+        }
+        if (!guildId) {
+            throw new Error('Guild ID is required to get booster messages.');
+        }
+
+        // For selfbots, use the connected official bot's server config
+        let officialBotId = botConfig.id;
+        if (botConfig.bot_type === 'selfbot' && botConfig.connect_to) {
+            officialBotId = botConfig.connect_to;
+        }
+
+        // Get the official bot's server for this Discord guild
+        const officialBotServer = await db.getServerByDiscordId(officialBotId, guildId);
+        if (!officialBotServer) {
+            throw new Error(`Server not found for guild ${guildId} in official bot ${officialBotId}`);
+        }
+
+        const settings = await db.getServerSettings(officialBotServer.id, 'booster');
+        
+        // If booster config exists and has messages, use them
+        if (settings && settings.settings && settings.settings.messages && settings.settings.messages.length > 0) {
+            return settings.settings.messages;
+        }
+
+        // Otherwise, return empty array (no messages configured)
+        return [];
+    }
 };
 
 // Custom Supporter Role Configuration
@@ -317,17 +453,6 @@ export const CUSTOM_SUPPORTER_ROLE = {
     // Role position constraints
     ROLE_BELOW: "1433928533000061028",       // Custom role must be below this role
     ROLE_ABOVE: "1433928639010836520"      // Custom role must be above this role
-};
-
-// Activity Tracker Configuration
-export const ACTIVITY_TRACKER = {
-    // Categories to search for inactive members (channel categories)
-    ALLOWED_CATEGORIES: [
-        "1375017296539553852",
-        "1375004282809749564"
-    ],
-    // Days of inactivity threshold (90 days = 3 months)
-    INACTIVITY_DAYS: 90
 };
 
 // Feedback Configuration
@@ -349,7 +474,7 @@ export const FORWARDER = {
 
         const server = await getServerByDiscordId(guildId);
         const settings = await db.getServerSettings(server.id, 'forwarder');
-        
+
         if (!settings || !settings.settings) {
             return { production: [], test: [] };
         }
@@ -374,13 +499,13 @@ export const FORWARDER = {
         // We need to match:
         // 1. The forwarder's server_id (database ID) corresponds to the source guild (selfbot's server)
         // 2. The source channel is in forwarder.source_channels
-        
+
         const allGuilds = await db.getServersForBot(botConfig.id);
         const environment = botConfig.is_testing ? 'test' : 'production';
 
         // First, find which selfbot sent this message by checking all selfbots connected to this official bot
         const allBots = await db.getAllBots();
-        const connectedSelfbots = allBots.filter(bot => 
+        const connectedSelfbots = allBots.filter(bot =>
             bot.bot_type === 'selfbot' && bot.connect_to === botConfig.id
         );
 

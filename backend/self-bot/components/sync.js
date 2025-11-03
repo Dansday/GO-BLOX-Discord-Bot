@@ -207,12 +207,12 @@ async function init(discordClient, botIdFromEnv) {
         }
     });
 
-    // Periodic sync every 1 minute
+    // Periodic sync every 10 minutes
     syncInterval = setInterval(async () => {
         if (botId) {
             await syncAllGuilds();
         }
-    }, 60000); // 1 minute
+    }, 10 * 60 * 1000); // 10 minutes
 
     logger.log('🔄 Selfbot sync component initialized');
 }

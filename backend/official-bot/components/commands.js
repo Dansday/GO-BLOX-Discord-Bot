@@ -44,15 +44,12 @@ async function deployCommands(clearFirst = false) {
         const rest = new REST({ version: '10' }).setToken(token);
 
     try {
-        console.log('🔄 Started refreshing application (/) commands.');
-
         // Only clear commands if explicitly requested
         if (clearFirst) {
             await rest.put(
                 Routes.applicationCommands(getApplicationId()),
                 { body: [] },
             );
-            console.log('🧹 Cleared existing slash commands.');
         }
 
         // Register our commands
@@ -60,10 +57,7 @@ async function deployCommands(clearFirst = false) {
             Routes.applicationCommands(getApplicationId()),
             { body: commandDefinitions },
         );
-
-        console.log('✅ Successfully reloaded application (/) commands.');
     } catch (error) {
-        console.error('❌ Error deploying commands:', error);
         throw error; // Re-throw so reload command can handle it
     }
 }

@@ -2,22 +2,39 @@ import { BOOSTER, getEmbedConfig } from "../../config.js";
 import { EmbedBuilder } from "discord.js";
 import logger from "../../logger.js";
 
-function getRandomMessage() {
-    const messages = BOOSTER.MESSAGES;
-    return messages[Math.floor(Math.random() * messages.length)];
-}
-
 async function thankBooster(member, client) {
-    const boosterChannelId = await BOOSTER.getChannel(member.guild.id);
-    const boosterChannel = client.channels.cache.get(boosterChannelId);
-    if (!boosterChannel) {
-        await logger.log(`❌ Booster channel not found: ${boosterChannelId}`);
+    // Get booster channels from database
+    const boosterChannelIds = await BOOSTER.getChannels(member.guild.id);
+    
+    // If no channels configured, skip
+    if (!boosterChannelIds || boosterChannelIds.length === 0) {
+        await logger.log(`⚠️ No booster channels configured for ${member.guild.name}, skipping booster message`);
         return;
     }
 
-    try {
-        const thankMessage = getRandomMessage().replace("{user}", `<@${member.user.id}>`);
-        const embedConfig = await getEmbedConfig(member.guild.id);
+    // Get booster messages from database
+    const messages = await BOOSTER.getMessages(member.guild.id);
+    
+    // If no messages configured, skip
+    if (!messages || messages.length === 0) {
+        await logger.log(`⚠️ No booster messages configured for ${member.guild.name}, skipping booster message`);
+        return;
+    }
+
+    // Select a random message from the list
+    const randomMessage = messages[Math.floor(Math.random() * messages.length)];
+    const thankMessage = randomMessage.replace("{user}", `<@${member.user.id}>`);
+    const embedConfig = await getEmbedConfig(member.guild.id);
+
+    // Send to all configured booster channels
+    for (const boosterChannelId of boosterChannelIds) {
+        const boosterChannel = client.channels.cache.get(boosterChannelId);
+        if (!boosterChannel) {
+            await logger.log(`❌ Booster channel not found: ${boosterChannelId}`);
+            continue;
+        }
+
+        try {
 
         // Create booster thank you embed
         const boosterEmbed = new EmbedBuilder()
@@ -45,10 +62,11 @@ async function thankBooster(member, client) {
             .setFooter({ text: embedConfig.FOOTER })
             .setTimestamp();
 
-        await boosterChannel.send({ embeds: [boosterEmbed] });
-        await logger.log(`✅ Thanked booster ${member.user.tag} (${member.user.id}) in ${member.guild.name}`);
-    } catch (err) {
-        await logger.log(`❌ Failed to thank booster ${member.user.tag} (${member.user.id}): ${err.message}`);
+            await boosterChannel.send({ embeds: [boosterEmbed] });
+            await logger.log(`✅ Thanked booster ${member.user.tag} (${member.user.id}) in ${member.guild.name} (channel: ${boosterChannel.name})`);
+        } catch (err) {
+            await logger.log(`❌ Failed to thank booster ${member.user.tag} (${member.user.id}) in channel ${boosterChannelId}: ${err.message}`);
+        }
     }
 }
 

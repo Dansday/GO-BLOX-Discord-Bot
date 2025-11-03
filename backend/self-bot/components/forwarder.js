@@ -83,7 +83,6 @@ function init(client) {
         } catch (err) {
             // Log error
             await logger.log(`❌ Error forwarding message ${message.id}: ${err.message}`);
-            console.error('Forwarder error:', err);
         }
     });
 }
