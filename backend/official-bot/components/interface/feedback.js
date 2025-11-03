@@ -29,7 +29,7 @@ export async function handleFeedbackButton(interaction) {
         const member = interaction.member;
 
         // Check permissions (members can use feedback)
-        if (!hasPermission(member, 'feedback')) {
+        if (!(await hasPermission(member, 'feedback'))) {
             await interaction.reply({
                 content: '❌ You don\'t have permission to submit feedback. Member role required.',
                 flags: 64
@@ -75,7 +75,7 @@ export async function handleFeedbackModal(interaction) {
         const user = interaction.user;
 
         // Check permissions
-        if (!hasPermission(member, 'feedback')) {
+        if (!(await hasPermission(member, 'feedback'))) {
             await interaction.editReply({
                 content: '❌ You don\'t have permission to submit feedback. Member role required.'
             });

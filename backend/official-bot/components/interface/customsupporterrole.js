@@ -147,7 +147,7 @@ export async function handleCustomSupporterRoleButton(interaction) {
         const member = interaction.member;
 
         // Check permissions (supporters, staff, and admin can use this)
-        if (!hasPermission(member, 'custom_supporter_role')) {
+        if (!(await hasPermission(member, 'custom_supporter_role'))) {
             await interaction.reply({
                 content: '❌ You don\'t have permission to create a custom role. Supporter, Staff, or Admin role required.',
                 flags: 64
@@ -689,7 +689,7 @@ async function removeCustomRoleIfNoPermission(member) {
     }
 
     // Check if user still has permission
-    if (hasPermission(member, 'custom_supporter_role')) {
+    if (await hasPermission(member, 'custom_supporter_role')) {
         return; // User still has permission, keep the role
     }
 
@@ -787,7 +787,7 @@ async function cleanupCustomRoles(client) {
                             }
 
                             // Check if owner still has permission
-                            if (!hasPermission(owner, 'custom_supporter_role')) {
+                            if (!(await hasPermission(owner, 'custom_supporter_role'))) {
                                 // Owner lost permission, remove and delete role
                                 try {
                                     await owner.roles.remove(role, `User lost permission for custom role`);

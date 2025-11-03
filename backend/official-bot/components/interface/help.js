@@ -5,7 +5,7 @@ import { hasPermission } from "../permissions.js";
 // Handle help button
 export async function handleHelpButton(interaction) {
     // Check permissions (Admin, Staff, and Member)
-    if (!hasPermission(interaction.member, 'help')) {
+    if (!(await hasPermission(interaction.member, 'help'))) {
         await interaction.reply({
             content: '❌ You don\'t have permission to view help.',
             flags: 64

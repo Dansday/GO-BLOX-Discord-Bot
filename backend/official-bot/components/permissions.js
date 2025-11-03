@@ -1,53 +1,83 @@
 import { PERMISSIONS } from "../../config.js";
 
-// Check if member has a specific role
-function hasRole(member, roleId) {
-    return member.roles.cache.has(roleId);
+// Cache for permissions per guild
+const permissionsCache = new Map();
+
+// Get permissions for a guild (with caching)
+async function getGuildPermissions(guildId) {
+    if (permissionsCache.has(guildId)) {
+        return permissionsCache.get(guildId);
+    }
+
+    try {
+        const perms = await PERMISSIONS.getPermissions(guildId);
+        permissionsCache.set(guildId, perms);
+        return perms;
+    } catch (error) {
+        // If permissions not configured, return empty arrays
+        const emptyPerms = {
+            ADMIN_ROLES: [],
+            STAFF_ROLES: [],
+            SUPPORTER_ROLES: [],
+            MEMBER_ROLES: []
+        };
+        permissionsCache.set(guildId, emptyPerms);
+        return emptyPerms;
+    }
 }
 
 // Check if user has admin role
-function isAdmin(member) {
-    return hasRole(member, PERMISSIONS.ADMIN_ROLE);
+async function isAdmin(member) {
+    const perms = await getGuildPermissions(member.guild.id);
+    return await PERMISSIONS.hasAnyRole(member, perms.ADMIN_ROLES);
 }
 
 // Check if user has staff role
-function isStaff(member) {
-    return hasRole(member, PERMISSIONS.STAFF_ROLE);
+async function isStaff(member) {
+    const perms = await getGuildPermissions(member.guild.id);
+    return await PERMISSIONS.hasAnyRole(member, perms.STAFF_ROLES);
 }
 
 // Check if user has member role
-function isMember(member) {
-    return hasRole(member, PERMISSIONS.MEMBER_ROLE);
+async function isMember(member) {
+    const perms = await getGuildPermissions(member.guild.id);
+    return await PERMISSIONS.hasAnyRole(member, perms.MEMBER_ROLES);
 }
 
 // Check if user has supporter role
-function isSupporter(member) {
-    return hasRole(member, PERMISSIONS.SUPPORTER_ROLE);
+async function isSupporter(member) {
+    const perms = await getGuildPermissions(member.guild.id);
+    return await PERMISSIONS.hasAnyRole(member, perms.SUPPORTER_ROLES);
 }
 
 // Check permission for specific action
-export function hasPermission(member, action) {
+export async function hasPermission(member, action) {
     // Admin has all permissions
-    if (isAdmin(member)) {
+    if (await isAdmin(member)) {
         return true;
     }
 
     // Staff permissions: all interfaces except pause (including custom supporter role)
     // Actions: status, help, send_message, inactive, custom_supporter_role (but not pause or setup)
-    if (isStaff(member)) {
+    if (await isStaff(member)) {
         return action !== 'pause' && action !== 'setup';
     }
 
     // Supporter permissions: can create custom roles
-    if (isSupporter(member)) {
+    if (await isSupporter(member)) {
         return action === 'custom_supporter_role';
     }
 
     // Member permissions: status, help, feedback, afk
-    if (isMember(member)) {
+    if (await isMember(member)) {
         return action === 'status' || action === 'help' || action === 'feedback' || action === 'afk';
     }
 
     // No permission
     return false;
+}
+
+// Clear cache for a guild (call when permissions are updated)
+export function clearPermissionsCache(guildId) {
+    permissionsCache.delete(guildId);
 }

@@ -155,7 +155,7 @@ async function getNeverChattedMembers(guild) {
 export async function handleInactiveButton(interaction, client) {
     try {
         // Check permissions (Admin and Staff only)
-        if (!hasPermission(interaction.member, 'inactive')) {
+        if (!(await hasPermission(interaction.member, 'inactive'))) {
             await interaction.reply({
                 content: '❌ You don\'t have permission to view this list. Admin or Staff role required.',
                 flags: 64

@@ -133,13 +133,39 @@ export async function getMainChannel(guildId) {
     return channelId;
 }
 
-// Permissions Configuration
+// Permissions Configuration - loads from database
 export const PERMISSIONS = {
-    // Role IDs
-    ADMIN_ROLE: "1364375813356650596",      // Can use all commands and interfaces
-    STAFF_ROLE: "1376631063035777054",     // Can use all interfaces except pause
-    SUPPORTER_ROLE: "1369054578754060288",   // Can create custom roles
-    MEMBER_ROLE: "1364380027310968905",     // Can only use status and help
+    // Get permissions for a specific guild (Discord guild ID)
+    async getPermissions(guildId) {
+        if (!guildId) {
+            throw new Error('Guild ID is required for permissions');
+        }
+
+        // Get server by Discord ID
+        const server = await db.getServerByDiscordId(botConfig.id, guildId);
+        if (!server) {
+            throw new Error(`Server not found for guild ${guildId}`);
+        }
+
+        const settings = await db.getServerSettings(server.id, 'permissions');
+        
+        if (!settings || !settings.settings) {
+            throw new Error(`Permissions not configured for guild ${guildId}`);
+        }
+
+        return {
+            ADMIN_ROLES: settings.settings.admin_roles || [],
+            STAFF_ROLES: settings.settings.staff_roles || [],
+            SUPPORTER_ROLES: settings.settings.supporter_roles || [],
+            MEMBER_ROLES: settings.settings.member_roles || []
+        };
+    },
+
+    // Helper function to check if member has any of the specified roles
+    async hasAnyRole(member, roleIds) {
+        if (!roleIds || roleIds.length === 0) return false;
+        return roleIds.some(roleId => member.roles.cache.has(roleId));
+    }
 };
 
 // Communication Configuration - loads from database

@@ -130,7 +130,7 @@ export async function handleAFKButton(interaction) {
         const member = interaction.member;
 
         // Check permissions (members can use AFK)
-        if (!hasPermission(member, 'afk')) {
+        if (!(await hasPermission(member, 'afk'))) {
             await interaction.reply({
                 content: '❌ You don\'t have permission to use AFK.',
                 flags: 64

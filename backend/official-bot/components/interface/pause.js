@@ -4,7 +4,7 @@ import { hasPermission } from "../permissions.js";
 // Handle pause button
 export async function handlePauseButton(interaction, client) {
     // Check if user has permission (Admin only)
-    if (!hasPermission(interaction.member, 'pause')) {
+    if (!(await hasPermission(interaction.member, 'pause'))) {
         await interaction.reply({
             content: '❌ You need Admin role to use this button.',
             flags: 64

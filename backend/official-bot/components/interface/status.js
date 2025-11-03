@@ -5,7 +5,7 @@ import { hasPermission } from "../permissions.js";
 // Handle status button
 export async function handleStatusButton(interaction) {
     // Check permissions (Admin, Staff, and Member)
-    if (!hasPermission(interaction.member, 'status')) {
+    if (!(await hasPermission(interaction.member, 'status'))) {
         await interaction.reply({
             content: '❌ You don\'t have permission to view status.',
             flags: 64

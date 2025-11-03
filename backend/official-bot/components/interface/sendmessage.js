@@ -54,7 +54,7 @@ function parseColor(colorInput) {
 export async function handleSendMessageButton(interaction) {
     try {
         // Check permissions (Admin and Staff only)
-        if (!hasPermission(interaction.member, 'send_message')) {
+        if (!(await hasPermission(interaction.member, 'send_message'))) {
             await interaction.reply({
                 content: '❌ You don\'t have permission to send messages. Admin or Staff role required.',
                 flags: 64

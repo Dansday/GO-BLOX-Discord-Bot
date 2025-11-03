@@ -863,6 +863,94 @@
                         </div>
                     </div>
 
+                    <!-- Permissions Component -->
+                    <div id="serverSettingsPermissions" style="display: none;">
+                        <h3 style="margin-bottom: 20px;">🔐 Permissions Configuration</h3>
+                        <div class="form-section" style="background: #0d0d0d; border-radius: 12px; padding: 24px; border: 1px solid #333333;">
+                            <div class="form-group" style="margin-bottom: 20px;">
+                                <label style="display: block; margin-bottom: 8px; color: #ffffff; font-weight: 600;">Admin Role <span style="color: red;">*</span>:</label>
+                                <p class="form-hint" style="color: #999; font-size: 11px; margin-bottom: 8px;">Can use all commands and interfaces</p>
+                                <div style="border: 1px solid #333333; border-radius: 8px; background: #0d0d0d; overflow: hidden;">
+                                    <div style="padding: 12px; border-bottom: 1px solid #333333; background: #0a0a0a;">
+                                        <input type="text" id="permissionsAdminSearch" placeholder="🔍 Search roles..." 
+                                            oninput="filterPermissionsRoles('admin', this.value)"
+                                            style="width: 100%; padding: 8px 12px; background: #1a1a1a; border: 1px solid #333333; border-radius: 6px; color: #ffffff; font-size: 14px; outline: none; transition: border-color 0.3s ease;"
+                                            onfocus="this.style.borderColor='#dc3545'"
+                                            onblur="this.style.borderColor='#333333'">
+                                    </div>
+                                    <div id="permissionsAdminRoles" style="max-height: 200px; overflow-y: auto; padding: 8px;">
+                                        <p style="color: #999; margin: 0; padding: 20px; text-align: center;">Loading roles...</p>
+                                    </div>
+                                    <div id="permissionsAdminSelected" style="padding: 10px; border-top: 1px solid #333333; background: #0a0a0a; font-size: 12px; color: #28a745; display: none;">
+                                        <span id="permissionsAdminCount">0</span> role(s) selected
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="form-group" style="margin-bottom: 20px;">
+                                <label style="display: block; margin-bottom: 8px; color: #ffffff; font-weight: 600;">Staff Role <span style="color: red;">*</span>:</label>
+                                <p class="form-hint" style="color: #999; font-size: 11px; margin-bottom: 8px;">Can use all interfaces except pause</p>
+                                <div style="border: 1px solid #333333; border-radius: 8px; background: #0d0d0d; overflow: hidden;">
+                                    <div style="padding: 12px; border-bottom: 1px solid #333333; background: #0a0a0a;">
+                                        <input type="text" id="permissionsStaffSearch" placeholder="🔍 Search roles..." 
+                                            oninput="filterPermissionsRoles('staff', this.value)"
+                                            style="width: 100%; padding: 8px 12px; background: #1a1a1a; border: 1px solid #333333; border-radius: 6px; color: #ffffff; font-size: 14px; outline: none; transition: border-color 0.3s ease;"
+                                            onfocus="this.style.borderColor='#dc3545'"
+                                            onblur="this.style.borderColor='#333333'">
+                                    </div>
+                                    <div id="permissionsStaffRoles" style="max-height: 200px; overflow-y: auto; padding: 8px;">
+                                        <p style="color: #999; margin: 0; padding: 20px; text-align: center;">Loading roles...</p>
+                                    </div>
+                                    <div id="permissionsStaffSelected" style="padding: 10px; border-top: 1px solid #333333; background: #0a0a0a; font-size: 12px; color: #28a745; display: none;">
+                                        <span id="permissionsStaffCount">0</span> role(s) selected
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="form-group" style="margin-bottom: 20px;">
+                                <label style="display: block; margin-bottom: 8px; color: #ffffff; font-weight: 600;">Supporter Role <span style="color: red;">*</span>:</label>
+                                <p class="form-hint" style="color: #999; font-size: 11px; margin-bottom: 8px;">Can create custom roles</p>
+                                <div style="border: 1px solid #333333; border-radius: 8px; background: #0d0d0d; overflow: hidden;">
+                                    <div style="padding: 12px; border-bottom: 1px solid #333333; background: #0a0a0a;">
+                                        <input type="text" id="permissionsSupporterSearch" placeholder="🔍 Search roles..." 
+                                            oninput="filterPermissionsRoles('supporter', this.value)"
+                                            style="width: 100%; padding: 8px 12px; background: #1a1a1a; border: 1px solid #333333; border-radius: 6px; color: #ffffff; font-size: 14px; outline: none; transition: border-color 0.3s ease;"
+                                            onfocus="this.style.borderColor='#dc3545'"
+                                            onblur="this.style.borderColor='#333333'">
+                                    </div>
+                                    <div id="permissionsSupporterRoles" style="max-height: 200px; overflow-y: auto; padding: 8px;">
+                                        <p style="color: #999; margin: 0; padding: 20px; text-align: center;">Loading roles...</p>
+                                    </div>
+                                    <div id="permissionsSupporterSelected" style="padding: 10px; border-top: 1px solid #333333; background: #0a0a0a; font-size: 12px; color: #28a745; display: none;">
+                                        <span id="permissionsSupporterCount">0</span> role(s) selected
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="form-group" style="margin-bottom: 20px;">
+                                <label style="display: block; margin-bottom: 8px; color: #ffffff; font-weight: 600;">Member Role <span style="color: red;">*</span>:</label>
+                                <p class="form-hint" style="color: #999; font-size: 11px; margin-bottom: 8px;">Can only use status and help</p>
+                                <div style="border: 1px solid #333333; border-radius: 8px; background: #0d0d0d; overflow: hidden;">
+                                    <div style="padding: 12px; border-bottom: 1px solid #333333; background: #0a0a0a;">
+                                        <input type="text" id="permissionsMemberSearch" placeholder="🔍 Search roles..." 
+                                            oninput="filterPermissionsRoles('member', this.value)"
+                                            style="width: 100%; padding: 8px 12px; background: #1a1a1a; border: 1px solid #333333; border-radius: 6px; color: #ffffff; font-size: 14px; outline: none; transition: border-color 0.3s ease;"
+                                            onfocus="this.style.borderColor='#dc3545'"
+                                            onblur="this.style.borderColor='#333333'">
+                                    </div>
+                                    <div id="permissionsMemberRoles" style="max-height: 200px; overflow-y: auto; padding: 8px;">
+                                        <p style="color: #999; margin: 0; padding: 20px; text-align: center;">Loading roles...</p>
+                                    </div>
+                                    <div id="permissionsMemberSelected" style="padding: 10px; border-top: 1px solid #333333; background: #0a0a0a; font-size: 12px; color: #28a745; display: none;">
+                                        <span id="permissionsMemberCount">0</span> role(s) selected
+                                    </div>
+                                </div>
+                            </div>
+
+                            <button class="btn btn-success" onclick="savePermissionsConfig()" style="width: 100%;">💾 Save Permissions</button>
+                        </div>
+                    </div>
+
                     <!-- Forwarder Component -->
                     <div id="serverSettingsForwarder" style="display: none;">
                         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
@@ -1819,13 +1907,15 @@
             const componentList = document.getElementById('componentList');
             const allComponents = [
                 { id: 'main_config', name: '⚙️ Main Config' },
+                { id: 'permissions', name: '🔐 Permissions' },
                 { id: 'forwarder', name: '📡 Forwarder' }
             ];
 
             // Filter components based on bot type
-            // Forwarder is only available for official bots
+            // Selfbots only have Main Config
+            // Forwarder and Permissions are only available for official bots
             const components = currentServerBotType === 'selfbot' 
-                ? allComponents.filter(comp => comp.id !== 'forwarder')
+                ? allComponents.filter(comp => comp.id === 'main_config')
                 : allComponents;
 
             componentList.innerHTML = components.map(comp => `
@@ -1852,14 +1942,22 @@
 
             if (componentId === 'main_config') {
                 document.getElementById('serverSettingsMainConfig').style.display = 'block';
+                document.getElementById('serverSettingsPermissions').style.display = 'none';
                 document.getElementById('serverSettingsForwarder').style.display = 'none';
                 await loadMainConfig();
+            } else if (componentId === 'permissions') {
+                document.getElementById('serverSettingsMainConfig').style.display = 'none';
+                document.getElementById('serverSettingsPermissions').style.display = 'block';
+                document.getElementById('serverSettingsForwarder').style.display = 'none';
+                await loadPermissionsConfig();
             } else if (componentId === 'forwarder') {
                 document.getElementById('serverSettingsMainConfig').style.display = 'none';
+                document.getElementById('serverSettingsPermissions').style.display = 'none';
                 document.getElementById('serverSettingsForwarder').style.display = 'block';
                 await loadForwarderConfig();
             } else {
                 document.getElementById('serverSettingsMainConfig').style.display = 'none';
+                document.getElementById('serverSettingsPermissions').style.display = 'none';
                 document.getElementById('serverSettingsForwarder').style.display = 'none';
                 document.getElementById('serverSettingsPlaceholder').style.display = 'block';
             }
@@ -2372,16 +2470,30 @@
                 return;
             }
 
+            // Convert color string to hex (if it's a number, convert to hex)
+            function getRoleColor(role) {
+                if (!role.color) return '#999999';
+                // If color is a number string, convert to hex
+                if (/^\d+$/.test(role.color)) {
+                    const num = parseInt(role.color);
+                    return '#' + num.toString(16).padStart(6, '0');
+                }
+                // If already hex, return as is
+                if (role.color.startsWith('#')) return role.color;
+                return '#' + role.color;
+            }
+
             container.innerHTML = filteredRoles.map(role => {
                 const roleName = role.name || role.discord_role_id || 'Unknown';
                 const roleId = role.discord_role_id;
+                const roleColor = getRoleColor(role);
                 return `
                     <label class="forwarder-role-item" style="display: flex; align-items: center; padding: 10px 12px; cursor: pointer; border-radius: 6px; margin-bottom: 4px; transition: all 0.2s ease; background: #1a1a1a; border: 1px solid #2a2a2a;">
                         <input type="checkbox" value="${roleId}" data-role-name="${roleName}" 
                             onchange="updateForwarderRolesCount()"
                             style="margin-right: 12px; width: 18px; height: 18px; cursor: pointer; accent-color: #dc3545;">
-                        <span style="color: #ffffff; font-size: 14px; flex: 1; user-select: none;">
-                            <span style="color: #999;">@</span><span style="font-weight: 500;">${roleName}</span>
+                        <span style="font-size: 14px; flex: 1; user-select: none;">
+                            <span style="color: #999;">@</span><span style="font-weight: 500; color: ${roleColor};">${roleName}</span>
                         </span>
                     </label>
                 `;
@@ -2433,6 +2545,246 @@
             
             if (selectedDiv) {
                 selectedDiv.style.display = checkedCount > 0 ? 'block' : 'none';
+            }
+        }
+
+        // Permissions Configuration Functions
+        let allPermissionsRoles = []; // Store all roles for filtering
+
+        async function loadPermissionsConfig() {
+            try {
+                if (!currentServerId) {
+                    showMessage('No server selected', 'error');
+                    return;
+                }
+
+                // Load roles for the server
+                const rolesRes = await fetch(`/api/servers/${currentServerId}/roles`, {
+                    credentials: 'include'
+                });
+
+                if (rolesRes.status === 401) {
+                    isAuthenticated = false;
+                    await checkAuthStatus();
+                    return;
+                }
+
+                const roles = await rolesRes.json();
+                allPermissionsRoles = roles || [];
+
+                // Load permissions settings
+                const settingsRes = await fetch(`/api/servers/${currentServerId}/settings?component=permissions`, {
+                    credentials: 'include'
+                });
+
+                if (settingsRes.status === 401) {
+                    isAuthenticated = false;
+                    await checkAuthStatus();
+                    return;
+                }
+
+                const settings = await settingsRes.json();
+                const permissions = settings && settings.settings ? settings.settings : {
+                    admin_roles: [],
+                    staff_roles: [],
+                    supporter_roles: [],
+                    member_roles: []
+                };
+
+                // Render all permission role selectors
+                renderPermissionsRoles('admin', permissions.admin_roles || []);
+                renderPermissionsRoles('staff', permissions.staff_roles || []);
+                renderPermissionsRoles('supporter', permissions.supporter_roles || []);
+                renderPermissionsRoles('member', permissions.member_roles || []);
+            } catch (err) {
+                console.error('Error loading permissions config:', err);
+                showMessage('Failed to load permissions configuration', 'error');
+            }
+        }
+
+        function renderPermissionsRoles(permissionType, selectedRoleIds) {
+            const container = document.getElementById(`permissions${permissionType.charAt(0).toUpperCase() + permissionType.slice(1)}Roles`);
+            const searchInput = document.getElementById(`permissions${permissionType.charAt(0).toUpperCase() + permissionType.slice(1)}Search`);
+            
+            if (!container || !searchInput) return;
+
+            if (!allPermissionsRoles || allPermissionsRoles.length === 0) {
+                container.innerHTML = '<p style="color: #999; margin: 0; padding: 20px; text-align: center;">No roles found</p>';
+                searchInput.disabled = true;
+                updatePermissionsCount(permissionType);
+                return;
+            }
+
+            searchInput.disabled = false;
+            filterPermissionsRoles(permissionType, searchInput.value || '', selectedRoleIds);
+            updatePermissionsCount(permissionType);
+        }
+
+        function filterPermissionsRoles(permissionType, searchTerm, selectedRoleIds = null) {
+            const container = document.getElementById(`permissions${permissionType.charAt(0).toUpperCase() + permissionType.slice(1)}Roles`);
+            if (!container) return;
+
+            // Get selected roles if not provided
+            if (selectedRoleIds === null) {
+                selectedRoleIds = Array.from(document.querySelectorAll(`#permissions${permissionType.charAt(0).toUpperCase() + permissionType.slice(1)}Roles input[type="checkbox"]:checked`))
+                    .map(cb => cb.value);
+            }
+
+            const searchLower = searchTerm.toLowerCase();
+            
+            const filteredRoles = searchTerm 
+                ? allPermissionsRoles.filter(role => {
+                    const roleName = (role.name || role.discord_role_id || '').toLowerCase();
+                    const roleId = (role.discord_role_id || '').toString();
+                    return roleName.includes(searchLower) || roleId.includes(searchTerm);
+                })
+                : allPermissionsRoles;
+
+            if (filteredRoles.length === 0) {
+                container.innerHTML = '<p style="color: #999; margin: 0; padding: 20px; text-align: center;">No roles match your search</p>';
+                return;
+            }
+
+            // Convert color string to hex (if it's a number, convert to hex)
+            function getRoleColor(role) {
+                if (!role.color) return '#999999';
+                // If color is a number string, convert to hex
+                if (/^\d+$/.test(role.color)) {
+                    const num = parseInt(role.color);
+                    return '#' + num.toString(16).padStart(6, '0');
+                }
+                // If already hex, return as is
+                if (role.color.startsWith('#')) return role.color;
+                return '#' + role.color;
+            }
+
+            container.innerHTML = filteredRoles.map(role => {
+                const roleName = role.name || role.discord_role_id || 'Unknown';
+                const roleId = role.discord_role_id;
+                const roleColor = getRoleColor(role);
+                const isChecked = selectedRoleIds.includes(roleId);
+                
+                return `
+                    <label class="permissions-role-item" style="display: flex; align-items: center; padding: 10px 12px; cursor: pointer; border-radius: 6px; margin-bottom: 4px; transition: all 0.2s ease; background: ${isChecked ? '#2a1a1a' : '#1a1a1a'}; border: 1px solid ${isChecked ? '#dc3545' : '#2a2a2a'};">
+                        <input type="checkbox" value="${roleId}" data-role-name="${roleName}" 
+                            onchange="updatePermissionsRoleState('${permissionType}', this)"
+                            ${isChecked ? 'checked' : ''}
+                            style="margin-right: 12px; width: 18px; height: 18px; cursor: pointer; accent-color: #dc3545;">
+                        <span style="font-size: 14px; flex: 1; user-select: none;">
+                            <span style="color: #999;">@</span><span style="font-weight: 500; color: ${roleColor};">${roleName}</span>
+                        </span>
+                    </label>
+                `;
+            }).join('');
+
+            // Add hover effect with better styling
+            container.querySelectorAll('.permissions-role-item').forEach(label => {
+                label.addEventListener('mouseenter', () => {
+                    label.style.background = '#252525';
+                    label.style.borderColor = '#dc3545';
+                    label.style.transform = 'translateX(4px)';
+                });
+                label.addEventListener('mouseleave', () => {
+                    const checkbox = label.querySelector('input[type="checkbox"]');
+                    label.style.background = checkbox?.checked ? '#2a1a1a' : '#1a1a1a';
+                    label.style.borderColor = checkbox?.checked ? '#dc3545' : '#2a2a2a';
+                    label.style.transform = 'translateX(0)';
+                });
+                
+                // Update checked state styling
+                const checkbox = label.querySelector('input[type="checkbox"]');
+                if (checkbox) {
+                    checkbox.addEventListener('change', () => {
+                        if (checkbox.checked) {
+                            label.style.background = '#2a1a1a';
+                            label.style.borderColor = '#dc3545';
+                        } else {
+                            label.style.background = '#1a1a1a';
+                            label.style.borderColor = '#2a2a2a';
+                        }
+                    });
+                }
+            });
+        }
+
+        function updatePermissionsRoleState(permissionType, checkbox) {
+            const label = checkbox.closest('.permissions-role-item');
+            if (label) {
+                if (checkbox.checked) {
+                    label.style.background = '#2a1a1a';
+                    label.style.borderColor = '#dc3545';
+                } else {
+                    label.style.background = '#1a1a1a';
+                    label.style.borderColor = '#2a2a2a';
+                }
+            }
+            updatePermissionsCount(permissionType);
+        }
+
+        function updatePermissionsCount(permissionType) {
+            const permissionTypeCapitalized = permissionType.charAt(0).toUpperCase() + permissionType.slice(1);
+            const checkedCount = document.querySelectorAll(`#permissions${permissionTypeCapitalized}Roles input[type="checkbox"]:checked`).length;
+            const countElement = document.getElementById(`permissions${permissionTypeCapitalized}Count`);
+            const selectedDiv = document.getElementById(`permissions${permissionTypeCapitalized}Selected`);
+            
+            if (countElement) {
+                countElement.textContent = checkedCount;
+            }
+            
+            if (selectedDiv) {
+                selectedDiv.style.display = checkedCount > 0 ? 'block' : 'none';
+            }
+        }
+
+        async function savePermissionsConfig() {
+            try {
+                if (!currentServerId) {
+                    showMessage('No server selected', 'error');
+                    return;
+                }
+
+                const adminRoles = Array.from(document.querySelectorAll('#permissionsAdminRoles input[type="checkbox"]:checked'))
+                    .map(cb => cb.value);
+                const staffRoles = Array.from(document.querySelectorAll('#permissionsStaffRoles input[type="checkbox"]:checked'))
+                    .map(cb => cb.value);
+                const supporterRoles = Array.from(document.querySelectorAll('#permissionsSupporterRoles input[type="checkbox"]:checked'))
+                    .map(cb => cb.value);
+                const memberRoles = Array.from(document.querySelectorAll('#permissionsMemberRoles input[type="checkbox"]:checked'))
+                    .map(cb => cb.value);
+
+                const settings = {
+                    admin_roles: adminRoles,
+                    staff_roles: staffRoles,
+                    supporter_roles: supporterRoles,
+                    member_roles: memberRoles
+                };
+
+                const res = await fetch(`/api/servers/${currentServerId}/settings`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    credentials: 'include',
+                    body: JSON.stringify({
+                        component_name: 'permissions',
+                        settings: settings
+                    })
+                });
+
+                if (res.status === 401) {
+                    isAuthenticated = false;
+                    await checkAuthStatus();
+                    return;
+                }
+
+                const data = await res.json();
+
+                if (data.success) {
+                    showMessage('Permissions saved successfully!', 'success');
+                } else {
+                    showMessage('Failed to save permissions', 'error');
+                }
+            } catch (err) {
+                console.error('Error saving permissions config:', err);
+                showMessage('Failed to save permissions', 'error');
             }
         }
 

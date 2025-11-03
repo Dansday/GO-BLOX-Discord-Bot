@@ -19,7 +19,7 @@ export const commandDefinition = {
 export async function execute(interaction, client) {
     try {
         // Check if user has permission (Admin only)
-        if (!hasPermission(interaction.member, 'setup')) {
+        if (!(await hasPermission(interaction.member, 'setup'))) {
             await interaction.reply({
                 content: '❌ You need Admin role to use this command.',
                 flags: 64
