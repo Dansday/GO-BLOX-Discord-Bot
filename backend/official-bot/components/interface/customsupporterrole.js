@@ -20,9 +20,16 @@ async function hasSupporterRole(member) {
         supporterRoles.delete(member.id);
     }
 
+    // Get role constraints from database
+    const constraints = await CUSTOM_SUPPORTER_ROLE.getRoleConstraints(member.guild.id);
+    
+    if (!constraints.ROLE_ABOVE || !constraints.ROLE_BELOW) {
+        return { has: false };
+    }
+
     // Check if member has any roles between the position constraints
-    const aboveRole = member.guild.roles.cache.get(CUSTOM_SUPPORTER_ROLE.ROLE_ABOVE);
-    const belowRole = member.guild.roles.cache.get(CUSTOM_SUPPORTER_ROLE.ROLE_BELOW);
+    const aboveRole = member.guild.roles.cache.get(constraints.ROLE_ABOVE);
+    const belowRole = member.guild.roles.cache.get(constraints.ROLE_BELOW);
 
     if (!aboveRole || !belowRole) {
         return { has: false };
@@ -129,8 +136,14 @@ function parseColor(colorInput) {
 
 // Get role position between constraints
 async function getRolePosition(guild) {
-    const aboveRole = guild.roles.cache.get(CUSTOM_SUPPORTER_ROLE.ROLE_ABOVE);
-    const belowRole = guild.roles.cache.get(CUSTOM_SUPPORTER_ROLE.ROLE_BELOW);
+    const constraints = await CUSTOM_SUPPORTER_ROLE.getRoleConstraints(guild.id);
+    
+    if (!constraints.ROLE_ABOVE || !constraints.ROLE_BELOW) {
+        throw new Error('Could not find role position constraints');
+    }
+
+    const aboveRole = guild.roles.cache.get(constraints.ROLE_ABOVE);
+    const belowRole = guild.roles.cache.get(constraints.ROLE_BELOW);
 
     if (!aboveRole || !belowRole) {
         throw new Error('Could not find role position constraints');
@@ -715,15 +728,20 @@ async function cleanupCustomRoles(client) {
     try {
         await logger.log(`🧹 Checking for custom roles to clean up...`);
 
-        const aboveRoleId = CUSTOM_SUPPORTER_ROLE.ROLE_ABOVE;
-        const belowRoleId = CUSTOM_SUPPORTER_ROLE.ROLE_BELOW;
         let cleanedCount = 0;
 
         // Check all guilds the bot is in
         for (const guild of client.guilds.cache.values()) {
             try {
-                const aboveRole = guild.roles.cache.get(aboveRoleId);
-                const belowRole = guild.roles.cache.get(belowRoleId);
+                // Get role constraints from database for this guild
+                const constraints = await CUSTOM_SUPPORTER_ROLE.getRoleConstraints(guild.id);
+                
+                if (!constraints.ROLE_ABOVE || !constraints.ROLE_BELOW) {
+                    continue; // No constraints configured for this guild
+                }
+
+                const aboveRole = guild.roles.cache.get(constraints.ROLE_ABOVE);
+                const belowRole = guild.roles.cache.get(constraints.ROLE_BELOW);
 
                 if (!aboveRole || !belowRole) {
                     continue;

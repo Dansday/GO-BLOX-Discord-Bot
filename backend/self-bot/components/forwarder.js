@@ -76,9 +76,16 @@ function init(client) {
         // Skip DMs and messages without guild
         if (!message.guild) return;
 
-        // Forward all messages to official bot (no filtering here)
-        // Official bot will check forwarder configs to decide what to forward
+        // Check if this channel should be forwarded before sending
         try {
+            const shouldForward = await FORWARDER.shouldForwardChannel(message.channel.id, message.guild.id);
+            
+            if (!shouldForward) {
+                // Channel not configured for forwarding, skip silently
+                return;
+            }
+
+            // Channel is configured, forward the message
             await processMessage(message);
         } catch (err) {
             // Log error

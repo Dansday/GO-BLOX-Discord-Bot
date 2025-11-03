@@ -448,11 +448,45 @@ export const BOOSTER = {
     }
 };
 
-// Custom Supporter Role Configuration
+// Custom Supporter Role Configuration - loads from database
 export const CUSTOM_SUPPORTER_ROLE = {
-    // Role position constraints
-    ROLE_BELOW: "1433928533000061028",       // Custom role must be below this role
-    ROLE_ABOVE: "1433928639010836520"      // Custom role must be above this role
+    // Get role constraints for a guild (from database)
+    async getRoleConstraints(guildId) {
+        if (!botConfig) {
+            throw new Error('Bot config not loaded. Call initializeConfig() first.');
+        }
+        if (!guildId) {
+            throw new Error('Guild ID is required to get custom role constraints.');
+        }
+
+        // For selfbots, use the connected official bot's server config
+        let officialBotId = botConfig.id;
+        if (botConfig.bot_type === 'selfbot' && botConfig.connect_to) {
+            officialBotId = botConfig.connect_to;
+        }
+
+        // Get the official bot's server for this Discord guild
+        const officialBotServer = await db.getServerByDiscordId(officialBotId, guildId);
+        if (!officialBotServer) {
+            throw new Error(`Server not found for guild ${guildId} in official bot ${officialBotId}`);
+        }
+
+        const settings = await db.getServerSettings(officialBotServer.id, 'custom_supporter_role');
+        
+        // If custom role config exists, use it
+        if (settings && settings.settings) {
+            return {
+                ROLE_BELOW: settings.settings.role_below || null,
+                ROLE_ABOVE: settings.settings.role_above || null
+            };
+        }
+
+        // Otherwise, return null for both (no constraints configured)
+        return {
+            ROLE_BELOW: null,
+            ROLE_ABOVE: null
+        };
+    }
 };
 
 // Feedback Configuration
@@ -482,6 +516,76 @@ export const FORWARDER = {
         return settings.settings;
     },
 
+
+    // Check if a channel should be forwarded (used by selfbot to filter messages before sending)
+    async shouldForwardChannel(channelId, guildId) {
+        if (!botConfig) {
+            throw new Error('Bot config not loaded. Call initializeConfig() first.');
+        }
+        if (!channelId || !guildId) {
+            return false;
+        }
+
+        // Only selfbots should check this
+        if (botConfig.bot_type !== 'selfbot' || !botConfig.connect_to) {
+            return false;
+        }
+
+        try {
+            // Get the selfbot's server database ID
+            const selfbotServer = await db.getServerByDiscordId(botConfig.id, guildId);
+            if (!selfbotServer) {
+                return false;
+            }
+
+            // Get the connected official bot
+            const officialBot = await db.getBot(botConfig.connect_to);
+            if (!officialBot) {
+                return false;
+            }
+
+            // Get all servers for the official bot
+            const officialServers = await db.getServersForBot(officialBot.id);
+            const environment = botConfig.is_testing ? 'test' : 'production';
+
+            // Check all official bot servers for forwarder configs
+            for (const officialServer of officialServers) {
+                try {
+                    const forwarders = await this.getConfig(officialServer.discord_server_id);
+                    const envForwarders = forwarders[environment] || [];
+
+                    // Check each forwarder
+                    for (const forwarder of envForwarders) {
+                        // Check if this forwarder is for this selfbot and this server
+                        if (String(forwarder.selfbot_id) !== String(botConfig.id)) {
+                            continue;
+                        }
+                        if (String(forwarder.server_id) !== String(selfbotServer.id)) {
+                            continue;
+                        }
+
+                        // Check if the channel is in source_channels
+                        if (forwarder.source_channels && Array.isArray(forwarder.source_channels)) {
+                            const foundChannel = forwarder.source_channels.find(
+                                ch => String(ch?.channel_id || '') === String(channelId)
+                            );
+                            if (foundChannel) {
+                                return true; // This channel should be forwarded
+                            }
+                        }
+                    }
+                } catch (err) {
+                    // Continue searching other servers
+                    continue;
+                }
+            }
+
+            return false; // No forwarder found for this channel
+        } catch (err) {
+            // On error, don't forward (fail-safe)
+            return false;
+        }
+    },
 
     // Get target channel ID and role mentions for a forwarder by source channel and server (used by official bot)
     // This matches forwarders based on:
