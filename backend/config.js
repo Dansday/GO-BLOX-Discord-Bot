@@ -206,9 +206,22 @@ export async function getEmbedConfig(guildId) {
         throw new Error(`Embed footer not configured for guild ${guildId}`);
     }
 
+    // Replace placeholders in footer text
+    let footerText = config.embed_footer;
+    if (footerText) {
+        const server = await getServerByDiscordId(guildId);
+        const now = new Date();
+        
+        footerText = footerText
+            .replace(/{server}/g, server?.name || 'Server')
+            .replace(/{year}/g, now.getFullYear().toString())
+            .replace(/{date}/g, now.toLocaleDateString())
+            .replace(/{time}/g, now.toLocaleTimeString());
+    }
+
     return {
         COLOR: color,
-        FOOTER: config.embed_footer
+        FOOTER: footerText
     };
 }
 
