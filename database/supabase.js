@@ -308,6 +308,25 @@ export async function upsertServer(botId, guild) {
     try {
         const iconUrl = guild.iconURL ? guild.iconURL({ dynamic: true }) : null;
         
+        // Convert premiumTier enum to integer (TIER_0 = 0, TIER_1 = 1, etc.)
+        let boostLevel = 0;
+        if (guild.premiumTier) {
+            const tierString = String(guild.premiumTier);
+            if (tierString.includes('TIER_')) {
+                // Extract number from "TIER_X" format
+                const tierMatch = tierString.match(/TIER_(\d+)/);
+                if (tierMatch) {
+                    boostLevel = parseInt(tierMatch[1], 10);
+                } else {
+                    // Fallback: try to parse as number if it's already a number string
+                    boostLevel = parseInt(tierString, 10) || 0;
+                }
+            } else {
+                // Already a number
+                boostLevel = parseInt(tierString, 10) || 0;
+            }
+        }
+        
         const { data, error } = await supabase
             .from('servers')
             .upsert({
@@ -317,7 +336,7 @@ export async function upsertServer(botId, guild) {
                 total_members: guild.memberCount || 0,
                 total_channels: guild.channels?.cache?.size || 0,
                 total_boosters: guild.premiumSubscriptionCount || 0,
-                boost_level: guild.premiumTier || 0,
+                boost_level: boostLevel,
                 server_icon: iconUrl,
                 updated_at: new Date().toISOString()
             }, {
@@ -475,4 +494,3 @@ export default {
     upsertRole,
     syncRoles
 };
-

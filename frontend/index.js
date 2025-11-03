@@ -613,6 +613,68 @@ async function restartBotById(botId, bot) {
     return startResult;
 }
 
+// Check and fix bot status by verifying if processes are actually running
+async function verifyBotStatuses() {
+    try {
+        const bots = await db.getAllBots();
+        logger.log(`🔍 Verifying status of ${bots.length} bot(s)...`);
+        
+        for (const bot of bots) {
+            if (bot.status === 'running' || bot.status === 'starting' || bot.status === 'stopping') {
+                if (bot.process_id) {
+                    try {
+                        // Check if process actually exists
+                        process.kill(bot.process_id, 0); // Signal 0 doesn't kill, just checks
+                        // Process exists - check if it's still a bot process
+                        try {
+                            const cmdline = readFileSync(`/proc/${bot.process_id}/cmdline`, 'utf8').replace(/\0/g, ' ');
+                            
+                            // Check if it's actually a bot process
+                            if (!cmdline.includes('officialbot.js') && !cmdline.includes('selfbot.js')) {
+                                // Process exists but isn't a bot process - mark as stopped
+                                logger.log(`⚠️  Bot ${bot.id} (${bot.name}) has PID ${bot.process_id} but it's not a bot process`);
+                                await db.updateBot(bot.id, {
+                                    status: 'stopped',
+                                    process_id: null,
+                                    uptime_started_at: null
+                                });
+                            }
+                        } catch (cmdlineErr) {
+                            // Can't read cmdline, process might be dead - mark as stopped
+                            logger.log(`⚠️  Bot ${bot.id} (${bot.name}) process ${bot.process_id} appears to be dead`);
+                            await db.updateBot(bot.id, {
+                                status: 'stopped',
+                                process_id: null,
+                                uptime_started_at: null
+                            });
+                        }
+                    } catch (e) {
+                        // Process doesn't exist - mark as stopped
+                        logger.log(`⚠️  Bot ${bot.id} (${bot.name}) process ${bot.process_id} no longer exists, marking as stopped`);
+                        await db.updateBot(bot.id, {
+                            status: 'stopped',
+                            process_id: null,
+                            uptime_started_at: null
+                        });
+                    }
+                } else {
+                    // No process ID but status says running - mark as stopped
+                    logger.log(`⚠️  Bot ${bot.id} (${bot.name}) has status "${bot.status}" but no process_id, marking as stopped`);
+                    await db.updateBot(bot.id, {
+                        status: 'stopped',
+                        process_id: null,
+                        uptime_started_at: null
+                    });
+                }
+            }
+        }
+        
+        logger.log(`✅ Finished verifying bot statuses`);
+    } catch (error) {
+        logger.log(`⚠️  Error verifying bot statuses: ${error.message}`);
+    }
+}
+
 // Initialize control panel
 export async function init() {
     // Initialize database on startup
@@ -622,6 +684,9 @@ export async function init() {
         logger.log(`⚠️  Database initialization warning: ${error.message}`);
         logger.log('📄 The database will be checked when first accessed');
     }
+
+    // Verify and fix bot statuses on startup (in case processes were killed externally)
+    await verifyBotStatuses();
 
     app = express();
     app.use(express.json());
@@ -643,6 +708,23 @@ export async function init() {
             const bots = await db.getAllBots();
             // Don't send tokens in response
             const botsWithDetails = await Promise.all(bots.map(async (bot) => {
+                // Verify bot status before returning (if it's marked as running)
+                if ((bot.status === 'running' || bot.status === 'starting' || bot.status === 'stopping') && bot.process_id) {
+                    try {
+                        process.kill(bot.process_id, 0); // Signal 0 checks if process exists
+                    } catch (e) {
+                        // Process doesn't exist - update status
+                        await db.updateBot(bot.id, {
+                            status: 'stopped',
+                            process_id: null,
+                            uptime_started_at: null
+                        });
+                        bot.status = 'stopped';
+                        bot.process_id = null;
+                        bot.uptime_started_at = null;
+                    }
+                }
+                
                 const botData = {
                     id: bot.id,
                     name: bot.name,
@@ -696,6 +778,26 @@ export async function init() {
             if (!bot) {
                 return res.status(404).json({ error: 'Bot not found' });
             }
+            
+            // Verify bot status before returning (if it's marked as running)
+            if ((bot.status === 'running' || bot.status === 'starting' || bot.status === 'stopping') && bot.process_id) {
+                try {
+                    process.kill(bot.process_id, 0); // Signal 0 checks if process exists
+                } catch (e) {
+                    // Process doesn't exist - update status
+                    await db.updateBot(bot.id, {
+                        status: 'stopped',
+                        process_id: null,
+                        uptime_started_at: null
+                    });
+                    // Refresh bot data
+                    const updatedBot = await db.getBot(req.params.id);
+                    if (updatedBot) {
+                        Object.assign(bot, updatedBot);
+                    }
+                }
+            }
+            
             // Don't send token
             const { token, ...botData } = bot;
             
