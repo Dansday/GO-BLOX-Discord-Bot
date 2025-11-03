@@ -31,10 +31,10 @@
             background: #1a1a1a;
             border-radius: 16px;
             box-shadow: 0 8px 32px rgba(255, 0, 0, 0.1);
-            max-width: 1200px;
+            max-width: 1280px;
             width: 100%;
             margin: 0 auto;
-            padding: 40px;
+            padding: 20px;
             border: 1px solid #333333;
             transition: background-color 0.5s ease, border-color 0.5s ease, box-shadow 0.5s ease;
         }
@@ -1100,6 +1100,34 @@
                         </div>
                     </div>
 
+                    <!-- Feedback Component -->
+                    <div id="serverSettingsFeedback" style="display: none;">
+                        <h3 style="margin-bottom: 20px;">💬 Feedback Configuration</h3>
+                        <div class="form-section" style="background: #0d0d0d; border-radius: 12px; padding: 24px; border: 1px solid #333333;">
+                            <div class="form-group" style="margin-bottom: 20px;">
+                                <label style="display: block; margin-bottom: 8px; color: #ffffff; font-weight: 600;">Feedback Channel:</label>
+                                <p class="form-hint" style="color: #999; font-size: 11px; margin-bottom: 8px;">Channel where feedback submissions will be sent.</p>
+                                <div style="border: 1px solid #333333; border-radius: 8px; background: #0d0d0d; overflow: hidden;">
+                                    <div style="padding: 12px; border-bottom: 1px solid #333333; background: #0a0a0a;">
+                                        <input type="text" id="feedbackChannelSearch" placeholder="🔍 Search channels..." 
+                                            oninput="filterFeedbackChannels(this.value)"
+                                            style="width: 100%; padding: 8px 12px; background: #1a1a1a; border: 1px solid #333333; border-radius: 6px; color: #ffffff; font-size: 14px; outline: none; transition: border-color 0.3s ease;"
+                                            onfocus="this.style.borderColor='#dc3545'"
+                                            onblur="this.style.borderColor='#333333'">
+                                    </div>
+                                    <div id="feedbackChannelList" style="max-height: 300px; overflow-y: auto; padding: 8px;">
+                                        <p style="color: #999; margin: 0; padding: 20px; text-align: center;">Loading channels...</p>
+                                    </div>
+                                    <div id="feedbackChannelSelected" style="padding: 10px; border-top: 1px solid #333333; background: #0a0a0a; font-size: 12px; color: #28a745; display: none;">
+                                        <span id="feedbackChannelCount">0</span> channel(s) selected
+                                    </div>
+                                </div>
+                            </div>
+
+                            <button class="btn btn-success" onclick="saveFeedbackConfig()" style="width: 100%;">💾 Save Feedback Config</button>
+                        </div>
+                    </div>
+
                     <!-- Forwarder Component -->
                     <div id="serverSettingsForwarder" style="display: none;">
                         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
@@ -2129,6 +2157,7 @@
                 { id: 'booster', name: '💎 Booster' },
                 { id: 'permissions', name: '🔐 Permissions' },
                 { id: 'custom_supporter_role', name: '🎭 Custom Supporter Role' },
+                { id: 'feedback', name: '💬 Feedback' },
                 { id: 'forwarder', name: '📡 Forwarder' }
             ];
 
@@ -2192,8 +2221,18 @@
                 document.getElementById('serverSettingsBooster').style.display = 'none';
                 document.getElementById('serverSettingsPermissions').style.display = 'none';
                 document.getElementById('serverSettingsCustomRole').style.display = 'block';
+                document.getElementById('serverSettingsFeedback').style.display = 'none';
                 document.getElementById('serverSettingsForwarder').style.display = 'none';
                 await loadCustomRoleConfig();
+            } else if (componentId === 'feedback') {
+                document.getElementById('serverSettingsMainConfig').style.display = 'none';
+                document.getElementById('serverSettingsWelcomer').style.display = 'none';
+                document.getElementById('serverSettingsBooster').style.display = 'none';
+                document.getElementById('serverSettingsPermissions').style.display = 'none';
+                document.getElementById('serverSettingsCustomRole').style.display = 'none';
+                document.getElementById('serverSettingsFeedback').style.display = 'block';
+                document.getElementById('serverSettingsForwarder').style.display = 'none';
+                await loadFeedbackConfig();
             } else if (componentId === 'forwarder') {
                 document.getElementById('serverSettingsMainConfig').style.display = 'none';
                 document.getElementById('serverSettingsWelcomer').style.display = 'none';
@@ -3342,6 +3381,183 @@
             }
         }
 
+        // Feedback Configuration Functions
+        let allFeedbackChannels = [];
+
+        async function loadFeedbackConfig() {
+            try {
+                if (!currentServerId) {
+                    showMessage('No server selected', 'error');
+                    return;
+                }
+
+                // Load channels for the server
+                const channelsRes = await fetch(`/api/servers/${currentServerId}/channels`, {
+                    credentials: 'include'
+                });
+
+                if (channelsRes.status === 401) {
+                    isAuthenticated = false;
+                    await checkAuthStatus();
+                    return;
+                }
+
+                const channels = await channelsRes.json();
+                allFeedbackChannels = channels || [];
+
+                // Sort channels by position (null positions last), then by name
+                allFeedbackChannels.sort((a, b) => {
+                    const posA = a.position !== null && a.position !== undefined ? a.position : Infinity;
+                    const posB = b.position !== null && b.position !== undefined ? b.position : Infinity;
+                    if (posA !== posB) {
+                        return posA - posB;
+                    }
+                    const nameA = (a.name || '').toLowerCase();
+                    const nameB = (b.name || '').toLowerCase();
+                    return nameA.localeCompare(nameB);
+                });
+
+                // Load feedback settings
+                const settingsRes = await fetch(`/api/servers/${currentServerId}/settings?component=feedback`, {
+                    credentials: 'include'
+                });
+
+                if (settingsRes.status === 401) {
+                    isAuthenticated = false;
+                    await checkAuthStatus();
+                    return;
+                }
+
+                const settings = await settingsRes.json();
+                const feedbackConfig = settings && settings.settings ? settings.settings : {
+                    channel_id: null
+                };
+
+                // Render channels
+                renderFeedbackChannels(feedbackConfig.channel_id || null);
+            } catch (err) {
+                console.error('Error loading feedback config:', err);
+                showMessage('Failed to load feedback configuration', 'error');
+            }
+        }
+
+        function renderFeedbackChannels(selectedChannelId) {
+            const container = document.getElementById('feedbackChannelList');
+            const searchInput = document.getElementById('feedbackChannelSearch');
+            const searchTerm = searchInput ? searchInput.value.toLowerCase() : '';
+
+            let filteredChannels = allFeedbackChannels;
+            if (searchTerm) {
+                filteredChannels = allFeedbackChannels.filter(ch =>
+                    (ch.name || '').toLowerCase().includes(searchTerm) ||
+                    (ch.discord_channel_id || '').toString().includes(searchTerm)
+                );
+            }
+
+            if (!filteredChannels || filteredChannels.length === 0) {
+                container.innerHTML = '<p style="color: #999; margin: 0; padding: 20px; text-align: center;">No channels found</p>';
+                updateFeedbackChannelCount();
+                return;
+            }
+
+            container.innerHTML = filteredChannels.map(channel => {
+                const channelId = channel.discord_channel_id;
+                const channelName = channel.name || channelId || 'Unknown';
+                const isSelected = selectedChannelId === channelId;
+                return `
+                    <label class="feedback-channel-item" style="display: flex; align-items: center; padding: 10px 12px; cursor: pointer; border-radius: 6px; margin-bottom: 4px; transition: all 0.2s ease; background: ${isSelected ? '#2a1a1a' : '#1a1a1a'}; border: 1px solid ${isSelected ? '#dc3545' : '#2a2a2a'};">
+                        <input type="radio" name="feedbackChannel" value="${channelId}" 
+                            ${isSelected ? 'checked' : ''}
+                            onchange="updateFeedbackChannel(this)"
+                            style="margin-right: 12px; width: 18px; height: 18px; cursor: pointer; accent-color: #dc3545;">
+                        <span style="font-size: 14px; flex: 1; user-select: none;">
+                            <span style="color: #999;">#</span><span style="font-weight: 500; color: #ffffff;">${channelName}</span>
+                        </span>
+                    </label>
+                `;
+            }).join('');
+
+            updateFeedbackChannelCount();
+        }
+
+        function filterFeedbackChannels(searchTerm) {
+            const selectedChannelId = document.querySelector('input[name="feedbackChannel"]:checked')?.value || null;
+            renderFeedbackChannels(selectedChannelId);
+        }
+
+        function updateFeedbackChannel(radio) {
+            const label = radio.closest('.feedback-channel-item');
+            if (label) {
+                // Uncheck all other items
+                document.querySelectorAll('#feedbackChannelList .feedback-channel-item').forEach(item => {
+                    item.style.background = '#1a1a1a';
+                    item.style.borderColor = '#2a2a2a';
+                });
+                // Highlight selected
+                if (radio.checked) {
+                    label.style.background = '#2a1a1a';
+                    label.style.borderColor = '#dc3545';
+                }
+            }
+            updateFeedbackChannelCount();
+        }
+
+        function updateFeedbackChannelCount() {
+            const checkedCount = document.querySelectorAll('input[name="feedbackChannel"]:checked').length;
+            const countElement = document.getElementById('feedbackChannelCount');
+            const selectedDiv = document.getElementById('feedbackChannelSelected');
+            
+            if (countElement) {
+                countElement.textContent = checkedCount;
+            }
+            
+            if (selectedDiv) {
+                selectedDiv.style.display = checkedCount > 0 ? 'block' : 'none';
+            }
+        }
+
+        async function saveFeedbackConfig() {
+            try {
+                if (!currentServerId) {
+                    showMessage('No server selected', 'error');
+                    return;
+                }
+
+                const channelId = document.querySelector('input[name="feedbackChannel"]:checked')?.value || null;
+
+                const settings = {
+                    channel_id: channelId
+                };
+
+                const res = await fetch(`/api/servers/${currentServerId}/settings`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    credentials: 'include',
+                    body: JSON.stringify({
+                        component_name: 'feedback',
+                        settings: settings
+                    })
+                });
+
+                if (res.status === 401) {
+                    isAuthenticated = false;
+                    await checkAuthStatus();
+                    return;
+                }
+
+                const data = await res.json();
+
+                if (data.success) {
+                    showMessage('Feedback config saved successfully!', 'success');
+                } else {
+                    showMessage('Failed to save feedback config', 'error');
+                }
+            } catch (err) {
+                console.error('Error saving feedback config:', err);
+                showMessage('Failed to save feedback config', 'error');
+            }
+        }
+
         // Welcomer Configuration Functions
         let allWelcomerChannels = []; // Store all channels for filtering
 
@@ -4359,7 +4575,7 @@
     <!-- Footer -->
     <footer
         style="background: #1a1a1a; border-top: 2px solid #dc3545; padding: 20px 0; margin-top: 40px; text-align: center; transition: background-color 0.5s ease, border-color 0.5s ease;">
-        <div style="max-width: 1200px; margin: 0 auto; padding: 0 40px;">
+        <div style="margin: 0 auto; padding: 0 40px;">
             <p style="color: #cccccc; margin: 0; font-size: 14px; transition: color 0.5s ease;">
                 Copyright © <span id="currentYear"></span> <a href="https://dansday.com" target="_blank"
                     style="color: #dc3545; text-decoration: none; transition: color 0.3s ease;">dansday.com</a>. All

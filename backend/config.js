@@ -364,7 +364,7 @@ export const WELCOMER = {
         }
 
         const settings = await db.getServerSettings(officialBotServer.id, 'welcomer');
-        
+
         // If welcomer config exists and has messages, use them
         if (settings && settings.settings && settings.settings.messages && settings.settings.messages.length > 0) {
             return settings.settings.messages;
@@ -437,7 +437,7 @@ export const BOOSTER = {
         }
 
         const settings = await db.getServerSettings(officialBotServer.id, 'booster');
-        
+
         // If booster config exists and has messages, use them
         if (settings && settings.settings && settings.settings.messages && settings.settings.messages.length > 0) {
             return settings.settings.messages;
@@ -472,7 +472,7 @@ export const CUSTOM_SUPPORTER_ROLE = {
         }
 
         const settings = await db.getServerSettings(officialBotServer.id, 'custom_supporter_role');
-        
+
         // If custom role config exists, use it
         if (settings && settings.settings) {
             return {
@@ -489,10 +489,39 @@ export const CUSTOM_SUPPORTER_ROLE = {
     }
 };
 
-// Feedback Configuration
+// Feedback Configuration - loads from database
 export const FEEDBACK = {
-    // Channel ID for feedback submissions
-    CHANNEL_ID: "1409858556164964432"
+    // Get feedback channel for a guild (from database)
+    async getChannel(guildId) {
+        if (!botConfig) {
+            throw new Error('Bot config not loaded. Call initializeConfig() first.');
+        }
+        if (!guildId) {
+            throw new Error('Guild ID is required to get feedback channel.');
+        }
+
+        // For selfbots, use the connected official bot's server config
+        let officialBotId = botConfig.id;
+        if (botConfig.bot_type === 'selfbot' && botConfig.connect_to) {
+            officialBotId = botConfig.connect_to;
+        }
+
+        // Get the official bot's server for this Discord guild
+        const officialBotServer = await db.getServerByDiscordId(officialBotId, guildId);
+        if (!officialBotServer) {
+            throw new Error(`Server not found for guild ${guildId} in official bot ${officialBotId}`);
+        }
+
+        const settings = await db.getServerSettings(officialBotServer.id, 'feedback');
+
+        // If feedback config exists and has a channel, use it
+        if (settings && settings.settings && settings.settings.channel_id) {
+            return settings.settings.channel_id;
+        }
+
+        // Otherwise, return null (no channel configured)
+        return null;
+    }
 };
 
 // Forwarder Configuration - loads from database

@@ -92,12 +92,31 @@ export async function handleFeedbackModal(interaction) {
             return;
         }
 
-        // Get feedback channel
-        const feedbackChannel = guild.channels.cache.get(FEEDBACK.CHANNEL_ID);
-        if (!feedbackChannel) {
-            await logger.log(`❌ Feedback channel not found: ${FEEDBACK.CHANNEL_ID}`);
+        // Get feedback channel from database
+        let feedbackChannelId;
+        try {
+            feedbackChannelId = await FEEDBACK.getChannel(guild.id);
+        } catch (err) {
+            await logger.log(`❌ Error getting feedback channel: ${err.message}`);
+            await interaction.editReply({
+                content: '❌ Failed to submit feedback: Error retrieving feedback channel configuration.'
+            });
+            return;
+        }
+
+        if (!feedbackChannelId) {
+            await logger.log(`❌ Feedback channel not configured for server ${guild.id}`);
             await interaction.editReply({
                 content: '❌ Failed to submit feedback: Feedback channel not configured.'
+            });
+            return;
+        }
+
+        const feedbackChannel = guild.channels.cache.get(feedbackChannelId);
+        if (!feedbackChannel) {
+            await logger.log(`❌ Feedback channel not found: ${feedbackChannelId}`);
+            await interaction.editReply({
+                content: '❌ Failed to submit feedback: Feedback channel not found.'
             });
             return;
         }
