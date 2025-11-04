@@ -266,7 +266,7 @@ async function stopBotById(botId) {
         });
     } catch (err) {
         logger.log(`⚠️  Failed to update bot status: ${err.message}`);
-    }
+}
 
     logger.log(`⏹️  Stopped bot ${botId}`);
     return { success: true };
@@ -301,7 +301,7 @@ async function verifyBotStatuses() {
                         // Check if process actually exists
                         process.kill(bot.process_id, 0); // Signal 0 doesn't kill, just checks
                         // Process exists - check if it's still a bot process
-                        try {
+                    try {
                             const cmdline = readFileSync(`/proc/${bot.process_id}/cmdline`, 'utf8').replace(/\0/g, ' ');
 
                             // Check if it's actually a bot process
@@ -456,7 +456,7 @@ export async function init() {
                     }
                 });
             });
-
+            
             // Log registration (successful)
             await db.createPanelLog({
                 panel_id: panel.id,
@@ -578,7 +578,7 @@ export async function init() {
                         bot.status = 'stopped';
                         bot.process_id = null;
                         bot.uptime_started_at = null;
-                    }
+    }
                 }
 
                 const botData = {
@@ -634,12 +634,12 @@ export async function init() {
             res.json(botsWithDetails);
         } catch (error) {
             res.status(500).json({ error: error.message });
-        }
+                    }
     });
-
+                    
     // Get bot by ID (protected)
     app.get('/api/bots/:id', requireAuth, async (req, res) => {
-        try {
+                    try {
             const bot = await db.getBot(req.params.id);
             if (!bot) {
                 return res.status(404).json({ error: 'Bot not found' });
@@ -649,7 +649,7 @@ export async function init() {
             if ((bot.status === 'running' || bot.status === 'starting' || bot.status === 'stopping') && bot.process_id) {
                 try {
                     process.kill(bot.process_id, 0); // Signal 0 checks if process exists
-                } catch (e) {
+                    } catch (e) {
                     // Process doesn't exist - update status
                     await db.updateBot(bot.id, {
                         status: 'stopped',
@@ -725,7 +725,7 @@ export async function init() {
         } catch (error) {
             res.status(500).json({ error: error.message });
         }
-    });
+                    });
 
     // Save server settings (protected)
     app.put('/api/servers/:id/settings', requireAuth, async (req, res) => {
@@ -757,7 +757,7 @@ export async function init() {
             }
 
             res.json(channels);
-        } catch (error) {
+                } catch (error) {
             res.status(500).json({ error: error.message });
         }
     });
@@ -779,8 +779,8 @@ export async function init() {
             res.json(selfbots);
         } catch (error) {
             res.status(500).json({ error: error.message });
-        }
-    });
+                }
+            });
 
     // Get channels for a specific server from a selfbot (protected)
     app.get('/api/bots/:selfbotId/servers/:serverId/channels', requireAuth, async (req, res) => {
@@ -846,14 +846,14 @@ export async function init() {
                     success: false,
                     error: 'Token and Bot Type are required'
                 });
-            }
+        }
 
             if (!['official', 'selfbot'].includes(bot_type)) {
                 return res.status(400).json({
                     success: false,
                     error: 'Bot type must be "official" or "selfbot"'
                 });
-            }
+    }
 
             // Application ID is required for official bots only
             if (bot_type === 'official' && !application_id) {
@@ -885,7 +885,7 @@ export async function init() {
                     success: false,
                     error: 'Selfbot must connect to an official bot'
                 });
-            }
+    }
 
             // Check if port is already in use (only for official bots, since they use ports)
             if (bot_type === 'official') {
@@ -936,7 +936,7 @@ export async function init() {
         } catch (error) {
             logger.log(`❌ Create bot error: ${error.message}`);
             res.status(500).json({ success: false, error: error.message });
-        }
+    }
     });
 
 
@@ -957,8 +957,8 @@ export async function init() {
                     success: false,
                     error: 'Mode can only be changed for official bots. Selfbots inherit mode from their connected bot.'
                 });
-            }
-
+    }
+    
             const { is_testing } = req.body;
 
             if (typeof is_testing !== 'boolean') {
@@ -970,7 +970,7 @@ export async function init() {
 
             // Update the official bot's is_testing
             await db.updateBot(req.params.id, { is_testing });
-            
+    
             // Update all selfbots that connect to this official bot
             try {
                 const allBots = await db.getAllBots();
@@ -1023,7 +1023,7 @@ export async function init() {
             }
 
             const result = await startBotById(bot_id, bot);
-            res.json(result);
+        res.json(result);
         } catch (error) {
             res.json({ success: false, error: error.message });
         }
@@ -1037,7 +1037,7 @@ export async function init() {
 
         try {
             const result = await stopBotById(bot_id);
-            res.json(result);
+        res.json(result);
         } catch (error) {
             res.json({ success: false, error: error.message });
         }
@@ -1056,7 +1056,7 @@ export async function init() {
             }
 
             const result = await restartBotById(bot_id, bot);
-            res.json(result);
+        res.json(result);
         } catch (error) {
             res.json({ success: false, error: error.message });
         }

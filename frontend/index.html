@@ -2213,6 +2213,8 @@
                 document.getElementById('serverSettingsWelcomer').style.display = 'none';
                 document.getElementById('serverSettingsBooster').style.display = 'none';
                 document.getElementById('serverSettingsPermissions').style.display = 'none';
+                document.getElementById('serverSettingsCustomRole').style.display = 'none';
+                document.getElementById('serverSettingsFeedback').style.display = 'none';
                 document.getElementById('serverSettingsForwarder').style.display = 'none';
                 await loadMainConfig();
             } else if (componentId === 'welcomer') {
@@ -2220,6 +2222,8 @@
                 document.getElementById('serverSettingsWelcomer').style.display = 'block';
                 document.getElementById('serverSettingsBooster').style.display = 'none';
                 document.getElementById('serverSettingsPermissions').style.display = 'none';
+                document.getElementById('serverSettingsCustomRole').style.display = 'none';
+                document.getElementById('serverSettingsFeedback').style.display = 'none';
                 document.getElementById('serverSettingsForwarder').style.display = 'none';
                 await loadWelcomerConfig();
             } else if (componentId === 'booster') {
@@ -2227,6 +2231,8 @@
                 document.getElementById('serverSettingsWelcomer').style.display = 'none';
                 document.getElementById('serverSettingsBooster').style.display = 'block';
                 document.getElementById('serverSettingsPermissions').style.display = 'none';
+                document.getElementById('serverSettingsCustomRole').style.display = 'none';
+                document.getElementById('serverSettingsFeedback').style.display = 'none';
                 document.getElementById('serverSettingsForwarder').style.display = 'none';
                 await loadBoosterConfig();
             } else if (componentId === 'permissions') {
@@ -2235,6 +2241,7 @@
                 document.getElementById('serverSettingsBooster').style.display = 'none';
                 document.getElementById('serverSettingsPermissions').style.display = 'block';
                 document.getElementById('serverSettingsCustomRole').style.display = 'none';
+                document.getElementById('serverSettingsFeedback').style.display = 'none';
                 document.getElementById('serverSettingsForwarder').style.display = 'none';
                 await loadPermissionsConfig();
             } else if (componentId === 'custom_supporter_role') {
@@ -2261,6 +2268,7 @@
                 document.getElementById('serverSettingsBooster').style.display = 'none';
                 document.getElementById('serverSettingsPermissions').style.display = 'none';
                 document.getElementById('serverSettingsCustomRole').style.display = 'none';
+                document.getElementById('serverSettingsFeedback').style.display = 'none';
                 document.getElementById('serverSettingsForwarder').style.display = 'block';
                 await loadForwarderConfig();
             } else {
@@ -2269,6 +2277,7 @@
                 document.getElementById('serverSettingsBooster').style.display = 'none';
                 document.getElementById('serverSettingsPermissions').style.display = 'none';
                 document.getElementById('serverSettingsCustomRole').style.display = 'none';
+                document.getElementById('serverSettingsFeedback').style.display = 'none';
                 document.getElementById('serverSettingsForwarder').style.display = 'none';
                 document.getElementById('serverSettingsPlaceholder').style.display = 'block';
             }

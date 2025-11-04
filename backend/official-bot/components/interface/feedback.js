@@ -158,9 +158,23 @@ export async function handleFeedbackModal(interaction) {
             .setTimestamp()
             .setFooter({ text: embedConfig.FOOTER });
 
-        // Send to feedback channel with Staff role mention
+        // Get staff roles from permissions configuration
+        let staffMentions = '';
+        try {
+            const permissions = await PERMISSIONS.getPermissions(guild.id);
+            const staffRoles = permissions.STAFF_ROLES || [];
+            
+            if (staffRoles.length > 0) {
+                // Mention all staff roles
+                staffMentions = staffRoles.map(roleId => `<@&${roleId}>`).join(' ');
+            }
+        } catch (err) {
+            await logger.log(`⚠️  Error getting staff roles for feedback: ${err.message}`);
+        }
+
+        // Send to feedback channel with Staff role mentions
         await feedbackChannel.send({
-            content: `<@&${PERMISSIONS.STAFF_ROLE}>`,
+            content: staffMentions || undefined, // Only include content if there are staff roles
             embeds: [feedbackEmbed]
         });
 
