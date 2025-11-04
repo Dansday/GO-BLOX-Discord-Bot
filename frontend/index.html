@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Bot Control Panel</title>
+    <title>Dansthorized | Bot Control Panel</title>
     <!-- jQuery -->
     <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
     <style>
@@ -1125,6 +1125,29 @@
                             </div>
 
                             <button class="btn btn-success" onclick="saveFeedbackConfig()" style="width: 100%;">💾 Save Feedback Config</button>
+                        </div>
+                    </div>
+
+                    <!-- Add/Edit Booster Message Modal -->
+                    <div id="boosterMessageModal" style="display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.8); z-index: 2000; align-items: center; justify-content: center;" onclick="if(event.target.id === 'boosterMessageModal') closeBoosterMessageModal()">
+                        <div style="background: #1a1a1a; border-radius: 12px; padding: 30px; max-width: 600px; width: 90%; max-height: 90vh; overflow-y: auto; border: 1px solid #333333;" onclick="event.stopPropagation()">
+                            <h3 id="boosterMessageModalTitle" style="margin-top: 0;">Add Booster Message</h3>
+                            <div class="form-section">
+                                <div class="form-group">
+                                    <label>Message <span style="color: red;">*</span>:</label>
+                                    <textarea id="boosterMessageText" rows="4" placeholder="Enter booster thank you message..."
+                                        style="width: 100%; padding: 12px; background: #1a1a1a; border: 1px solid #333333; border-radius: 8px; color: #ffffff; font-size: 14px; font-family: inherit; resize: vertical; outline: none; transition: border-color 0.3s ease;"
+                                        onfocus="this.style.borderColor='#dc3545'"
+                                        onblur="this.style.borderColor='#333333'"></textarea>
+                                    <p class="form-hint" style="color: #999; font-size: 11px; margin-top: 5px;">
+                                        Use placeholders like {user}, {server}, {memberCount}, etc.
+                                    </p>
+                                </div>
+                                <div style="margin-top: 20px; display: flex; gap: 10px; justify-content: flex-end;">
+                                    <button class="btn btn-secondary" onclick="closeBoosterMessageModal()">Cancel</button>
+                                    <button class="btn btn-success" onclick="saveBoosterMessage()">Save</button>
+                                </div>
+                            </div>
                         </div>
                     </div>
 
