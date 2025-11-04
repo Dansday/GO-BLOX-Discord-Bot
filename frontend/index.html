@@ -159,6 +159,102 @@
         </footer>
     </div>
 
+    <!-- Bot Detail View (hidden initially) -->
+    <div id="botDetailContainer" class="hidden w-full h-full min-h-screen overflow-x-hidden">
+        <!-- Header -->
+        <header class="bg-gray-800 border-b border-gray-700 sticky top-0 z-40">
+            <div class="max-w-7xl mx-auto px-3 sm:px-4 lg:px-8">
+                <div class="flex items-center justify-between h-14 sm:h-16 py-2">
+                    <button onclick="showDashboard()"
+                        class="flex items-center gap-2 text-gray-400 hover:text-white transition-colors text-sm sm:text-base">
+                        <i class="fas fa-arrow-left"></i>
+                        <span class="hidden sm:inline">Back to Dashboard</span>
+                    </button>
+                    <div class="flex items-center gap-2 flex-shrink-0">
+                        <button id="refreshBotDetailBtn" onclick="loadBotDetail()"
+                            class="bg-gray-700 hover:bg-gray-600 text-white px-2 sm:px-4 py-1.5 sm:py-2 rounded-lg transition-all duration-200 transform hover:scale-105 active:scale-95 flex items-center gap-1 sm:gap-2 text-xs sm:text-sm">
+                            <i class="fas fa-sync-alt text-xs sm:text-sm"></i>
+                            <span class="hidden sm:inline">Refresh</span>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </header>
+
+        <!-- Main Content -->
+        <main class="max-w-7xl mx-auto px-3 sm:px-4 lg:px-8 py-4 sm:py-6 lg:py-8">
+            <!-- Bot Header -->
+            <div id="botHeader" class="bg-gray-800 rounded-xl border border-gray-700 p-4 sm:p-6 mb-4 sm:mb-6">
+                <div class="flex items-center gap-4 sm:gap-6">
+                    <div class="flex-shrink-0 w-16 h-16 sm:w-20 sm:h-20 rounded-full bg-red-600 flex items-center justify-center overflow-hidden"
+                        id="botDetailIcon">
+                        <i class="fas fa-robot text-white text-2xl sm:text-3xl"></i>
+                    </div>
+                    <div class="flex-1 min-w-0">
+                        <h2 class="text-xl sm:text-2xl font-bold text-white mb-2 truncate" id="botDetailName">
+                            Loading...
+                        </h2>
+                        <div class="flex items-center gap-2 flex-wrap" id="botDetailBadges">
+                            <!-- Badges will be rendered here -->
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Status Indicators -->
+            <div id="botStatusIndicators" class="bg-gray-800 rounded-xl border border-gray-700 p-4 sm:p-6 mb-4 sm:mb-6">
+                <h3 class="text-lg sm:text-xl font-semibold text-white mb-4 flex items-center gap-2">
+                    <i class="fas fa-info-circle text-red-500"></i>
+                    Status Information
+                </h3>
+                <div id="statusIndicatorsContent" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+                    <!-- Status indicators will be rendered here -->
+                </div>
+            </div>
+
+            <!-- Action Buttons -->
+            <div class="bg-gray-800 rounded-xl border border-gray-700 p-4 sm:p-6 mb-4 sm:mb-6">
+                <h3 class="text-lg sm:text-xl font-semibold text-white mb-4 flex items-center gap-2">
+                    <i class="fas fa-cogs text-red-500"></i>
+                    Bot Actions
+                </h3>
+                <div class="flex flex-wrap items-center gap-2 sm:gap-3" id="botActionButtons">
+                    <!-- Action buttons will be rendered here -->
+                </div>
+            </div>
+
+            <!-- Server List -->
+            <div id="botServerList" class="bg-gray-800 rounded-xl border border-gray-700 p-4 sm:p-6">
+                <div class="flex items-center justify-between mb-4">
+                    <h3 class="text-lg sm:text-xl font-semibold text-white flex items-center gap-2">
+                        <i class="fas fa-server text-red-500"></i>
+                        Servers
+                    </h3>
+                    <span class="text-xs sm:text-sm text-gray-400" id="serverCount">Loading...</span>
+                </div>
+                <div id="serverListContent" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
+                    <!-- Server cards will be rendered here -->
+                </div>
+                <div id="serverListEmpty" class="hidden text-center py-8">
+                    <div class="inline-flex items-center justify-center w-16 h-16 bg-gray-700 rounded-full mb-4">
+                        <i class="fas fa-server text-2xl text-gray-500"></i>
+                    </div>
+                    <p class="text-gray-400 text-sm">No servers found</p>
+                </div>
+            </div>
+        </main>
+
+        <!-- Footer -->
+        <footer class="bg-gray-800 border-t border-gray-700 mt-auto">
+            <div class="max-w-7xl mx-auto px-3 sm:px-4 lg:px-8 py-3 sm:py-4">
+                <p class="text-center text-gray-500 text-xs sm:text-sm">
+                    Copyright © <span id="botDetailYear"></span> <a href="https://dansday.com" target="_blank"
+                        class="text-red-500 hover:text-red-400 transition-colors">dansday.com</a>. All rights reserved.
+                </p>
+            </div>
+        </footer>
+    </div>
+
     <!-- Add Bot Modal -->
     <div id="addBotModal"
         class="hidden fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-3 sm:p-4 overflow-y-auto">
@@ -578,7 +674,7 @@
                 const isTesting = bot.is_testing;
 
                 return `
-                    <div class="bg-gray-800 rounded-xl border border-gray-700 p-4 sm:p-5 hover:border-gray-600 transition-all duration-200 hover:shadow-lg group w-full">
+                    <div onclick="viewBotDetail('${bot.id}')" class="bg-gray-800 rounded-xl border border-gray-700 p-4 sm:p-5 hover:border-gray-600 transition-all duration-200 hover:shadow-lg group w-full cursor-pointer">
                         <!-- Bot Header -->
                         <div class="flex items-start justify-between mb-3 sm:mb-4 gap-2">
                             <div class="flex items-center gap-2 sm:gap-3 flex-1 min-w-0">
@@ -598,7 +694,7 @@
                                     </div>
                                 </div>
                             </div>
-                            <button onclick="showDeleteModal('${bot.id}', '${(bot.name || 'Unnamed Bot').replace(/'/g, "\\'")}')"
+                            <button onclick="event.stopPropagation(); showDeleteModal('${bot.id}', '${(bot.name || 'Unnamed Bot').replace(/'/g, "\\'")}')"
                                 class="text-gray-400 hover:text-red-500 transition-colors opacity-0 group-hover:opacity-100 p-1 flex-shrink-0">
                                 <i class="fas fa-trash text-sm sm:text-base"></i>
                             </button>
@@ -917,6 +1013,442 @@
 
         // Set dashboard year
         document.getElementById('dashboardYear').textContent = new Date().getFullYear();
+
+        // Bot Detail Functions
+        let currentBotId = null;
+
+        // Format number with dots (1.000.000)
+        function formatNumber(num) {
+            return num.toString().replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+        }
+
+        // Format uptime
+        function formatUptime(ms) {
+            if (!ms || ms <= 0) return '0s';
+
+            const seconds = Math.floor(ms / 1000);
+            const minutes = Math.floor(seconds / 60);
+            const hours = Math.floor(minutes / 60);
+            const days = Math.floor(hours / 24);
+
+            if (days > 0) {
+                return `${days}d ${hours % 24}h ${minutes % 60}m`;
+            } else if (hours > 0) {
+                return `${hours}h ${minutes % 60}m ${seconds % 60}s`;
+            } else if (minutes > 0) {
+                return `${minutes}m ${seconds % 60}s`;
+            } else {
+                return `${seconds}s`;
+            }
+        }
+
+        // View bot detail
+        async function viewBotDetail(botId) {
+            currentBotId = botId;
+
+            // Hide dashboard, show bot detail
+            document.getElementById('dashboardContainer').classList.add('hidden');
+            document.getElementById('botDetailContainer').classList.remove('hidden');
+
+            // Load bot detail
+            await loadBotDetail();
+
+            // Start auto-refresh
+            startBotDetailAutoRefresh();
+        }
+
+        // Show dashboard
+        function showDashboard() {
+            stopBotDetailAutoRefresh();
+            document.getElementById('botDetailContainer').classList.add('hidden');
+            document.getElementById('dashboardContainer').classList.remove('hidden');
+            currentBotId = null;
+        }
+
+        // Load bot detail
+        async function loadBotDetail() {
+            if (!currentBotId) return;
+
+            try {
+                // Load bot data
+                const botRes = await fetch(`/api/bots/${currentBotId}`, {
+                    credentials: 'include'
+                });
+
+                if (botRes.status === 401) {
+                    await checkAuthStatus();
+                    return;
+                }
+
+                if (!botRes.ok) {
+                    throw new Error(`HTTP error! status: ${botRes.status}`);
+                }
+
+                const bot = await botRes.json();
+
+                // Load servers
+                const serversRes = await fetch(`/api/bots/${currentBotId}/servers`, {
+                    credentials: 'include'
+                });
+
+                if (serversRes.status === 401) {
+                    await checkAuthStatus();
+                    return;
+                }
+
+                const servers = serversRes.ok ? await serversRes.json() : [];
+
+                // Render bot detail
+                renderBotDetail(bot, servers);
+            } catch (err) {
+                console.error('Error loading bot detail:', err);
+                showMessage('Failed to load bot details', 'error');
+            }
+        }
+
+        // Render bot detail
+        function renderBotDetail(bot, servers) {
+            const isOfficial = bot.bot_type === 'official';
+            const status = formatStatus(bot.status);
+
+            // Bot Header
+            const botIcon = document.getElementById('botDetailIcon');
+            if (bot.bot_icon) {
+                botIcon.innerHTML = `<img src="${bot.bot_icon}" alt="${bot.name}" class="w-full h-full object-cover">`;
+            } else {
+                botIcon.innerHTML = '<i class="fas fa-robot text-white text-2xl sm:text-3xl"></i>';
+            }
+
+            document.getElementById('botDetailName').textContent = bot.name || 'Unnamed Bot';
+
+            // Badges
+            const badgesContainer = document.getElementById('botDetailBadges');
+            badgesContainer.innerHTML = `
+                <span class="inline-flex items-center gap-1 px-2 sm:px-2.5 py-1 rounded-lg text-xs font-medium ${isOfficial ? 'bg-red-900 text-red-200' : 'bg-gray-700 text-gray-300'}">
+                    <i class="fas fa-${isOfficial ? 'shield' : 'user'}"></i>
+                    ${isOfficial ? 'Official' : 'Selfbot'}
+                </span>
+                <span class="inline-flex items-center gap-1 px-2 sm:px-2.5 py-1 rounded-lg text-xs font-medium ${bot.is_testing ? 'bg-yellow-900 text-yellow-200' : 'bg-green-900 text-green-200'}">
+                    <i class="fas fa-${bot.is_testing ? 'flask' : 'rocket'}"></i>
+                    ${bot.is_testing ? 'Testing' : 'Production'}
+                </span>
+            `;
+
+            // Status Indicators
+            const statusContainer = document.getElementById('statusIndicatorsContent');
+            let statusHTML = '';
+
+            // Common status (Online/Offline)
+            statusHTML += `
+                <div class="bg-gray-700 rounded-lg p-3 sm:p-4">
+                    <div class="flex items-center gap-2 mb-1">
+                        <i class="fas ${status.icon} text-xs ${status.color === 'bg-green-500' ? 'text-green-400' : status.color === 'bg-yellow-500' ? 'text-yellow-400' : status.color === 'bg-orange-500' ? 'text-orange-400' : 'text-gray-400'}"></i>
+                        <span class="text-xs text-gray-400">Status</span>
+                    </div>
+                    <p class="text-sm sm:text-base font-semibold text-white">${status.text}</p>
+                </div>
+            `;
+
+            if (isOfficial) {
+                // Official Bot Status Indicators
+                if (bot.process_id) {
+                    statusHTML += `
+                        <div class="bg-gray-700 rounded-lg p-3 sm:p-4">
+                            <div class="flex items-center gap-2 mb-1">
+                                <i class="fas fa-hashtag text-xs text-gray-400"></i>
+                                <span class="text-xs text-gray-400">Process ID</span>
+                            </div>
+                            <p class="text-sm sm:text-base font-semibold text-white">${bot.process_id}</p>
+                        </div>
+                    `;
+                }
+
+                if (bot.uptime_ms && bot.status === 'running') {
+                    statusHTML += `
+                        <div class="bg-gray-700 rounded-lg p-3 sm:p-4">
+                            <div class="flex items-center gap-2 mb-1">
+                                <i class="fas fa-clock text-xs text-gray-400"></i>
+                                <span class="text-xs text-gray-400">Uptime</span>
+                            </div>
+                            <p class="text-sm sm:text-base font-semibold text-white">${formatUptime(bot.uptime_ms)}</p>
+                        </div>
+                    `;
+                }
+
+                if (bot.port) {
+                    statusHTML += `
+                        <div class="bg-gray-700 rounded-lg p-3 sm:p-4">
+                            <div class="flex items-center gap-2 mb-1">
+                                <i class="fas fa-network-wired text-xs text-gray-400"></i>
+                                <span class="text-xs text-gray-400">Port</span>
+                            </div>
+                            <p class="text-sm sm:text-base font-semibold text-white">${bot.port}</p>
+                        </div>
+                    `;
+                }
+            } else {
+                // Selfbot Status Indicators
+                if (bot.connected_bot_name) {
+                    statusHTML += `
+                        <div class="bg-gray-700 rounded-lg p-3 sm:p-4">
+                            <div class="flex items-center gap-2 mb-1">
+                                <i class="fas fa-link text-xs text-gray-400"></i>
+                                <span class="text-xs text-gray-400">Connected To</span>
+                            </div>
+                            <p class="text-sm sm:text-base font-semibold text-white truncate" title="${bot.connected_bot_name}">${bot.connected_bot_name}</p>
+                        </div>
+                    `;
+                }
+            }
+
+            statusContainer.innerHTML = statusHTML;
+
+            // Action Buttons
+            const actionButtonsContainer = document.getElementById('botActionButtons');
+            let actionHTML = '';
+
+            if (bot.status === 'running' || bot.status === 'starting') {
+                actionHTML += `
+                    <button onclick="handleBotAction('stop')"
+                        class="bg-red-600 hover:bg-red-700 text-white px-3 sm:px-4 lg:px-6 py-2 sm:py-3 rounded-lg transition-all duration-200 transform hover:scale-105 active:scale-95 flex items-center justify-center gap-1.5 sm:gap-2 text-xs sm:text-sm lg:text-base font-medium">
+                        <i class="fas fa-stop text-sm sm:text-base"></i>
+                        <span class="hidden sm:inline">Stop</span>
+                    </button>
+                `;
+                actionHTML += `
+                    <button onclick="handleBotAction('restart')"
+                        class="bg-yellow-600 hover:bg-yellow-700 text-white px-3 sm:px-4 lg:px-6 py-2 sm:py-3 rounded-lg transition-all duration-200 transform hover:scale-105 active:scale-95 flex items-center justify-center gap-1.5 sm:gap-2 text-xs sm:text-sm lg:text-base font-medium">
+                        <i class="fas fa-redo text-sm sm:text-base"></i>
+                        <span class="hidden sm:inline">Restart</span>
+                    </button>
+                `;
+            } else {
+                actionHTML += `
+                    <button onclick="handleBotAction('start')"
+                        class="bg-green-600 hover:bg-green-700 text-white px-3 sm:px-4 lg:px-6 py-2 sm:py-3 rounded-lg transition-all duration-200 transform hover:scale-105 active:scale-95 flex items-center justify-center gap-1.5 sm:gap-2 text-xs sm:text-sm lg:text-base font-medium">
+                        <i class="fas fa-play text-sm sm:text-base"></i>
+                        <span class="hidden sm:inline">Start</span>
+                    </button>
+                `;
+            }
+
+            // Change Mode toggle (only for official bots)
+            // ON = Production (is_testing = false), OFF = Testing (is_testing = true)
+            if (isOfficial) {
+                const isProduction = !bot.is_testing;
+                actionHTML += `
+                    <label class="relative inline-flex items-center cursor-pointer bg-gray-700 hover:bg-gray-600 rounded-lg px-3 sm:px-4 lg:px-6 py-2 sm:py-3 transition-all duration-200 transform hover:scale-105 active:scale-95">
+                        <input type="checkbox" ${isProduction ? 'checked' : ''} onchange="handleChangeMode(event)" class="sr-only peer" id="modeToggle">
+                        <div class="flex items-center gap-2 sm:gap-2.5">
+                            <div class="relative w-11 h-6 bg-gray-600 peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-purple-500 rounded-full peer transition-colors ${isProduction ? 'bg-green-600' : ''}">
+                                <div class="absolute top-0.5 left-0.5 bg-white rounded-full h-5 w-5 transition-transform ${isProduction ? 'translate-x-5' : ''}"></div>
+                            </div>
+                            <span class="text-xs sm:text-sm lg:text-base font-medium text-white whitespace-nowrap">
+                                <span class="hidden sm:inline">${isProduction ? 'Production' : 'Testing'}</span>
+                                <span class="sm:hidden">${isProduction ? 'Prod' : 'Test'}</span>
+                            </span>
+                        </div>
+                    </label>
+                `;
+            }
+
+            actionButtonsContainer.innerHTML = actionHTML;
+
+            // Server List
+            renderServerList(servers);
+        }
+
+        // Render server list
+        function renderServerList(servers) {
+            const serverListContent = document.getElementById('serverListContent');
+            const serverListEmpty = document.getElementById('serverListEmpty');
+            const serverCount = document.getElementById('serverCount');
+
+            if (!servers || servers.length === 0) {
+                serverListContent.innerHTML = '';
+                serverListContent.classList.add('hidden');
+                serverListEmpty.classList.remove('hidden');
+                serverCount.textContent = 'No servers';
+                return;
+            }
+
+            serverListContent.classList.remove('hidden');
+            serverListEmpty.classList.add('hidden');
+            serverCount.textContent = `${servers.length} server${servers.length !== 1 ? 's' : ''}`;
+
+            serverListContent.innerHTML = servers.map(server => {
+                return `
+                    <div class="bg-gray-700 rounded-lg border border-gray-600 p-4 hover:border-gray-500 transition-all duration-200">
+                        <div class="flex items-center gap-3 mb-3">
+                            <div class="flex-shrink-0 w-12 h-12 rounded-full bg-gray-600 flex items-center justify-center overflow-hidden">
+                                ${server.server_icon
+                        ? `<img src="${server.server_icon}" alt="${server.name}" class="w-full h-full object-cover">`
+                        : `<i class="fas fa-server text-white text-lg"></i>`
+                    }
+                            </div>
+                            <div class="flex-1 min-w-0">
+                                <h4 class="font-semibold text-white text-sm sm:text-base truncate" title="${server.name || 'Unnamed Server'}">
+                                    ${server.name || 'Unnamed Server'}
+                                </h4>
+                            </div>
+                        </div>
+                        <div class="space-y-2 text-xs sm:text-sm">
+                            <div class="flex items-center justify-between">
+                                <span class="text-gray-400 flex items-center gap-1.5">
+                                    <i class="fas fa-users w-4"></i>
+                                    Members
+                                </span>
+                                <span class="text-white font-medium">${formatNumber(server.total_members || 0)}</span>
+                            </div>
+                            <div class="flex items-center justify-between">
+                                <span class="text-gray-400 flex items-center gap-1.5">
+                                    <i class="fas fa-star w-4"></i>
+                                    Boost Level
+                                </span>
+                                <span class="text-white font-medium">${server.boost_level || 0}</span>
+                            </div>
+                            <div class="flex items-center justify-between">
+                                <span class="text-gray-400 flex items-center gap-1.5">
+                                    <i class="fas fa-gift w-4"></i>
+                                    Total Boosters
+                                </span>
+                                <span class="text-white font-medium">${formatNumber(server.total_boosters || 0)}</span>
+                            </div>
+                            <div class="flex items-center justify-between">
+                                <span class="text-gray-400 flex items-center gap-1.5">
+                                    <i class="fas fa-hashtag w-4"></i>
+                                    Channels
+                                </span>
+                                <span class="text-white font-medium">${formatNumber(server.total_channels || 0)}</span>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        // Handle bot action (start/stop/restart)
+        async function handleBotAction(action) {
+            if (!currentBotId) return;
+
+            const actionText = action === 'start' ? 'Starting' : action === 'stop' ? 'Stopping' : 'Restarting';
+            showMessage(`${actionText} bot...`, 'success');
+
+            try {
+                const res = await fetch(`/api/${action}`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    credentials: 'include',
+                    body: JSON.stringify({ bot_id: currentBotId })
+                });
+
+                if (res.status === 401) {
+                    await checkAuthStatus();
+                    return;
+                }
+
+                const data = await res.json();
+
+                if (data.success) {
+                    showMessage(`Bot ${action}ed successfully!`, 'success');
+                    // Refresh bot detail after a short delay
+                    setTimeout(() => {
+                        loadBotDetail();
+                    }, 1000);
+                } else {
+                    showMessage(data.error || `Failed to ${action} bot`, 'error');
+                }
+            } catch (err) {
+                console.error(`Error ${action}ing bot:`, err);
+                showMessage(`Failed to ${action} bot. Please try again.`, 'error');
+            }
+        }
+
+        // Handle change mode
+        // Toggle ON = Production (is_testing = false), Toggle OFF = Testing (is_testing = true)
+        async function handleChangeMode(event) {
+            if (!currentBotId || !event?.target) return;
+
+            const isChecked = event.target.checked;
+            const newIsTesting = !isChecked; // Reversed: checked = production = false, unchecked = testing = true
+
+            try {
+                const res = await fetch(`/api/bots/${currentBotId}/mode`, {
+                    method: 'PUT',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    credentials: 'include',
+                    body: JSON.stringify({ is_testing: newIsTesting })
+                });
+
+                if (res.status === 401) {
+                    await checkAuthStatus();
+                    return;
+                }
+
+                const data = await res.json();
+
+                if (data.success) {
+                    showMessage(`Mode changed to ${newIsTesting ? 'Testing' : 'Production'}`, 'success');
+                    // Update toggle visual state immediately
+                    const toggleContainer = event.target.closest('label').querySelector('.relative');
+                    const toggleThumb = toggleContainer.querySelector('.absolute');
+                    if (isChecked) {
+                        toggleContainer.classList.add('bg-green-600');
+                        toggleContainer.classList.remove('bg-gray-600');
+                        toggleThumb.classList.add('translate-x-5');
+                    } else {
+                        toggleContainer.classList.remove('bg-green-600');
+                        toggleContainer.classList.add('bg-gray-600');
+                        toggleThumb.classList.remove('translate-x-5');
+                    }
+                    // Update text
+                    const textSpan = event.target.closest('label').querySelector('span span');
+                    if (textSpan) {
+                        const isMobile = window.innerWidth < 640;
+                        textSpan.textContent = newIsTesting ? (isMobile ? 'Test' : 'Testing') : (isMobile ? 'Prod' : 'Production');
+                    }
+                    // Refresh bot detail after a short delay
+                    setTimeout(() => {
+                        loadBotDetail();
+                    }, 500);
+                } else {
+                    showMessage(data.error || 'Failed to change mode', 'error');
+                    // Revert toggle if failed
+                    event.target.checked = !isChecked;
+                }
+            } catch (err) {
+                console.error('Error changing mode:', err);
+                showMessage('Failed to change mode. Please try again.', 'error');
+                // Revert toggle if failed
+                event.target.checked = !isChecked;
+            }
+        }
+
+        // Set bot detail year
+        document.getElementById('botDetailYear').textContent = new Date().getFullYear();
+
+        // Auto-refresh bot detail every 5 seconds
+        let botDetailRefreshInterval = null;
+        function startBotDetailAutoRefresh() {
+            if (botDetailRefreshInterval) clearInterval(botDetailRefreshInterval);
+            botDetailRefreshInterval = setInterval(() => {
+                if (!document.getElementById('botDetailContainer').classList.contains('hidden')) {
+                    loadBotDetail();
+                }
+            }, 5000);
+        }
+
+        // Stop auto-refresh when switching views
+        function stopBotDetailAutoRefresh() {
+            if (botDetailRefreshInterval) {
+                clearInterval(botDetailRefreshInterval);
+                botDetailRefreshInterval = null;
+            }
+        }
 
         // Initialize on page load
         window.addEventListener('DOMContentLoaded', async () => {
