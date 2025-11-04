@@ -509,7 +509,7 @@
                 <!-- Placeholders Info -->
                 <div class="bg-blue-900 border border-blue-700 rounded-lg p-3 mb-4">
                     <p class="text-xs text-blue-200 mb-2 font-medium">Available placeholders:</p>
-                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs text-blue-300">
+                    <div id="messagePlaceholders" class="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs text-blue-300">
                         <div class="flex items-center gap-2">
                             <code class="bg-blue-800 px-1.5 py-0.5 rounded text-blue-200">{user}</code>
                             <span>Mentions the new member</span>
@@ -1706,8 +1706,7 @@
                         : 'bg-gray-700 text-gray-300 hover:bg-gray-600 hover:text-white'
                     }">
                         <i class="fas ${comp.icon}"></i>
-                        <span class="hidden sm:inline">${comp.name}</span>
-                        <span class="sm:hidden">${comp.name.split(' ')[0]}</span>
+                        <span class="sm:inline">${comp.name}</span>
                     </button>
                 `;
             }).join('');
@@ -1785,6 +1784,17 @@
                     // Render welcomer asynchronously
                     renderWelcomer(settings).then(html => {
                         contentContainer.innerHTML = contentHTML + html;
+                        // Ensure hidden input is properly set and sync messages list
+                        setTimeout(() => {
+                            const hiddenInput = document.getElementById('welcomer_messages');
+                            if (hiddenInput && settings) {
+                                let config = settings.settings || settings;
+                                if (config && config.messages) {
+                                    hiddenInput.value = JSON.stringify(config.messages);
+                                }
+                            }
+                            renderWelcomeMessagesList();
+                        }, 100);
                     });
                     // Show loading state
                     contentContainer.innerHTML = contentHTML + `
@@ -1796,12 +1806,30 @@
                     `;
                     return; // Exit early, content will be set in promise
                 case 'booster':
-                    contentHTML += `
+                    // Render booster asynchronously
+                    renderBooster(settings).then(html => {
+                        contentContainer.innerHTML = contentHTML + html;
+                        // Ensure hidden input is properly set and sync messages list
+                        setTimeout(() => {
+                            const hiddenInput = document.getElementById('booster_messages');
+                            if (hiddenInput && settings) {
+                                let config = settings.settings || settings;
+                                if (config && config.messages) {
+                                    hiddenInput.value = JSON.stringify(config.messages);
+                                }
+                            }
+                            renderBoosterMessagesList();
+                        }, 100);
+                    });
+                    // Show loading state
+                    contentContainer.innerHTML = contentHTML + `
                         <div class="bg-gray-700 rounded-lg p-4 sm:p-6">
-                            <p class="text-gray-300 text-sm sm:text-base">Booster configuration settings will be available here.</p>
+                            <div class="flex items-center justify-center py-8">
+                                <i class="fas fa-spinner fa-spin text-2xl text-gray-400"></i>
+                            </div>
                         </div>
                     `;
-                    break;
+                    return; // Exit early, content will be set in promise
                 case 'permissions':
                     contentHTML += `
                         <div class="bg-gray-700 rounded-lg p-4 sm:p-6">
@@ -2054,7 +2082,7 @@
                             <label class="block text-xs sm:text-sm font-medium text-gray-300">
                                 <i class="fas fa-comment-dots mr-2"></i>Welcome Messages
                             </label>
-                            <button type="button" onclick="openMessageModal()"
+                            <button type="button" onclick="openWelcomeMessageModal()"
                                 class="px-3 py-1.5 bg-red-600 hover:bg-red-700 text-white text-xs sm:text-sm rounded-lg transition-all duration-200 transform hover:scale-[1.02] active:scale-[0.98] flex items-center gap-1.5">
                                 <i class="fas fa-plus"></i>
                                 <span class="hidden sm:inline">Add Message</span>
@@ -2096,6 +2124,117 @@
                         <button type="submit" id="saveWelcomerConfigBtn"
                             class="w-full bg-red-600 hover:bg-red-700 text-white py-2.5 sm:py-3 rounded-lg transition-all duration-200 transform hover:scale-[1.02] active:scale-[0.98] flex items-center justify-center gap-2 text-sm sm:text-base font-medium disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none">
                             <i class="fas fa-spinner fa-spin hidden" id="saveWelcomerConfigLoading"></i>
+                            <i class="fas fa-save"></i>
+                            <span>Save Configuration</span>
+                        </button>
+                    </div>
+                </form>
+            `;
+        }
+
+        // Render Booster Configuration
+        async function renderBooster(settings) {
+            let config = {
+                channels: [],
+                messages: []
+            };
+
+            if (settings) {
+                if (settings.settings) {
+                    config = {
+                        channels: settings.settings.channels || [],
+                        messages: settings.settings.messages || []
+                    };
+                } else if (typeof settings === 'object') {
+                    config = {
+                        channels: settings.channels || [],
+                        messages: settings.messages || []
+                    };
+                }
+            }
+
+            // Load channel names for display
+            const channelNames = await loadChannelNames(config.channels || []);
+
+            return `
+                <form id="boosterConfigForm" class="space-y-4 sm:space-y-6">
+                    <!-- Booster Channels -->
+                    <div>
+                        <label class="block text-xs sm:text-sm font-medium text-gray-300 mb-2">
+                            <i class="fas fa-hashtag mr-2"></i>Booster Channels
+                        </label>
+                        <button type="button" onclick="openChannelSelectorMultiselect('booster_channels')"
+                            class="w-full px-3 sm:px-4 py-2.5 sm:py-3 bg-gray-700 border border-gray-600 rounded-lg text-white text-left flex items-center justify-between hover:border-gray-500 transition-all text-sm sm:text-base">
+                            <span id="booster_channels_display" class="text-gray-300">
+                                ${config.channels && config.channels.length > 0
+                                    ? `${config.channels.length} channel${config.channels.length > 1 ? 's' : ''} selected`
+                                    : 'Select channels...'}
+                            </span>
+                            <i class="fas fa-chevron-down text-gray-400"></i>
+                        </button>
+                        <input type="hidden" id="booster_channels" name="booster_channels" value="${(config.channels || []).join(',')}">
+                        ${config.channels && config.channels.length > 0 ? `
+                            <div id="booster_channels_selected" class="mt-2 flex flex-wrap gap-2">
+                                ${config.channels.map(chId => `
+                                    <span class="inline-flex items-center gap-1.5 px-2.5 py-1.5 bg-red-600 text-white text-xs rounded-lg">
+                                        ${channelNames[chId] ? `#${channelNames[chId]}` : `Channel ${chId}`}
+                                        <button type="button" onclick="removeBoosterChannel('${chId}')" class="hover:text-red-200 transition-colors">
+                                            <i class="fas fa-times"></i>
+                                        </button>
+                                    </span>
+                                `).join('')}
+                            </div>
+                        ` : ''}
+                    </div>
+
+                    <!-- Booster Messages -->
+                    <div>
+                        <div class="flex items-center justify-between mb-2">
+                            <label class="block text-xs sm:text-sm font-medium text-gray-300">
+                                <i class="fas fa-comment-dots mr-2"></i>Booster Messages
+                            </label>
+                            <button type="button" onclick="openBoosterMessageModal()"
+                                class="px-3 py-1.5 bg-red-600 hover:bg-red-700 text-white text-xs sm:text-sm rounded-lg transition-all duration-200 transform hover:scale-[1.02] active:scale-[0.98] flex items-center gap-1.5">
+                                <i class="fas fa-plus"></i>
+                                <span class="hidden sm:inline">Add Message</span>
+                                <span class="sm:hidden">Add</span>
+                            </button>
+                        </div>
+                        <div id="booster_messages_list" class="space-y-2">
+                            ${config.messages && config.messages.length > 0
+                                ? config.messages.map((msg, index) => `
+                                    <div class="bg-gray-700 rounded-lg p-3 sm:p-4 flex items-start justify-between gap-3">
+                                        <div class="flex-1 min-w-0">
+                                            <p class="text-white text-sm sm:text-base break-words">${escapeHtml(msg)}</p>
+                                        </div>
+                                        <div class="flex items-center gap-2 flex-shrink-0">
+                                            <button type="button" onclick="editBoosterMessage(${index})"
+                                                class="p-2 bg-gray-600 hover:bg-gray-500 text-white rounded-lg transition-colors">
+                                                <i class="fas fa-edit text-xs"></i>
+                                            </button>
+                                            <button type="button" onclick="deleteBoosterMessage(${index})"
+                                                class="p-2 bg-red-600 hover:bg-red-700 text-white rounded-lg transition-colors">
+                                                <i class="fas fa-trash text-xs"></i>
+                                            </button>
+                                        </div>
+                                    </div>
+                                `).join('')
+                                : `
+                                    <div class="bg-gray-700 rounded-lg p-4 sm:p-6 text-center">
+                                        <i class="fas fa-inbox text-3xl text-gray-500 mb-2"></i>
+                                        <p class="text-gray-400 text-sm sm:text-base">No booster messages configured</p>
+                                        <p class="text-gray-500 text-xs mt-1">Add a message to get started</p>
+                                    </div>
+                                `}
+                        </div>
+                        <input type="hidden" id="booster_messages" name="booster_messages" value="${JSON.stringify(config.messages || [])}">
+                    </div>
+
+                    <!-- Save Button -->
+                    <div class="pt-4 border-t border-gray-700">
+                        <button type="submit" id="saveBoosterConfigBtn"
+                            class="w-full bg-red-600 hover:bg-red-700 text-white py-2.5 sm:py-3 rounded-lg transition-all duration-200 transform hover:scale-[1.02] active:scale-[0.98] flex items-center justify-center gap-2 text-sm sm:text-base font-medium disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none">
+                            <i class="fas fa-spinner fa-spin hidden" id="saveBoosterConfigLoading"></i>
                             <i class="fas fa-save"></i>
                             <span>Save Configuration</span>
                         </button>
@@ -2445,7 +2584,11 @@
             }
 
             // Update selected channels display
-            await updateSelectedChannelsDisplay();
+            if (currentChannelField === 'welcomer_channels') {
+                await updateSelectedChannelsDisplay();
+            } else if (currentChannelField === 'booster_channels') {
+                await updateSelectedBoosterChannelsDisplay();
+            }
 
             closeChannelSelector();
         }
@@ -2496,6 +2639,52 @@
             await updateSelectedChannelsDisplay();
         }
 
+        // Update selected booster channels display
+        async function updateSelectedBoosterChannelsDisplay() {
+            const hiddenInput = document.getElementById('booster_channels');
+            if (!hiddenInput) return;
+
+            const channelIds = hiddenInput.value ? hiddenInput.value.split(',').filter(Boolean) : [];
+            const displayEl = document.getElementById('booster_channels_selected');
+
+            if (channelIds.length === 0) {
+                if (displayEl) displayEl.innerHTML = '';
+                return;
+            }
+
+            const channelNames = await loadChannelNames(channelIds);
+
+            if (displayEl) {
+                displayEl.innerHTML = channelIds.map(chId => `
+                    <span class="inline-flex items-center gap-1.5 px-2.5 py-1.5 bg-red-600 text-white text-xs rounded-lg">
+                        ${channelNames[chId] ? `#${channelNames[chId]}` : `Channel ${chId}`}
+                        <button type="button" onclick="removeBoosterChannel('${chId}')" class="hover:text-red-200 transition-colors">
+                            <i class="fas fa-times"></i>
+                        </button>
+                    </span>
+                `).join('');
+            }
+        }
+
+        // Remove booster channel
+        async function removeBoosterChannel(channelId) {
+            const hiddenInput = document.getElementById('booster_channels');
+            if (!hiddenInput) return;
+
+            const channelIds = hiddenInput.value ? hiddenInput.value.split(',').filter(Boolean) : [];
+            const filtered = channelIds.filter(id => id !== channelId);
+            hiddenInput.value = filtered.join(',');
+
+            // Update display
+            const displayEl = document.getElementById('booster_channels_display');
+            if (displayEl) {
+                const count = filtered.length;
+                displayEl.textContent = count > 0 ? `${count} channel${count !== 1 ? 's' : ''} selected` : 'Select channels...';
+            }
+
+            await updateSelectedBoosterChannelsDisplay();
+        }
+
         // Select channel (single select mode)
         function selectChannel(channelId, channelName) {
             if (!currentChannelField || isMultiselectMode) return;
@@ -2512,9 +2701,10 @@
             closeChannelSelector();
         }
 
-        // Welcome Message Management
+        // Message Management (Welcomer & Booster)
         let currentMessageIndex = null;
         let isSavingMessage = false;
+        let currentMessageType = 'welcomer'; // 'welcomer' or 'booster'
 
         // Open message modal
         function openMessageModal(index = null) {
@@ -2522,40 +2712,130 @@
             const modal = document.getElementById('messageModal');
             const title = document.getElementById('messageModalTitle');
             const textarea = document.getElementById('messageText');
+            const placeholdersInfo = document.getElementById('messagePlaceholders');
 
-            if (!modal || !title || !textarea) {
+            if (!modal || !title || !textarea || !placeholdersInfo) {
                 showMessage('Message modal elements not found', 'error');
                 return;
             }
 
+            const isBooster = currentMessageType === 'booster';
+            const messageType = isBooster ? 'Booster' : 'Welcome';
+            const messagesId = isBooster ? 'booster_messages' : 'welcomer_messages';
+
+            // Update textarea placeholder based on type
+            textarea.placeholder = isBooster 
+                ? 'Enter booster message... Use placeholders like {user}, {server}, etc.'
+                : 'Enter welcome message... Use placeholders like {user}, {server}, etc.';
+
+            // Update placeholders based on type
+            if (isBooster) {
+                placeholdersInfo.innerHTML = `
+                    <div class="flex items-center gap-2">
+                        <code class="bg-blue-800 px-1.5 py-0.5 rounded text-blue-200">{user}</code>
+                        <span>Mentions the booster</span>
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <code class="bg-blue-800 px-1.5 py-0.5 rounded text-blue-200">{server}</code>
+                        <span>Server name</span>
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <code class="bg-blue-800 px-1.5 py-0.5 rounded text-blue-200">{boostLevel}</code>
+                        <span>Current boost level (e.g., "Level 2")</span>
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <code class="bg-blue-800 px-1.5 py-0.5 rounded text-blue-200">{totalBoosts}</code>
+                        <span>Total number of boosts</span>
+                    </div>
+                `;
+            } else {
+                placeholdersInfo.innerHTML = `
+                    <div class="flex items-center gap-2">
+                        <code class="bg-blue-800 px-1.5 py-0.5 rounded text-blue-200">{user}</code>
+                        <span>Mentions the new member</span>
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <code class="bg-blue-800 px-1.5 py-0.5 rounded text-blue-200">{server}</code>
+                        <span>Server name</span>
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <code class="bg-blue-800 px-1.5 py-0.5 rounded text-blue-200">{memberCount}</code>
+                        <span>Total member count</span>
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <code class="bg-blue-800 px-1.5 py-0.5 rounded text-blue-200">{accountAge}</code>
+                        <span>Account age (e.g., "2 days ago")</span>
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <code class="bg-blue-800 px-1.5 py-0.5 rounded text-blue-200">{date}</code>
+                        <span>Current date</span>
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <code class="bg-blue-800 px-1.5 py-0.5 rounded text-blue-200">{time}</code>
+                        <span>Current time</span>
+                    </div>
+                `;
+            }
+
             if (index !== null) {
-                // Edit mode
-                const hiddenInput = document.getElementById('welcomer_messages');
+                // Edit mode - ensure we have the latest messages
+                const hiddenInput = document.getElementById(messagesId);
                 if (hiddenInput) {
                     try {
-                        const messages = JSON.parse(hiddenInput.value || '[]');
-                        if (messages[index] !== undefined) {
-                            textarea.value = messages[index];
-                            title.innerHTML = '<i class="fas fa-comment-dots text-red-500"></i> Edit Welcome Message';
+                        // Re-read messages from the list to ensure we have current state
+                        const messagesList = isBooster 
+                            ? document.getElementById('booster_messages_list')
+                            : document.getElementById('welcomer_messages_list');
+                        
+                        let messages = [];
+                        const value = hiddenInput.value || '[]';
+                        if (value.trim()) {
+                            messages = JSON.parse(value);
+                        }
+                        
+                        // Always try to sync from rendered list as backup
+                        if (messagesList && messagesList.children.length > 0) {
+                            const messageDivs = Array.from(messagesList.querySelectorAll('div.bg-gray-700')).filter(div => {
+                                // Only count divs that have edit buttons (actual message items, not empty state)
+                                return div.querySelector('button[onclick*="edit"]');
+                            });
+                            
+                            if (messageDivs.length > 0) {
+                                const listMessages = messageDivs.map(div => {
+                                    const textEl = div.querySelector('p.text-white');
+                                    return textEl ? textEl.textContent.trim() : '';
+                                }).filter(Boolean);
+                                
+                                // Use list messages if they exist and match count, or if hidden input is empty
+                                if (listMessages.length > 0 && (messages.length === 0 || listMessages.length === messages.length)) {
+                                    messages = listMessages;
+                                    hiddenInput.value = JSON.stringify(messages);
+                                }
+                            }
+                        }
+                        
+                        if (Array.isArray(messages) && index >= 0 && index < messages.length && messages[index]) {
+                            textarea.value = String(messages[index]);
+                            title.innerHTML = `<i class="fas fa-comment-dots text-red-500"></i> Edit ${messageType} Message`;
                         } else {
                             textarea.value = '';
-                            title.innerHTML = '<i class="fas fa-comment-dots text-red-500"></i> Add Welcome Message';
+                            title.innerHTML = `<i class="fas fa-comment-dots text-red-500"></i> Add ${messageType} Message`;
                             currentMessageIndex = null;
                         }
                     } catch (err) {
                         textarea.value = '';
-                        title.innerHTML = '<i class="fas fa-comment-dots text-red-500"></i> Add Welcome Message';
+                        title.innerHTML = `<i class="fas fa-comment-dots text-red-500"></i> Add ${messageType} Message`;
                         currentMessageIndex = null;
                     }
                 } else {
                     textarea.value = '';
-                    title.innerHTML = '<i class="fas fa-comment-dots text-red-500"></i> Add Welcome Message';
+                    title.innerHTML = `<i class="fas fa-comment-dots text-red-500"></i> Add ${messageType} Message`;
                     currentMessageIndex = null;
                 }
             } else {
                 // Add mode
                 textarea.value = '';
-                title.innerHTML = '<i class="fas fa-comment-dots text-red-500"></i> Add Welcome Message';
+                title.innerHTML = `<i class="fas fa-comment-dots text-red-500"></i> Add ${messageType} Message`;
             }
 
             modal.classList.remove('hidden');
@@ -2583,6 +2863,7 @@
                 }
             }
             currentMessageIndex = null;
+            currentMessageType = 'welcomer'; // Reset to default
             isSavingMessage = false; // Reset flag when closing modal
         }
 
@@ -2631,8 +2912,10 @@
                 return false;
             }
 
-            // Get hidden input for messages
-            const hiddenInput = document.getElementById('welcomer_messages');
+            // Get hidden input for messages based on type
+            const isBooster = currentMessageType === 'booster';
+            const messagesId = isBooster ? 'booster_messages' : 'welcomer_messages';
+            const hiddenInput = document.getElementById(messagesId);
             if (!hiddenInput) {
                 showMessage('Failed to save message - form configuration not found', 'error');
                 isSavingMessage = false;
@@ -2663,8 +2946,12 @@
             // Clear the textarea before closing to prevent duplicate submissions
             textarea.value = '';
 
-            // Update UI
-            renderWelcomeMessagesList();
+            // Update UI based on type
+            if (isBooster) {
+                renderBoosterMessagesList();
+            } else {
+                renderWelcomeMessagesList();
+            }
 
             // Close modal first
             closeMessageModal();
@@ -2680,18 +2967,161 @@
 
         // Edit welcome message
         function editWelcomeMessage(index) {
+            currentMessageType = 'welcomer';
             openMessageModal(index);
+        }
+
+        // Open welcome message modal (for welcomer)
+        function openWelcomeMessageModal() {
+            currentMessageType = 'welcomer';
+            openMessageModal();
+        }
+
+        // Booster Message Management
+        function openBoosterMessageModal(index = null) {
+            currentMessageType = 'booster';
+            openMessageModal(index);
+        }
+
+        function editBoosterMessage(index) {
+            currentMessageType = 'booster';
+            openMessageModal(index);
+        }
+
+        function deleteBoosterMessage(index) {
+            const hiddenInput = document.getElementById('booster_messages');
+            const messagesList = document.getElementById('booster_messages_list');
+            
+            if (!hiddenInput) return;
+
+            let messages = [];
+            
+            // First try to get from hidden input
+            try {
+                const value = hiddenInput.value || '[]';
+                if (value.trim()) {
+                    messages = JSON.parse(value);
+                }
+            } catch (err) {
+                messages = [];
+            }
+
+            // If hidden input is empty or invalid, try to get from rendered list
+            if (!Array.isArray(messages) || messages.length === 0) {
+                if (messagesList) {
+                    const messageDivs = Array.from(messagesList.querySelectorAll('div.bg-gray-700')).filter(div => {
+                        return div.querySelector('button[onclick*="editBoosterMessage"]');
+                    });
+                    
+                    if (messageDivs.length > 0) {
+                        messages = messageDivs.map(div => {
+                            const textEl = div.querySelector('p.text-white');
+                            return textEl ? textEl.textContent.trim() : '';
+                        }).filter(Boolean);
+                    }
+                }
+            }
+
+            if (Array.isArray(messages) && index >= 0 && index < messages.length) {
+                messages.splice(index, 1);
+                hiddenInput.value = JSON.stringify(messages);
+                renderBoosterMessagesList();
+            }
+        }
+
+        function renderBoosterMessagesList() {
+            const hiddenInput = document.getElementById('booster_messages');
+            if (!hiddenInput) return;
+
+            let messages = [];
+            try {
+                const value = hiddenInput.value || '[]';
+                if (value.trim()) {
+                    messages = JSON.parse(value);
+                }
+            } catch (err) {
+                messages = [];
+            }
+
+            // Ensure hidden input is synced
+            if (!Array.isArray(messages)) {
+                messages = [];
+            }
+            hiddenInput.value = JSON.stringify(messages);
+
+            const listContainer = document.getElementById('booster_messages_list');
+
+            if (!listContainer) return;
+
+            if (messages.length === 0) {
+                listContainer.innerHTML = `
+                    <div class="bg-gray-700 rounded-lg p-4 sm:p-6 text-center">
+                        <i class="fas fa-inbox text-3xl text-gray-500 mb-2"></i>
+                        <p class="text-gray-400 text-sm sm:text-base">No booster messages configured</p>
+                        <p class="text-gray-500 text-xs mt-1">Add a message to get started</p>
+                    </div>
+                `;
+            } else {
+                listContainer.innerHTML = messages.map((msg, index) => `
+                    <div class="bg-gray-700 rounded-lg p-3 sm:p-4 flex items-start justify-between gap-3">
+                        <div class="flex-1 min-w-0">
+                            <p class="text-white text-sm sm:text-base break-words">${escapeHtml(msg)}</p>
+                        </div>
+                        <div class="flex items-center gap-2 flex-shrink-0">
+                            <button type="button" onclick="editBoosterMessage(${index})"
+                                class="p-2 bg-gray-600 hover:bg-gray-500 text-white rounded-lg transition-colors">
+                                <i class="fas fa-edit text-xs"></i>
+                            </button>
+                            <button type="button" onclick="deleteBoosterMessage(${index})"
+                                class="p-2 bg-red-600 hover:bg-red-700 text-white rounded-lg transition-colors">
+                                <i class="fas fa-trash text-xs"></i>
+                            </button>
+                        </div>
+                    </div>
+                `).join('');
+            }
         }
 
         // Delete welcome message
         function deleteWelcomeMessage(index) {
             const hiddenInput = document.getElementById('welcomer_messages');
+            const messagesList = document.getElementById('welcomer_messages_list');
+            
             if (!hiddenInput) return;
 
-            let messages = JSON.parse(hiddenInput.value || '[]');
-            messages.splice(index, 1);
-            hiddenInput.value = JSON.stringify(messages);
-            renderWelcomeMessagesList();
+            let messages = [];
+            
+            // First try to get from hidden input
+            try {
+                const value = hiddenInput.value || '[]';
+                if (value.trim()) {
+                    messages = JSON.parse(value);
+                }
+            } catch (err) {
+                messages = [];
+            }
+
+            // If hidden input is empty or invalid, try to get from rendered list
+            if (!Array.isArray(messages) || messages.length === 0) {
+                if (messagesList) {
+                    const messageDivs = Array.from(messagesList.querySelectorAll('div.bg-gray-700')).filter(div => {
+                        return div.querySelector('button[onclick*="editWelcomeMessage"]');
+                    });
+                    
+                    if (messageDivs.length > 0) {
+                        messages = messageDivs.map(div => {
+                            const textEl = div.querySelector('p.text-white');
+                            return textEl ? textEl.textContent.trim() : '';
+                        }).filter(Boolean);
+                    }
+                }
+            }
+
+            if (Array.isArray(messages) && index >= 0 && index < messages.length) {
+                messages.splice(index, 1);
+                hiddenInput.value = JSON.stringify(messages);
+                renderWelcomeMessagesList();
+            }
         }
 
         // Render welcome messages list
@@ -2699,7 +3129,22 @@
             const hiddenInput = document.getElementById('welcomer_messages');
             if (!hiddenInput) return;
 
-            const messages = JSON.parse(hiddenInput.value || '[]');
+            let messages = [];
+            try {
+                const value = hiddenInput.value || '[]';
+                if (value.trim()) {
+                    messages = JSON.parse(value);
+                }
+            } catch (err) {
+                messages = [];
+            }
+
+            // Ensure hidden input is synced
+            if (!Array.isArray(messages)) {
+                messages = [];
+            }
+            hiddenInput.value = JSON.stringify(messages);
+
             const listContainer = document.getElementById('welcomer_messages_list');
 
             if (!listContainer) return;
@@ -2872,6 +3317,75 @@
                     // Reload component to show updated values
                     setTimeout(() => {
                         loadComponent('welcomer');
+                    }, 500);
+                } else {
+                    showMessage(data.error || 'Failed to save configuration', 'error');
+                }
+            } catch (err) {
+                showMessage('Failed to save configuration. Please try again.', 'error');
+            } finally {
+                submitBtn.disabled = false;
+                loadingIcon.classList.add('hidden');
+            }
+        });
+
+        // Handle booster config form submission
+        document.addEventListener('submit', async function (e) {
+            if (e.target.id !== 'boosterConfigForm') return;
+            e.preventDefault();
+
+            const channelsInput = document.getElementById('booster_channels');
+            const messagesInput = document.getElementById('booster_messages');
+
+            const channels = channelsInput?.value ? channelsInput.value.split(',').filter(Boolean) : [];
+            
+            // Parse messages with error handling
+            let messages = [];
+            if (messagesInput?.value) {
+                try {
+                    const parsed = JSON.parse(messagesInput.value);
+                    messages = Array.isArray(parsed) ? parsed : [];
+                } catch (err) {
+                    messages = [];
+                }
+            }
+
+            const formData = {
+                channels: channels,
+                messages: messages
+            };
+
+            // Show loading state
+            const submitBtn = document.getElementById('saveBoosterConfigBtn');
+            const loadingIcon = document.getElementById('saveBoosterConfigLoading');
+            submitBtn.disabled = true;
+            loadingIcon.classList.remove('hidden');
+
+            try {
+                const res = await fetch(`/api/servers/${currentServerId}/settings`, {
+                    method: 'PUT',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    credentials: 'include',
+                    body: JSON.stringify({
+                        component_name: 'booster',
+                        settings: formData
+                    })
+                });
+
+                if (res.status === 401) {
+                    await checkAuthStatus();
+                    return;
+                }
+
+                const data = await res.json();
+
+                if (data.success) {
+                    showMessage('Booster configuration saved successfully!', 'success');
+                    // Reload component to show updated values
+                    setTimeout(() => {
+                        loadComponent('booster');
                     }, 500);
                 } else {
                     showMessage(data.error || 'Failed to save configuration', 'error');
