@@ -169,7 +169,7 @@ export async function getAllBots() {
         const { data, error } = await supabase
             .from('bots')
             .select('*')
-            .order('created_at', { ascending: false });
+            .order('created_at', { ascending: true }); // Oldest first - "added first"
 
         if (error) throw error;
         return data || [];

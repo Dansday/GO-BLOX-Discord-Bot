@@ -1504,6 +1504,13 @@
 
                 const bots = await res.json();
 
+                // Sort bots by created_at (oldest first - "added first")
+                bots.sort((a, b) => {
+                    const dateA = new Date(a.created_at || 0);
+                    const dateB = new Date(b.created_at || 0);
+                    return dateA - dateB; // Oldest first
+                });
+
                 const botListEl = document.getElementById('botList');
 
                 if (bots.length === 0) {
