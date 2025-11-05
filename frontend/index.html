@@ -2167,8 +2167,8 @@
                             class="w-full px-3 sm:px-4 py-2.5 sm:py-3 bg-gray-700 border border-gray-600 rounded-lg text-white text-left flex items-center justify-between hover:border-gray-500 transition-all text-sm sm:text-base">
                             <span id="booster_channels_display" class="text-gray-300">
                                 ${config.channels && config.channels.length > 0
-                                    ? `${config.channels.length} channel${config.channels.length > 1 ? 's' : ''} selected`
-                                    : 'Select channels...'}
+                    ? `${config.channels.length} channel${config.channels.length > 1 ? 's' : ''} selected`
+                    : 'Select channels...'}
                             </span>
                             <i class="fas fa-chevron-down text-gray-400"></i>
                         </button>
@@ -2202,7 +2202,7 @@
                         </div>
                         <div id="booster_messages_list" class="space-y-2">
                             ${config.messages && config.messages.length > 0
-                                ? config.messages.map((msg, index) => `
+                    ? config.messages.map((msg, index) => `
                                     <div class="bg-gray-700 rounded-lg p-3 sm:p-4 flex items-start justify-between gap-3">
                                         <div class="flex-1 min-w-0">
                                             <p class="text-white text-sm sm:text-base break-words">${escapeHtml(msg)}</p>
@@ -2219,7 +2219,7 @@
                                         </div>
                                     </div>
                                 `).join('')
-                                : `
+                    : `
                                     <div class="bg-gray-700 rounded-lg p-4 sm:p-6 text-center">
                                         <i class="fas fa-inbox text-3xl text-gray-500 mb-2"></i>
                                         <p class="text-gray-400 text-sm sm:text-base">No booster messages configured</p>
@@ -2724,7 +2724,7 @@
             const messagesId = isBooster ? 'booster_messages' : 'welcomer_messages';
 
             // Update textarea placeholder based on type
-            textarea.placeholder = isBooster 
+            textarea.placeholder = isBooster
                 ? 'Enter booster message... Use placeholders like {user}, {server}, etc.'
                 : 'Enter welcome message... Use placeholders like {user}, {server}, etc.';
 
@@ -2783,29 +2783,29 @@
                 if (hiddenInput) {
                     try {
                         // Re-read messages from the list to ensure we have current state
-                        const messagesList = isBooster 
+                        const messagesList = isBooster
                             ? document.getElementById('booster_messages_list')
                             : document.getElementById('welcomer_messages_list');
-                        
+
                         let messages = [];
                         const value = hiddenInput.value || '[]';
                         if (value.trim()) {
                             messages = JSON.parse(value);
                         }
-                        
+
                         // Always try to sync from rendered list as backup
                         if (messagesList && messagesList.children.length > 0) {
                             const messageDivs = Array.from(messagesList.querySelectorAll('div.bg-gray-700')).filter(div => {
                                 // Only count divs that have edit buttons (actual message items, not empty state)
                                 return div.querySelector('button[onclick*="edit"]');
                             });
-                            
+
                             if (messageDivs.length > 0) {
                                 const listMessages = messageDivs.map(div => {
                                     const textEl = div.querySelector('p.text-white');
                                     return textEl ? textEl.textContent.trim() : '';
                                 }).filter(Boolean);
-                                
+
                                 // Use list messages if they exist and match count, or if hidden input is empty
                                 if (listMessages.length > 0 && (messages.length === 0 || listMessages.length === messages.length)) {
                                     messages = listMessages;
@@ -2813,7 +2813,7 @@
                                 }
                             }
                         }
-                        
+
                         if (Array.isArray(messages) && index >= 0 && index < messages.length && messages[index]) {
                             textarea.value = String(messages[index]);
                             title.innerHTML = `<i class="fas fa-comment-dots text-red-500"></i> Edit ${messageType} Message`;
@@ -2991,11 +2991,11 @@
         function deleteBoosterMessage(index) {
             const hiddenInput = document.getElementById('booster_messages');
             const messagesList = document.getElementById('booster_messages_list');
-            
+
             if (!hiddenInput) return;
 
             let messages = [];
-            
+
             // First try to get from hidden input
             try {
                 const value = hiddenInput.value || '[]';
@@ -3012,7 +3012,7 @@
                     const messageDivs = Array.from(messagesList.querySelectorAll('div.bg-gray-700')).filter(div => {
                         return div.querySelector('button[onclick*="editBoosterMessage"]');
                     });
-                    
+
                     if (messageDivs.length > 0) {
                         messages = messageDivs.map(div => {
                             const textEl = div.querySelector('p.text-white');
@@ -3086,11 +3086,11 @@
         function deleteWelcomeMessage(index) {
             const hiddenInput = document.getElementById('welcomer_messages');
             const messagesList = document.getElementById('welcomer_messages_list');
-            
+
             if (!hiddenInput) return;
 
             let messages = [];
-            
+
             // First try to get from hidden input
             try {
                 const value = hiddenInput.value || '[]';
@@ -3107,7 +3107,7 @@
                     const messageDivs = Array.from(messagesList.querySelectorAll('div.bg-gray-700')).filter(div => {
                         return div.querySelector('button[onclick*="editWelcomeMessage"]');
                     });
-                    
+
                     if (messageDivs.length > 0) {
                         messages = messageDivs.map(div => {
                             const textEl = div.querySelector('p.text-white');
@@ -3338,7 +3338,7 @@
             const messagesInput = document.getElementById('booster_messages');
 
             const channels = channelsInput?.value ? channelsInput.value.split(',').filter(Boolean) : [];
-            
+
             // Parse messages with error handling
             let messages = [];
             if (messagesInput?.value) {
