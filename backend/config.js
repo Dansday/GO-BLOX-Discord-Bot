@@ -515,8 +515,8 @@ export const FEEDBACK = {
         const settings = await db.getServerSettings(officialBotServer.id, 'feedback');
 
         // If feedback config exists and has a channel, use it
-        if (settings && settings.settings && settings.settings.channel_id) {
-            return settings.settings.channel_id;
+        if (settings && settings.settings && settings.settings.feedback_channel) {
+            return settings.settings.feedback_channel;
         }
 
         // Otherwise, return null (no channel configured)
