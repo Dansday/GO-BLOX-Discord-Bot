@@ -87,7 +87,7 @@ export function createInterfaceButtons() {
     const feedbackButton = new ButtonBuilder()
         .setCustomId('bot_feedback')
         .setLabel('💬 Feedback')
-        .setStyle(ButtonStyle.Secondary);
+        .setStyle(ButtonStyle.Success);
 
     const sendMessageButton = new ButtonBuilder()
         .setCustomId('bot_send_message')
@@ -102,11 +102,11 @@ export function createInterfaceButtons() {
     const afkButton = new ButtonBuilder()
         .setCustomId('bot_afk')
         .setLabel('⏸️ AFK')
-        .setStyle(ButtonStyle.Secondary);
+        .setStyle(ButtonStyle.Success);
 
     // Create action rows with buttons (max 5 buttons per row)
     const buttonRow1 = new ActionRowBuilder()
-        .addComponents(sendMessageButton, customSupporterRoleButton, afkButton, helpButton, feedbackButton);
+        .addComponents(sendMessageButton, customSupporterRoleButton, afkButton, feedbackButton, helpButton);
 
     return [buttonRow1];
 }

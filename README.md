@@ -229,6 +229,7 @@ The `/interface` command creates a visual interface with buttons. All button res
 - Features:
   - Optional custom AFK message
   - Nickname automatically prefixed with `[AFK]`
+  - Original display name is restored when AFK is removed
   - If in voice channel: automatically muted and deafened
   - Auto-removal when you send any message, unmute/undeafen, or manually remove
   - Mention notifications: Users notified when mentioning you while AFK
@@ -243,7 +244,7 @@ The `/interface` command creates a visual interface with buttons. All button res
 - Submit feedback, suggestions, or concerns to server staff
 - Features:
   - Simple modal with text input (up to 2000 characters)
-  - All submissions logged with submission number and user information
+  - All submissions posted to configured feedback channel with user information
   - Staff role automatically mentioned in feedback channel
 - **Permission:** Member+
 
@@ -278,7 +279,8 @@ The `/interface` command creates a visual interface with buttons. All button res
   - Set custom role name (1-100 characters)
   - Set role color (hex format like #FF5733, decimal number, or color name)
   - Set role icon (Unicode emoji or JPG/PNG image URL)
-  - Role automatically positioned between Supporter and Staff roles
+  - Role automatically positioned between configured role constraints (role start and role end)
+  - Each user can have exactly one custom role
 - **Edit Features:**
   - Modify existing role name, color, or icon
   - Pre-filled with current values
@@ -287,9 +289,10 @@ The `/interface` command creates a visual interface with buttons. All button res
   - Permanently delete your custom role
   - Role and all permissions removed
 - **Auto-Cleanup:**
-  - Unused roles (no members) are automatically removed
-  - Cleanup runs on bot startup (after 10 seconds) and every 6 hours
+  - Roles with no members or more than one member are automatically removed
+  - Cleanup runs on bot startup (after 5 seconds) and every 6 hours
   - Roles removed when members lose permission or leave server
+  - Valid roles (exactly 1 member) are preserved across bot restarts
 - **Permission:** Supporter, Staff, or Admin
 
 ## Communication Method
@@ -297,7 +300,8 @@ The `/interface` command creates a visual interface with buttons. All button res
 ### Webhook Communication
 - Self-bot sends message data via HTTP POST to local webhook server
 - Official bot runs a webhook server on configured port (default: 7777)
-- **Secret key authentication**: Only authorized self-bot can access webhook
+- **Secret key authentication**: All endpoints require `X-Secret-Key` header
+- **Health Check Endpoint**: `GET /status` or `GET /health` - Returns bot status, uptime, guild count (requires secret key)
 - **Local communication**: Both bots run on same server, communicate via localhost
 - Real-time communication for instant message forwarding
 - Each official bot can have its own port (multiple bots supported)
@@ -331,9 +335,9 @@ Configuration is managed through:
 
 #### Permissions Configuration
 - Admin roles (full access)
-- Staff roles (most features except pause/setup)
-- Supporter roles (custom roles, status, help)
-- Member roles (AFK, status, help, feedback)
+- Staff roles (all interfaces: Send Message, Custom Supporter Role, AFK, Help, Feedback)
+- Supporter roles (Custom Supporter Role, Help)
+- Member roles (AFK, Help, Feedback)
 
 #### Main Configuration
 - Production channel (for moderation logs)
@@ -343,12 +347,13 @@ Configuration is managed through:
 - Embed footer (with placeholders: `{server}`, `{year}`, `{date}`, `{time}`)
 
 #### Feedback Configuration
-- Feedback channel ID
-- Staff role for mentions
+- Feedback channel ID (where submissions are posted)
+- Staff roles automatically mentioned in feedback channel
 
 #### Custom Supporter Role Configuration
-- Role above (typically Supporter role)
-- Role below (typically Staff role)
+- Role Start (top/highest position - typically Supporter role)
+- Role End (bottom/lowest position - typically Staff role)
+- Custom roles are created between these constraints
 
 #### Activity Tracker Configuration
 - Allowed categories for activity search
@@ -380,12 +385,12 @@ Each feature is organized as a component for easy maintenance:
 - **Forwarder Component**: Handles message processing and forwarding
 - **Welcomer Component**: Handles new user welcoming with beautiful embeds
 - **Booster Component**: Handles server booster thank you messages
-- **Webhook Component**: Handles webhook server for self-bot communication
+- **Webhook Component**: Handles webhook server for self-bot communication and health check endpoint
 - **Commands Component**: Handles slash command system and execution
 - **Interface Component**: Handles button interface creation and interactions
 - **Moderation Component**: Tracks bans, unbans, and kicks in real-time, logs to main channel
 - **Permissions Component**: Role-based permission checking system
-- **Sync Component**: Syncs servers, channels, categories, and roles to database
+- **Sync Component**: Event-driven sync system - syncs on bot startup and when configs are accessed/updated (30-minute cooldown)
 
 ### Self-Bot Components
 - **Forwarder Component**: Handles message monitoring and filtering
@@ -444,6 +449,13 @@ The system uses Supabase (PostgreSQL) with the following main tables:
    - Check secret key matches
    - Ensure both bots are running
    - Check firewall/network settings for localhost
+   - Test health endpoint: `curl -H "x-secret-key: YOUR_KEY" http://localhost:PORT/status`
+
+5. **Sync issues**: 
+   - Sync runs on bot startup automatically
+   - Sync also triggers when configs are accessed or updated
+   - 30-minute cooldown between syncs per server
+   - Check `last_accessed` timestamp in `server_settings` table if sync seems delayed
 
 ### Control Panel Issues
 1. **Can't login**: 

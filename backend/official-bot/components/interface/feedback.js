@@ -3,26 +3,6 @@ import { getEmbedConfig, PERMISSIONS, FEEDBACK } from '../../../config.js';
 import logger from '../../../logger.js';
 import { hasPermission } from '../permissions.js';
 
-// Track user submissions (userId -> { count: number, submissions: [{ number, timestamp, message }] })
-const userSubmissions = new Map();
-
-// Record a submission
-function recordSubmission(userId, submissionNumber, message) {
-    const userData = userSubmissions.get(userId);
-    const submission = {
-        number: submissionNumber,
-        timestamp: Date.now(),
-        message: message
-    };
-
-    if (!userData) {
-        userSubmissions.set(userId, { count: submissionNumber, submissions: [submission] });
-    } else {
-        userData.count = submissionNumber;
-        userData.submissions.push(submission);
-    }
-}
-
 // Handle feedback button click
 export async function handleFeedbackButton(interaction) {
     try {
@@ -121,21 +101,13 @@ export async function handleFeedbackModal(interaction) {
             return;
         }
 
-        // Get submission info before recording
-        const userData = userSubmissions.get(user.id);
-        const currentCount = userData ? userData.count : 0;
-        const submissionNumber = currentCount + 1;
-
-        // Record this submission
-        recordSubmission(user.id, submissionNumber, feedbackMessage);
-
         // Get embed config
         const embedConfig = await getEmbedConfig(interaction.guild.id);
 
         // Create feedback embed
         const feedbackEmbed = new EmbedBuilder()
             .setColor(embedConfig.COLOR)
-            .setTitle(`💬 Feedback Submission #${submissionNumber}`)
+            .setTitle('💬 Feedback Submission')
             .setDescription(feedbackMessage.length > 4096 ? feedbackMessage.substring(0, 4093) + '...' : feedbackMessage)
             .setThumbnail(user.displayAvatarURL({ dynamic: true, size: 256 }))
             .addFields([
@@ -145,14 +117,9 @@ export async function handleFeedbackModal(interaction) {
                     inline: true
                 },
                 {
-                    name: '📊 Submission Number',
-                    value: `#${submissionNumber}`,
-                    inline: true
-                },
-                {
                     name: '🕐 Submitted',
                     value: `<t:${Math.floor(Date.now() / 1000)}:R>`,
-                    inline: false
+                    inline: true
                 }
             ])
             .setTimestamp()
@@ -190,7 +157,7 @@ export async function handleFeedbackModal(interaction) {
             embeds: [successEmbed]
         });
 
-        await logger.log(`✅ Feedback submitted by ${user.tag} (${user.id}): Submission #${submissionNumber}`);
+        await logger.log(`✅ Feedback submitted by ${user.tag} (${user.id})`);
 
     } catch (error) {
         await logger.log(`❌ Error processing feedback: ${error.message}`);
