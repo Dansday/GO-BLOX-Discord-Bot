@@ -168,7 +168,7 @@
                     <button onclick="showDashboard()"
                         class="flex items-center gap-2 text-gray-400 hover:text-white transition-colors text-sm sm:text-base">
                         <i class="fas fa-arrow-left"></i>
-                        <span class="hidden sm:inline">Back to Dashboard</span>
+                        <span class="sm:inline">Back to Dashboard</span>
                     </button>
                     <div class="flex items-center gap-2 flex-shrink-0">
                         <button id="refreshBotDetailBtn" onclick="loadBotDetail()"
@@ -2259,18 +2259,16 @@
                             <i class="fas fa-chevron-down text-gray-400"></i>
                         </button>
                         <input type="hidden" id="welcomer_channels" name="welcomer_channels" value="${(config.channels || []).join(',')}">
-                        ${config.channels && config.channels.length > 0 ? `
-                            <div id="welcomer_channels_selected" class="mt-2 flex flex-wrap gap-2">
-                                ${config.channels.map(chId => `
-                                    <span class="inline-flex items-center gap-1.5 px-2.5 py-1.5 bg-red-600 text-white text-xs rounded-lg">
-                                        ${channelNames[chId] ? `#${channelNames[chId]}` : `Channel ${chId}`}
-                                        <button type="button" onclick="removeWelcomerChannel('${chId}')" class="hover:text-red-200 transition-colors">
-                                            <i class="fas fa-times"></i>
-                                        </button>
-                                    </span>
-                                `).join('')}
-                            </div>
-                        ` : ''}
+                        <div id="welcomer_channels_selected" class="mt-2 flex flex-wrap gap-2">
+                            ${config.channels && config.channels.length > 0 ? config.channels.map(chId => `
+                                <span class="inline-flex items-center gap-1.5 px-2.5 py-1.5 bg-red-600 text-white text-xs rounded-lg">
+                                    ${channelNames[chId] ? `#${channelNames[chId]}` : `Channel ${chId}`}
+                                    <button type="button" onclick="removeWelcomerChannel('${chId}')" class="hover:text-red-200 transition-colors">
+                                        <i class="fas fa-times"></i>
+                                    </button>
+                                </span>
+                            `).join('') : ''}
+                        </div>
                     </div>
 
                     <!-- Welcome Messages -->
@@ -2370,18 +2368,16 @@
                             <i class="fas fa-chevron-down text-gray-400"></i>
                         </button>
                         <input type="hidden" id="booster_channels" name="booster_channels" value="${(config.channels || []).join(',')}">
-                        ${config.channels && config.channels.length > 0 ? `
-                            <div id="booster_channels_selected" class="mt-2 flex flex-wrap gap-2">
-                                ${config.channels.map(chId => `
-                                    <span class="inline-flex items-center gap-1.5 px-2.5 py-1.5 bg-red-600 text-white text-xs rounded-lg">
-                                        ${channelNames[chId] ? `#${channelNames[chId]}` : `Channel ${chId}`}
-                                        <button type="button" onclick="removeBoosterChannel('${chId}')" class="hover:text-red-200 transition-colors">
-                                            <i class="fas fa-times"></i>
-                                        </button>
-                                    </span>
-                                `).join('')}
-                            </div>
-                        ` : ''}
+                        <div id="booster_channels_selected" class="mt-2 flex flex-wrap gap-2">
+                            ${config.channels && config.channels.length > 0 ? config.channels.map(chId => `
+                                <span class="inline-flex items-center gap-1.5 px-2.5 py-1.5 bg-red-600 text-white text-xs rounded-lg">
+                                    ${channelNames[chId] ? `#${channelNames[chId]}` : `Channel ${chId}`}
+                                    <button type="button" onclick="removeBoosterChannel('${chId}')" class="hover:text-red-200 transition-colors">
+                                        <i class="fas fa-times"></i>
+                                    </button>
+                                </span>
+                            `).join('') : ''}
+                        </div>
                     </div>
 
                     <!-- Booster Messages -->
@@ -2846,11 +2842,133 @@
                 selfbotMap[bot.id] = bot;
             });
 
+            // Load target channel names (from official bot server)
+            let targetChannelNames = {};
+            try {
+                if (currentServerId) {
+                    const channelResponse = await fetch(`/api/servers/${currentServerId}/channels`, {
+                        credentials: 'include'
+                    });
+                    if (channelResponse.ok) {
+                        const channels = await channelResponse.json();
+                        channels.forEach(ch => {
+                            if (ch.discord_channel_id) {
+                                targetChannelNames[ch.discord_channel_id] = ch.name || `Channel ${ch.discord_channel_id}`;
+                            }
+                        });
+                    }
+                }
+            } catch (err) {
+                console.error('Error loading target channels:', err);
+            }
+
+            // First, ensure all servers are loaded for all selfbots used in forwarders
+            const uniqueSelfbotIds = [...new Set(forwarders.map(f => f.selfbot_id).filter(Boolean))];
+            await Promise.all(uniqueSelfbotIds.map(async (selfbotId) => {
+                if (!forwarderSelfbotServers[selfbotId]) {
+                    try {
+                        const response = await fetch(`/api/bots/${selfbotId}/servers`, {
+                            credentials: 'include'
+                        });
+                        if (response.ok) {
+                            forwarderSelfbotServers[selfbotId] = await response.json();
+                        }
+                    } catch (err) {
+                        console.error(`Error loading servers for selfbot ${selfbotId}:`, err);
+                        forwarderSelfbotServers[selfbotId] = [];
+                    }
+                }
+            }));
+
+            // Load channel names for all forwarders (from selfbot servers)
+            const forwarderDataPromises = forwarders.map(async (forwarder) => {
+                const channelIds = Array.isArray(forwarder.source_channels) 
+                    ? forwarder.source_channels.map(ch => ch.channel_id || ch).filter(Boolean)
+                    : [];
+                
+                // Get server info - ensure it's loaded
+                let servers = forwarderSelfbotServers[forwarder.selfbot_id] || [];
+                if (servers.length === 0) {
+                    try {
+                        const response = await fetch(`/api/bots/${forwarder.selfbot_id}/servers`, {
+                            credentials: 'include'
+                        });
+                        if (response.ok) {
+                            servers = await response.json();
+                            forwarderSelfbotServers[forwarder.selfbot_id] = servers;
+                        }
+                    } catch (err) {
+                        console.error(`Error loading servers for selfbot ${forwarder.selfbot_id}:`, err);
+                    }
+                }
+
+                const selectedServer = servers.find(s => s.id === forwarder.server_id);
+                const serverName = selectedServer ? (selectedServer.name || `Server ${selectedServer.discord_server_id}`) : 'Unknown Server';
+
+                // Get channel names from selfbot server
+                const cacheKey = `${forwarder.selfbot_id}_${forwarder.server_id}`;
+                let channels = [];
+                
+                // Always try to fetch channels if not cached or if we don't have names for the channels we need
+                if (!forwarderSelfbotServerChannels[cacheKey] || channelIds.some(chId => {
+                    const cached = forwarderSelfbotServerChannels[cacheKey];
+                    if (!cached) return true;
+                    const channel = cached.channels?.find(ch => ch.discord_channel_id === chId);
+                    return !channel || !channel.name;
+                })) {
+                    // Fetch channels if not cached or missing names
+                    try {
+                        if (selectedServer) {
+                            const response = await fetch(`/api/bots/${forwarder.selfbot_id}/servers/${forwarder.server_id}/channels?discordServerId=${selectedServer.discord_server_id}`, {
+                                credentials: 'include'
+                            });
+                            if (response.ok) {
+                                channels = await response.json();
+                                forwarderSelfbotServerChannels[cacheKey] = { channels, categories: [] };
+                            }
+                        }
+                    } catch (err) {
+                        console.error('Error loading channels for forwarder:', err);
+                        // Use cached if available even if fetch failed
+                        if (forwarderSelfbotServerChannels[cacheKey]) {
+                            channels = forwarderSelfbotServerChannels[cacheKey].channels || [];
+                        }
+                    }
+                } else {
+                    channels = forwarderSelfbotServerChannels[cacheKey].channels || [];
+                }
+
+                const channelMap = {};
+                channelIds.forEach(chId => {
+                    const channel = channels.find(ch => ch.discord_channel_id === chId);
+                    if (channel && channel.name) {
+                        channelMap[chId] = channel.name;
+                    } else {
+                        channelMap[chId] = null; // Will show ID as fallback
+                    }
+                });
+
+                const sourceChannelNames = channelIds.map(chId => channelMap[chId] || `Channel ${chId}`);
+                
+                // Get target channel name
+                const targetChannelId = forwarder.target_channel_id || forwarder.target_channel;
+                const targetChannelName = targetChannelId ? (targetChannelNames[targetChannelId] || `Channel ${targetChannelId}`) : null;
+
+                return {
+                    serverName,
+                    sourceChannelNames,
+                    targetChannelName,
+                    targetChannelId
+                };
+            });
+
+            const allForwarderData = await Promise.all(forwarderDataPromises);
+
             listContainer.innerHTML = forwarders.map((forwarder, index) => {
                 const selfbot = selfbotMap[forwarder.selfbot_id];
                 const selfbotName = selfbot ? selfbot.name : 'Unknown Selfbot';
+                const forwarderData = allForwarderData[index];
                 const sourceChannelsCount = Array.isArray(forwarder.source_channels) ? forwarder.source_channels.length : 0;
-                const rolePingsCount = Array.isArray(forwarder.role_pings) ? forwarder.role_pings.length : 0;
 
                 return `
                     <div class="bg-gray-700 rounded-lg p-3 sm:p-4 border border-gray-600">
@@ -2860,9 +2978,21 @@
                                     <i class="fas fa-exchange-alt text-red-500"></i>
                                     <span class="text-white font-medium text-sm sm:text-base">${escapeHtml(selfbotName)}</span>
                                 </div>
+                                ${forwarderData && forwarderData.serverName ? `<div class="text-xs text-gray-500 mb-1.5"><i class="fas fa-server mr-1"></i>${escapeHtml(forwarderData.serverName)}</div>` : ''}
                                 <div class="text-xs sm:text-sm text-gray-400 space-y-1">
-                                    <div>From: ${sourceChannelsCount} channel${sourceChannelsCount !== 1 ? 's' : ''}</div>
-                                    <div>Roles: ${rolePingsCount} role${rolePingsCount !== 1 ? 's' : ''}</div>
+                                    <div>
+                                        <div class="font-medium mb-0.5">From:</div>
+                                        ${forwarderData && forwarderData.sourceChannelNames.length > 0 
+                                            ? forwarderData.sourceChannelNames.map(name => `<div>• ${escapeHtml(name)}</div>`).join('')
+                                            : `<div>${sourceChannelsCount} channel${sourceChannelsCount !== 1 ? 's' : ''}</div>`
+                                        }
+                                    </div>
+                                    ${forwarderData && forwarderData.targetChannelName ? `
+                                    <div>
+                                        <div class="font-medium mb-0.5">To:</div>
+                                        <div>• ${escapeHtml(forwarderData.targetChannelName)}</div>
+                                    </div>
+                                    ` : ''}
                                     ${forwarder.tag ? `<div>Tag: ${escapeHtml(forwarder.tag)}</div>` : ''}
                                 </div>
                             </div>
@@ -2925,6 +3055,29 @@
                     if (forwarder.server_id) {
                         serverSelect.value = forwarder.server_id;
                         await onForwarderServerChange();
+                        // Pre-load channels for this server so channel names can be displayed
+                        if (currentForwarderSelfbotId && currentForwarderServerDbId && currentForwarderServerId) {
+                            const cacheKey = `${currentForwarderSelfbotId}_${currentForwarderServerDbId}`;
+                            if (!forwarderSelfbotServerChannels[cacheKey]) {
+                                try {
+                                    const [channelsRes, categoriesRes] = await Promise.all([
+                                        fetch(`/api/bots/${currentForwarderSelfbotId}/servers/${currentForwarderServerDbId}/channels?discordServerId=${currentForwarderServerId}`, {
+                                            credentials: 'include'
+                                        }),
+                                        fetch(`/api/servers/${currentForwarderServerDbId}/categories`, {
+                                            credentials: 'include'
+                                        })
+                                    ]);
+                                    if (channelsRes.ok && categoriesRes.ok) {
+                                        const channels = await channelsRes.json();
+                                        const categories = await categoriesRes.json();
+                                        forwarderSelfbotServerChannels[cacheKey] = { channels, categories };
+                                    }
+                                } catch (err) {
+                                    console.error('Error pre-loading channels:', err);
+                                }
+                            }
+                        }
                         // Load existing values
                         if (forwarder.source_channels) {
                             const channelIds = forwarder.source_channels.map(ch => ch.channel_id || ch).filter(Boolean);
@@ -2957,6 +3110,10 @@
                     }
                     if (roleIds.length > 0) {
                         document.getElementById('forwarder_role_pings').value = JSON.stringify(roleIds);
+                        // Ensure roles are loaded before updating display
+                        if (allRoles.length === 0) {
+                            await loadRolesForServer();
+                        }
                         updateForwarderRolePingsDisplay();
                     }
                     if (forwarder.tag) {
@@ -3061,33 +3218,30 @@
                 const hiddenInput = document.getElementById('forwarder_from_channels');
                 selectedChannels = hiddenInput && hiddenInput.value ? hiddenInput.value.split(',').filter(Boolean) : [];
 
-                // Load channels from selfbot server
+                // Load channels from selfbot server - always fetch fresh to ensure categories are included
                 const cacheKey = `${currentForwarderSelfbotId}_${currentForwarderServerDbId}`;
                 let channels = [];
                 let categories = [];
 
-                if (forwarderSelfbotServerChannels[cacheKey]) {
-                    channels = forwarderSelfbotServerChannels[cacheKey].channels || [];
-                    categories = forwarderSelfbotServerChannels[cacheKey].categories || [];
-                } else {
-                    const [channelsRes, categoriesRes] = await Promise.all([
-                        fetch(`/api/bots/${currentForwarderSelfbotId}/servers/${currentForwarderServerDbId}/channels?discordServerId=${currentForwarderServerId}`, {
-                            credentials: 'include'
-                        }),
-                        fetch(`/api/servers/${currentForwarderServerDbId}/categories`, {
-                            credentials: 'include'
-                        })
-                    ]);
+                const [channelsRes, categoriesRes] = await Promise.all([
+                    fetch(`/api/bots/${currentForwarderSelfbotId}/servers/${currentForwarderServerDbId}/channels?discordServerId=${currentForwarderServerId}`, {
+                        credentials: 'include'
+                    }),
+                    fetch(`/api/servers/${currentForwarderServerDbId}/categories`, {
+                        credentials: 'include'
+                    })
+                ]);
 
-                    if (channelsRes.status === 401 || categoriesRes.status === 401) {
-                        await checkAuthStatus();
-                        return;
-                    }
-
-                    channels = channelsRes.ok ? await channelsRes.json() : [];
-                    categories = categoriesRes.ok ? await categoriesRes.json() : [];
-                    forwarderSelfbotServerChannels[cacheKey] = { channels, categories };
+                if (channelsRes.status === 401 || categoriesRes.status === 401) {
+                    await checkAuthStatus();
+                    return;
                 }
+
+                channels = channelsRes.ok ? await channelsRes.json() : [];
+                categories = categoriesRes.ok ? await categoriesRes.json() : [];
+                
+                // Update cache
+                forwarderSelfbotServerChannels[cacheKey] = { channels, categories };
 
                 allChannels = channels;
                 allCategories = categories;
@@ -3524,12 +3678,14 @@
 
             channels.forEach(channel => {
                 const categoryId = channel.category_id;
+                // Check if category exists in map (must match UUID)
                 if (categoryId && categoryMap.has(categoryId)) {
                     if (!channelsByCategory.has(categoryId)) {
                         channelsByCategory.set(categoryId, []);
                     }
                     channelsByCategory.get(categoryId).push(channel);
                 } else {
+                    // No category_id or category not found in map
                     uncategorizedChannels.push(channel);
                 }
             });
@@ -3563,7 +3719,22 @@
                         <div class="space-y-1">
                             ${categoryChannels.map(channel => {
                     const channelName = channel.name || `Channel ${channel.discord_channel_id}`;
-                    const channelType = channel.type === '0' ? 'Text' : channel.type === '2' ? 'Voice' : 'Other';
+                    // Convert channel type to readable format
+                    let channelType = 'Other';
+                    const type = channel.type;
+                    if (type === 'GUILD_TEXT' || type === '0' || type === 0) {
+                        channelType = 'Text';
+                    } else if (type === 'GUILD_VOICE' || type === '2' || type === 2) {
+                        channelType = 'Voice';
+                    } else if (type === 'GUILD_NEWS' || type === '5' || type === 5) {
+                        channelType = 'Announcement';
+                    } else if (type === 'GUILD_STAGE_VOICE' || type === '13' || type === 13) {
+                        channelType = 'Stage';
+                    } else if (type === 'GUILD_FORUM' || type === '15' || type === 15) {
+                        channelType = 'Forum';
+                    } else if (type === 'GUILD_MEDIA' || type === '16' || type === 16) {
+                        channelType = 'Media';
+                    }
                     const isSelected = isMultiselectMode && selectedChannels.includes(channel.discord_channel_id);
 
                     if (isMultiselectMode) {
@@ -3615,7 +3786,22 @@
                         <div class="space-y-1">
                             ${uncategorizedChannels.map(channel => {
                     const channelName = channel.name || `Channel ${channel.discord_channel_id}`;
-                    const channelType = channel.type === '0' ? 'Text' : channel.type === '2' ? 'Voice' : 'Other';
+                    // Convert channel type to readable format
+                    let channelType = 'Other';
+                    const type = channel.type;
+                    if (type === 'GUILD_TEXT' || type === '0' || type === 0) {
+                        channelType = 'Text';
+                    } else if (type === 'GUILD_VOICE' || type === '2' || type === 2) {
+                        channelType = 'Voice';
+                    } else if (type === 'GUILD_NEWS' || type === '5' || type === 5) {
+                        channelType = 'Announcement';
+                    } else if (type === 'GUILD_STAGE_VOICE' || type === '13' || type === 13) {
+                        channelType = 'Stage';
+                    } else if (type === 'GUILD_FORUM' || type === '15' || type === 15) {
+                        channelType = 'Forum';
+                    } else if (type === 'GUILD_MEDIA' || type === '16' || type === 16) {
+                        channelType = 'Media';
+                    }
                     const isSelected = isMultiselectMode && selectedChannels.includes(channel.discord_channel_id);
 
                     if (isMultiselectMode) {
@@ -3732,7 +3918,9 @@
             const displayEl = document.getElementById(`${currentChannelField}_display`);
             if (displayEl) {
                 const count = selectedChannels.length;
-                displayEl.textContent = `${count} channel${count !== 1 ? 's' : ''} selected`;
+                displayEl.textContent = count > 0 
+                    ? `${count} channel${count !== 1 ? 's' : ''} selected`
+                    : 'Select channels...';
             }
 
             // Update selected channels display
