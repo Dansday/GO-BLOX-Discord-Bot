@@ -2931,22 +2931,32 @@
                             document.getElementById('forwarder_from_channels').value = channelIds.join(',');
                             await updateForwarderFromChannelsDisplay();
                         }
-                        if (forwarder.target_channel) {
-                            document.getElementById('forwarder_target_channel').value = forwarder.target_channel;
-                            await updateFeedbackChannelDisplay(); // Reuse for target channel
+                        // Load target channel - check both target_channel_id (new format) and target_channel (old format for backward compatibility)
+                        const targetChannelId = forwarder.target_channel_id || forwarder.target_channel;
+                        if (targetChannelId) {
+                            document.getElementById('forwarder_target_channel').value = targetChannelId;
                             const displayEl = document.getElementById('forwarder_target_channel_display');
                             if (displayEl) {
-                                const channelNames = await loadChannelNames([forwarder.target_channel]);
-                                if (channelNames[forwarder.target_channel]) {
-                                    displayEl.textContent = `#${channelNames[forwarder.target_channel]}`;
+                                const channelNames = await loadChannelNames([targetChannelId]);
+                                if (channelNames[targetChannelId]) {
+                                    displayEl.textContent = `#${channelNames[targetChannelId]}`;
                                 } else {
-                                    displayEl.textContent = `Channel ${forwarder.target_channel}`;
+                                    displayEl.textContent = `Channel ${targetChannelId}`;
                                 }
                             }
                         }
                     }
-                    if (forwarder.role_pings && Array.isArray(forwarder.role_pings)) {
-                        document.getElementById('forwarder_role_pings').value = JSON.stringify(forwarder.role_pings);
+                    // Load roles - check both roles (new format) and role_pings (old format for backward compatibility)
+                    let roleIds = [];
+                    if (forwarder.roles && Array.isArray(forwarder.roles)) {
+                        // New format: [{ role_id: "..." }, ...]
+                        roleIds = forwarder.roles.map(r => r.role_id || r).filter(Boolean);
+                    } else if (forwarder.role_pings && Array.isArray(forwarder.role_pings)) {
+                        // Old format: ["...", ...]
+                        roleIds = forwarder.role_pings;
+                    }
+                    if (roleIds.length > 0) {
+                        document.getElementById('forwarder_role_pings').value = JSON.stringify(roleIds);
                         updateForwarderRolePingsDisplay();
                     }
                     if (forwarder.tag) {
@@ -3274,25 +3284,27 @@
             const sourceChannelIds = fromChannelsInput.split(',').filter(Boolean);
             const sourceChannels = sourceChannelIds.map(chId => ({ channel_id: chId }));
 
-            // Parse role pings
-            let rolePings = [];
+            // Parse role pings - convert array of role IDs to array of objects with role_id
+            let roleIds = [];
             try {
                 if (rolePingsInput && rolePingsInput.trim()) {
-                    rolePings = JSON.parse(rolePingsInput);
+                    roleIds = JSON.parse(rolePingsInput);
                 }
             } catch (err) {
-                rolePings = [];
+                roleIds = [];
             }
-            if (!Array.isArray(rolePings)) {
-                rolePings = [];
+            if (!Array.isArray(roleIds)) {
+                roleIds = [];
             }
+            // Convert to format expected by backend: [{ role_id: "..." }, ...]
+            const roles = roleIds.map(roleId => ({ role_id: String(roleId) }));
 
             const forwarder = {
                 selfbot_id: selfbotId,
                 server_id: serverDbId,
                 source_channels: sourceChannels,
-                target_channel: targetChannel,
-                role_pings: rolePings,
+                target_channel_id: targetChannel, // Backend expects target_channel_id, not target_channel
+                roles: roles, // Backend expects roles array with role_id objects, not role_pings
                 tag: tag || null
             };
 
@@ -5147,3 +5159,4 @@
 </body>
 
 </html>
+
