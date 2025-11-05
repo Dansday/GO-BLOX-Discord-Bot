@@ -1904,12 +1904,23 @@
                     `;
                     return; // Exit early, content will be set in promise
                 case 'feedback':
-                    contentHTML += `
+                    // Render feedback asynchronously
+                    renderFeedback(settings).then(html => {
+                        contentContainer.innerHTML = contentHTML + html;
+                        // Setup channel name display after render
+                        setTimeout(() => {
+                            updateFeedbackChannelDisplay();
+                        }, 100);
+                    });
+                    // Show loading state
+                    contentContainer.innerHTML = contentHTML + `
                         <div class="bg-gray-700 rounded-lg p-4 sm:p-6">
-                            <p class="text-gray-300 text-sm sm:text-base">Feedback configuration settings will be available here.</p>
+                            <div class="flex items-center justify-center py-8">
+                                <i class="fas fa-spinner fa-spin text-2xl text-gray-400"></i>
+                            </div>
                         </div>
                     `;
-                    break;
+                    return; // Exit early, content will be set in promise
                 case 'forwarder':
                     contentHTML += `
                         <div class="bg-gray-700 rounded-lg p-4 sm:p-6">
@@ -2520,6 +2531,74 @@
                 `;
         }
 
+        // Render Feedback Component
+        async function renderFeedback(settings) {
+            // Handle both direct settings object and nested settings.settings
+            let config = {};
+            if (settings) {
+                if (settings.settings) {
+                    config = settings.settings;
+                } else if (typeof settings === 'object') {
+                    // If settings is already the config object
+                    config = settings;
+                }
+            }
+
+            // Load channel names for display
+            const channelId = config.feedback_channel;
+            const channelIds = channelId ? [channelId] : [];
+            const channelNames = await loadChannelNames(channelIds);
+
+            return `
+                    <form id="feedbackConfigForm" class="space-y-4 sm:space-y-6">
+                        <!-- Feedback Channel -->
+                        <div>
+                            <label class="block text-xs sm:text-sm font-medium text-gray-300 mb-2">
+                                <i class="fas fa-comment-dots text-red-500 mr-2"></i>Feedback Channel
+                            </label>
+                            <button type="button" onclick="openChannelSelector('feedback_channel')"
+                                class="w-full px-3 sm:px-4 py-2.5 sm:py-3 bg-gray-700 border border-gray-600 rounded-lg text-white text-left flex items-center justify-between hover:border-gray-500 transition-all text-sm sm:text-base">
+                                <span id="feedback_channel_display" class="text-gray-300">${channelId && channelNames[channelId] ? `#${channelNames[channelId]}` : channelId ? `Channel ${channelId}` : 'Select channel...'}</span>
+                                <i class="fas fa-chevron-down text-gray-400"></i>
+                            </button>
+                            <input type="hidden" id="feedback_channel" name="feedback_channel" value="${channelId || ''}">
+                        </div>
+
+                        <!-- Save Button -->
+                        <div class="pt-4 border-t border-gray-700">
+                            <button type="submit" id="saveFeedbackConfigBtn"
+                                class="w-full bg-red-600 hover:bg-red-700 text-white py-2.5 sm:py-3 rounded-lg transition-all duration-200 transform hover:scale-[1.02] active:scale-[0.98] flex items-center justify-center gap-2 text-sm sm:text-base font-medium disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none">
+                                <i class="fas fa-spinner fa-spin hidden" id="saveFeedbackConfigLoading"></i>
+                                <i class="fas fa-save"></i>
+                                <span>Save Configuration</span>
+                            </button>
+                        </div>
+                    </form>
+                `;
+        }
+
+        // Update feedback channel display
+        async function updateFeedbackChannelDisplay() {
+            const hiddenInput = document.getElementById('feedback_channel');
+            if (!hiddenInput) return;
+
+            const channelId = hiddenInput.value;
+            const displayEl = document.getElementById('feedback_channel_display');
+            if (!displayEl) return;
+
+            if (!channelId) {
+                displayEl.textContent = 'Select channel...';
+                return;
+            }
+
+            const channelNames = await loadChannelNames([channelId]);
+            if (channelNames[channelId]) {
+                displayEl.textContent = `#${channelNames[channelId]}`;
+            } else {
+                displayEl.textContent = `Channel ${channelId}`;
+            }
+        }
+
         // Helper function to escape HTML
         function escapeHtml(text) {
             const div = document.createElement('div');
@@ -2976,7 +3055,7 @@
         }
 
         // Select channel (single select mode)
-        function selectChannel(channelId, channelName) {
+        async function selectChannel(channelId, channelName) {
             if (!currentChannelField || isMultiselectMode) return;
 
             // Update hidden input
@@ -2986,6 +3065,11 @@
             const displayEl = document.getElementById(`${currentChannelField}_display`);
             if (displayEl) {
                 displayEl.textContent = channelName.startsWith('#') ? channelName : `#${channelName}`;
+            }
+
+            // Update feedback channel display if needed
+            if (currentChannelField === 'feedback_channel') {
+                await updateFeedbackChannelDisplay();
             }
 
             closeChannelSelector();
@@ -4180,6 +4264,58 @@
                     // Reload component to show updated values
                     setTimeout(() => {
                         loadComponent('custom_supporter_role');
+                    }, 500);
+                } else {
+                    showMessage(data.error || 'Failed to save configuration', 'error');
+                }
+            } catch (err) {
+                showMessage('Failed to save configuration. Please try again.', 'error');
+            } finally {
+                submitBtn.disabled = false;
+                loadingIcon.classList.add('hidden');
+            }
+        });
+
+        // Handle feedback form submission
+        document.addEventListener('submit', async function (e) {
+            if (e.target.id !== 'feedbackConfigForm') return;
+            e.preventDefault();
+
+            const formData = {
+                feedback_channel: document.getElementById('feedback_channel').value || null
+            };
+
+            // Show loading state
+            const submitBtn = document.getElementById('saveFeedbackConfigBtn');
+            const loadingIcon = document.getElementById('saveFeedbackConfigLoading');
+            submitBtn.disabled = true;
+            loadingIcon.classList.remove('hidden');
+
+            try {
+                const res = await fetch(`/api/servers/${currentServerId}/settings`, {
+                    method: 'PUT',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    credentials: 'include',
+                    body: JSON.stringify({
+                        component_name: 'feedback',
+                        settings: formData
+                    })
+                });
+
+                if (res.status === 401) {
+                    await checkAuthStatus();
+                    return;
+                }
+
+                const data = await res.json();
+
+                if (data.success) {
+                    showMessage('Feedback configuration saved successfully!', 'success');
+                    // Reload component to show updated values
+                    setTimeout(() => {
+                        loadComponent('feedback');
                     }, 500);
                 } else {
                     showMessage(data.error || 'Failed to save configuration', 'error');
