@@ -11,28 +11,21 @@ const commandDefinitions = [
     setupCommand,
 ];
 
-// Slash command registry
-const slashCommands = new Map();
-
-// Register a slash command
-function registerSlashCommand(name, command) {
-    slashCommands.set(name, command);
-}
-
 // Execute a slash command
 async function executeSlashCommand(interaction, client) {
-    const command = slashCommands.get(interaction.commandName);
-    if (!command) {
-        return { success: false, reason: 'unknown_command' };
+    const commandName = interaction.commandName;
+    
+    if (commandName === 'setup') {
+        try {
+            await setupExecute(interaction, client);
+            return { success: true, reason: 'executed' };
+        } catch (error) {
+            await logger.log(`❌ Error executing slash command ${commandName}: ${error.message}`);
+            return { success: false, reason: 'execution_error', error: error.message };
+        }
     }
-
-    try {
-        await command.execute(interaction, client);
-        return { success: true, reason: 'executed' };
-    } catch (error) {
-        await logger.log(`❌ Error executing slash command ${interaction.commandName}: ${error.message}`);
-        return { success: false, reason: 'execution_error', error: error.message };
-    }
+    
+    return { success: false, reason: 'unknown_command' };
 }
 
 // Deploy commands to Discord
@@ -64,9 +57,6 @@ async function deployCommands(clearFirst = false) {
 
 // Initialize the slash command system
 function init(client) {
-    // Register setup slash command
-    registerSlashCommand('setup', { execute: setupExecute });
-
     // Listen for slash command interactions
     client.on('interactionCreate', async (interaction) => {
         if (interaction.isChatInputCommand()) {

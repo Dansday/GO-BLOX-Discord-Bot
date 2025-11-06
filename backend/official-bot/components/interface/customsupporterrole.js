@@ -7,6 +7,51 @@ import { hasPermission } from '../permissions.js';
 // In production, you might want to store this in a database
 const supporterRoles = new Map();
 
+// Check if a role is a valid custom role (exactly 1 member)
+async function isValidCustomRole(role) {
+    try {
+        // Fetch members to ensure accurate count
+        await role.guild.members.fetch();
+        const memberCount = role.members.size;
+        return memberCount === 1;
+    } catch (err) {
+        await logger.log(`⚠️ Error checking role member count: ${err.message}`);
+        return false;
+    }
+}
+
+// Clean up a single invalid role (not exactly 1 member)
+async function cleanupInvalidRole(role) {
+    try {
+        await role.guild.members.fetch();
+        const memberCount = role.members.size;
+        
+        if (memberCount === 0) {
+            // No members - delete role
+            await role.delete(`Auto-cleanup: Custom role has no members`);
+            await logger.log(`🗑️ Deleted unused custom role: ${role.name} (${role.id}) - no members`);
+        } else if (memberCount > 1) {
+            // More than 1 member - remove from all members and delete
+            const members = Array.from(role.members.values());
+            for (const member of members) {
+                await member.roles.remove(role, `Auto-cleanup: Custom role has multiple members`);
+            }
+            await role.delete(`Auto-cleanup: Custom role has ${memberCount} members (should be exactly 1)`);
+            await logger.log(`🗑️ Deleted invalid custom role: ${role.name} (${role.id}) - has ${memberCount} members (should be exactly 1)`);
+        }
+        
+        // Remove from map if it exists
+        for (const [userId, roleId] of supporterRoles.entries()) {
+            if (roleId === role.id) {
+                supporterRoles.delete(userId);
+                break;
+            }
+        }
+    } catch (err) {
+        await logger.log(`⚠️ Could not cleanup invalid role ${role.name} (${role.id}): ${err.message}`);
+    }
+}
+
 // Check if member already has a custom supporter role
 async function hasSupporterRole(member) {
     // Check our stored map first
@@ -14,38 +59,54 @@ async function hasSupporterRole(member) {
         const roleId = supporterRoles.get(member.id);
         const role = member.guild.roles.cache.get(roleId);
         if (role && member.roles.cache.has(roleId)) {
-            return { has: true, role };
+            // Verify it's still valid (exactly 1 member)
+            if (await isValidCustomRole(role)) {
+                return { has: true, role };
+            } else {
+                // Role is no longer valid (not exactly 1 member), clean it up
+                await cleanupInvalidRole(role);
+                supporterRoles.delete(member.id);
+            }
+        } else {
+            // Role might have been deleted, remove from map
+            supporterRoles.delete(member.id);
         }
-        // Role might have been deleted, remove from map
-        supporterRoles.delete(member.id);
     }
 
     // Get role constraints from database
     const constraints = await CUSTOM_SUPPORTER_ROLE.getRoleConstraints(member.guild.id);
     
-    if (!constraints.ROLE_ABOVE || !constraints.ROLE_BELOW) {
+    if (!constraints.ROLE_START || !constraints.ROLE_END) {
         return { has: false };
     }
 
     // Check if member has any roles between the position constraints
-    const aboveRole = member.guild.roles.cache.get(constraints.ROLE_ABOVE);
-    const belowRole = member.guild.roles.cache.get(constraints.ROLE_BELOW);
+    // ROLE_START is the highest position (top of list), ROLE_END is the lowest position (bottom of list)
+    const startRole = member.guild.roles.cache.get(constraints.ROLE_START);
+    const endRole = member.guild.roles.cache.get(constraints.ROLE_END);
 
-    if (!aboveRole || !belowRole) {
+    if (!startRole || !endRole) {
         return { has: false };
     }
 
     // Get all roles between the constraints
+    // Custom roles should be between start (higher position) and end (lower position)
     const allRoles = member.guild.roles.cache
-        .filter(role => role.position < belowRole.position && role.position > aboveRole.position)
+        .filter(role => role.position < startRole.position && role.position > endRole.position && !role.managed)
         .sort((a, b) => b.position - a.position);
 
-    // Check if member has any of these roles
+    // Check if member has any of these roles and validate they're valid custom roles
     for (const role of allRoles.values()) {
-        if (member.roles.cache.has(role.id) && role.managed === false) {
-            // For now, we'll assume any role in this position range belongs to a supporter
-            supporterRoles.set(member.id, role.id);
-            return { has: true, role };
+        if (member.roles.cache.has(role.id)) {
+            // Validate this role has exactly 1 member
+            if (await isValidCustomRole(role)) {
+                // Valid custom role - store it
+                supporterRoles.set(member.id, role.id);
+                return { has: true, role };
+            } else {
+                // Role exists but is invalid (not exactly 1 member), clean it up
+                await cleanupInvalidRole(role);
+            }
         }
     }
 
@@ -138,20 +199,23 @@ function parseColor(colorInput) {
 async function getRolePosition(guild) {
     const constraints = await CUSTOM_SUPPORTER_ROLE.getRoleConstraints(guild.id);
     
-    if (!constraints.ROLE_ABOVE || !constraints.ROLE_BELOW) {
+    if (!constraints.ROLE_START || !constraints.ROLE_END) {
         throw new Error('Could not find role position constraints');
     }
 
-    const aboveRole = guild.roles.cache.get(constraints.ROLE_ABOVE);
-    const belowRole = guild.roles.cache.get(constraints.ROLE_BELOW);
+    const startRole = guild.roles.cache.get(constraints.ROLE_START);
+    const endRole = guild.roles.cache.get(constraints.ROLE_END);
 
-    if (!aboveRole || !belowRole) {
+    if (!startRole || !endRole) {
         throw new Error('Could not find role position constraints');
     }
 
-    // Position should be just above ROLE_ABOVE (so it appears above it)
+    // Position should be between ROLE_START and ROLE_END
     // Discord roles: higher position number = appears higher in list
-    return aboveRole.position + 1;
+    // ROLE_START is the highest position (top), ROLE_END is the lowest position (bottom)
+    // We want to place the custom role between them, so we place it just above ROLE_END
+    // This ensures it's between start and end, not below end
+    return endRole.position + 1;
 }
 
 // Handle custom supporter role button click
@@ -466,8 +530,15 @@ export async function handleCustomSupporterRoleModal(interaction) {
                     try {
                         // Check if it's a URL or emoji
                         if (trimmedIconInput.startsWith('http://') || trimmedIconInput.startsWith('https://')) {
-                            // It's a URL - validate and set
-                            if (isValidImageUrl(trimmedIconInput)) {
+                            // It's a URL - check if server has boost level for custom icons
+                            const premiumTier = interaction.guild.premiumTier;
+                            if (premiumTier < 2) {
+                                // Server doesn't have Level 2 boost - can't use custom image icons
+                                iconStatus = 'failed';
+                                iconError = 'This server needs Level 2 Server Boost to use custom role icons. You can use an emoji instead!';
+                                await logger.log(`⚠️ Cannot set custom icon: Server needs Level 2 boost (current: ${premiumTier})`);
+                            } else if (isValidImageUrl(trimmedIconInput)) {
+                                // It's a URL, server has boost, and URL is valid
                                 await existingRole.setIcon(trimmedIconInput, { reason: updateData.reason });
                                 await logger.log(`✅ Set role icon to image URL: ${trimmedIconInput}`);
                                 iconStatus = 'updated';
@@ -487,9 +558,14 @@ export async function handleCustomSupporterRoleModal(interaction) {
                         }
                     } catch (err) {
                         await logger.log(`⚠️ Could not set role icon: ${err.message}`);
+                        // Check if error is about boosts
+                        if (err.message && err.message.includes('boost')) {
+                            iconError = 'This server needs Level 2 Server Boost to use custom role icons. You can use an emoji instead!';
+                        } else {
+                            iconError = err.message;
+                        }
                         await logger.log(`⚠️ Note: Role still updated successfully. Icon requires server boost level 2+ and accessible JPG/PNG image or valid emoji.`);
                         iconStatus = 'failed';
-                        iconError = err.message;
                     }
                 } else if (existingRole.icon) {
                     // Icon field is empty and role has icon - remove it
@@ -511,10 +587,18 @@ export async function handleCustomSupporterRoleModal(interaction) {
                 else if (iconStatus === 'invalid') iconStatusText = 'Invalid format (role updated without icon)';
 
                 const embedConfig = await getEmbedConfig(interaction.guild.id);
+                let updateDescription = `Your custom role **${roleName}** has been updated!`;
+                if (iconError) {
+                    if (iconError.includes('boost')) {
+                        updateDescription += '\n\n⚠️ **Custom Icon Not Available:** This server needs Level 2 Server Boost to use custom role icons (images). You can use an emoji instead!';
+                    } else {
+                        updateDescription += '\n\n⚠️ **Note:** Icon could not be set, but role was updated successfully.';
+                    }
+                }
                 const successEmbed = new EmbedBuilder()
                     .setColor(embedConfig.COLOR)
                     .setTitle('✅ Custom Supporter Role Updated!')
-                    .setDescription(`Your custom role **${roleName}** has been updated!${iconError ? '\n\n⚠️ Note: Icon could not be set, but role was updated successfully.' : ''}`)
+                    .setDescription(updateDescription)
                     .addFields([
                         {
                             name: '🎨 Role Details',
@@ -580,7 +664,18 @@ export async function handleCustomSupporterRoleModal(interaction) {
         if (trimmedIconInput) {
             // Check if it's a URL or emoji
             if (trimmedIconInput.startsWith('http://') || trimmedIconInput.startsWith('https://')) {
-                // It's a URL
+                // It's a URL - check if server has boost level for custom icons
+                const premiumTier = guild.premiumTier;
+                if (premiumTier < 2) {
+                    // Server doesn't have Level 2 boost - can't use custom image icons
+                    await interaction.editReply({
+                        content: '❌ **Custom Icon Not Available**\n\n' +
+                            'This server needs **Level 2 Server Boost** to use custom role icons (images).\n\n' +
+                            '💡 **Tip:** You can use an **emoji** instead (like 🔥, ⭐, or any custom emoji) which doesn\'t require server boosts.'
+                    });
+                    return;
+                }
+                // It's a URL and server has boost level
                 iconToSet = trimmedIconInput;
                 isEmojiIcon = false;
             } else {
@@ -632,9 +727,14 @@ export async function handleCustomSupporterRoleModal(interaction) {
                 }
             } catch (err) {
                 await logger.log(`⚠️ Could not set role icon: ${err.message}`);
+                // Check if error is about boosts
+                if (err.message && err.message.includes('boost')) {
+                    iconError = 'This server needs Level 2 Server Boost to use custom role icons. You can use an emoji instead!';
+                } else {
+                    iconError = err.message;
+                }
                 await logger.log(`⚠️ Note: Role created successfully without icon. Icon requires server boost level 2+ and accessible JPG/PNG image.`);
                 iconStatus = 'failed';
-                iconError = err.message;
             }
         } else if (isEmojiIcon && iconToSet) {
             // Emoji was set during creation
@@ -655,10 +755,18 @@ export async function handleCustomSupporterRoleModal(interaction) {
         else if (iconStatus === 'invalid') iconStatusText = 'Invalid format (role created without icon)';
 
         const embedConfigForCreate = await getEmbedConfig(interaction.guild.id);
+        let description = `Your custom role **${roleName}** has been created and assigned to you!`;
+        if (iconError) {
+            if (iconError.includes('boost')) {
+                description += '\n\n⚠️ **Custom Icon Not Available:** This server needs Level 2 Server Boost to use custom role icons (images). You can use an emoji instead!';
+            } else {
+                description += '\n\n⚠️ **Note:** Icon could not be set, but role was created successfully.';
+            }
+        }
         const successEmbed = new EmbedBuilder()
             .setColor(embedConfigForCreate.COLOR)
             .setTitle('✅ Custom Supporter Role Created!')
-            .setDescription(`Your custom role **${roleName}** has been created and assigned to you!${iconError ? '\n\n⚠️ Note: Icon could not be set, but role was created successfully.' : ''}`)
+            .setDescription(description)
             .addFields([
                 {
                     name: '🎨 Role Details',
@@ -685,11 +793,31 @@ export async function handleCustomSupporterRoleModal(interaction) {
         await logger.log(`❌ Stack: ${error.stack}`);
 
         try {
+            let errorMessage = '';
+            
+            // Check if error is boost-related
+            if (error.message && (error.message.includes('boost') || error.message.includes('Boost') || error.message.includes('more boosts'))) {
+                errorMessage = `❌ **Server Boost Required**\n\n` +
+                    `This server needs **Level 2 Server Boost** to create custom supporter roles with certain features.\n\n` +
+                    `💡 **What you can do:**\n` +
+                    `- Ask server administrators to boost the server to Level 2\n` +
+                    `- Or contact server staff for assistance\n\n` +
+                    `**Error details:** ${error.message}`;
+            } else {
+                errorMessage = `❌ **Failed to Create Role**\n\n` +
+                    `Error: ${error.message}\n\n` +
+                    `Please make sure:\n` +
+                    `- The bot has permission to create roles\n` +
+                    `- The bot has permission to manage roles\n` +
+                    `- Role position constraints are valid`;
+            }
+
             await interaction.editReply({
-                content: `❌ **Failed to Create Role**\n\nError: ${error.message}\n\nPlease make sure:\n- The bot has permission to create roles\n- The bot has permission to manage roles\n- Role position constraints are valid`
+                content: errorMessage
             });
         } catch (err) {
             // Interaction might have already been replied to
+            await logger.log(`❌ Failed to send error response: ${err.message}`);
         }
     }
 }
@@ -723,7 +851,7 @@ async function removeCustomRoleIfNoPermission(member) {
     }
 }
 
-// Clean up custom roles - removes roles with no members OR roles where owner lost permission
+// Clean up custom roles - removes roles with no members OR more than 1 member OR roles where owner lost permission
 async function cleanupCustomRoles(client) {
     try {
         await logger.log(`🧹 Checking for custom roles to clean up...`);
@@ -736,57 +864,44 @@ async function cleanupCustomRoles(client) {
                 // Get role constraints from database for this guild
                 const constraints = await CUSTOM_SUPPORTER_ROLE.getRoleConstraints(guild.id);
                 
-                if (!constraints.ROLE_ABOVE || !constraints.ROLE_BELOW) {
+                if (!constraints.ROLE_START || !constraints.ROLE_END) {
                     continue; // No constraints configured for this guild
                 }
 
-                const aboveRole = guild.roles.cache.get(constraints.ROLE_ABOVE);
-                const belowRole = guild.roles.cache.get(constraints.ROLE_BELOW);
+                const startRole = guild.roles.cache.get(constraints.ROLE_START);
+                const endRole = guild.roles.cache.get(constraints.ROLE_END);
 
-                if (!aboveRole || !belowRole) {
+                if (!startRole || !endRole) {
                     continue;
                 }
 
                 // Fetch all members to ensure cache is up to date before checking member counts
-                // This prevents false positives where roles appear to have no members due to incomplete cache
                 await guild.members.fetch();
 
                 // Get all roles between the constraints
+                // ROLE_START is highest position (top), ROLE_END is lowest position (bottom)
                 const customRoles = guild.roles.cache.filter(role =>
-                    role.position < belowRole.position &&
-                    role.position > aboveRole.position &&
+                    role.position < startRole.position &&
+                    role.position > endRole.position &&
                     !role.managed // Exclude bot-managed roles
                 );
 
                 // Check each custom role
                 for (const role of customRoles.values()) {
                     try {
-                        // Get member count for this role (cache should now be accurate)
-                        const members = role.members;
+                        const memberCount = role.members.size;
                         
-                        // Check if role has no members
-                        if (members.size === 0) {
-                            // Role has no members, delete it
-                            try {
-                                await role.delete(`Auto-cleanup: Custom role has no members`);
-                                await logger.log(`🗑️ Deleted unused custom role: ${role.name} (${role.id}) - no members`);
+                        // Check if role has invalid member count (not exactly 1)
+                        if (memberCount !== 1) {
+                            await cleanupInvalidRole(role);
+                            if (memberCount === 0 || memberCount > 1) {
                                 cleanedCount++;
-
-                                // Remove from map if it exists
-                                for (const [userId, roleId] of supporterRoles.entries()) {
-                                    if (roleId === role.id) {
-                                        supporterRoles.delete(userId);
-                                        break;
-                                    }
-                                }
-                            } catch (err) {
-                                await logger.log(`⚠️ Could not delete unused role ${role.name} (${role.id}): ${err.message}`);
                             }
-                            continue; // Skip permission check for roles with no members
+                            continue;
                         }
 
-                        // Role has members - check if owner still has permission
-                        // Find the owner in our map
+                        // Role has exactly 1 member - check if owner still has permission
+                        // Find the owner in our map or from the role's members
                         let ownerId = null;
                         for (const [userId, roleId] of supporterRoles.entries()) {
                             if (roleId === role.id) {
@@ -795,12 +910,22 @@ async function cleanupCustomRoles(client) {
                             }
                         }
 
+                        // If not in map, check the single member
+                        if (!ownerId && role.members.size === 1) {
+                            const member = role.members.first();
+                            if (member) {
+                                ownerId = member.id;
+                                // Store in map for future reference
+                                supporterRoles.set(ownerId, role.id);
+                            }
+                        }
+
                         if (ownerId) {
-                            // We know the owner, check their permission
                             const owner = guild.members.cache.get(ownerId);
                             if (!owner) {
-                                // Owner no longer in guild, but role still has members
-                                // Don't delete - let the guildMemberRemove handler handle it
+                                // Owner no longer in guild, clean up role
+                                await cleanupInvalidRole(role);
+                                cleanedCount++;
                                 continue;
                             }
 
@@ -818,7 +943,6 @@ async function cleanupCustomRoles(client) {
                                 }
                             }
                         }
-                        // If role not in our map, we can't verify owner permission, so leave it alone
                     } catch (err) {
                         await logger.log(`⚠️ Error checking role ${role.name} (${role.id}): ${err.message}`);
                     }
@@ -835,6 +959,83 @@ async function cleanupCustomRoles(client) {
         }
     } catch (err) {
         await logger.log(`❌ Error during custom role cleanup: ${err.message}`);
+    }
+}
+
+// Scan and validate all custom roles on startup - populate map with valid roles
+async function scanAndValidateCustomRoles(client) {
+    try {
+        await logger.log(`🔍 Scanning for existing custom roles...`);
+
+        let validatedCount = 0;
+
+        // Check all guilds the bot is in
+        for (const guild of client.guilds.cache.values()) {
+            try {
+                // Get role constraints from database for this guild
+                // Skip if server not synced yet (will be retried on next scan)
+                let constraints;
+                try {
+                    constraints = await CUSTOM_SUPPORTER_ROLE.getRoleConstraints(guild.id);
+                } catch (error) {
+                    if (error.message && error.message.includes('Server not found')) {
+                        // Server not synced yet, skip this guild silently
+                        continue;
+                    }
+                    throw error; // Re-throw other errors
+                }
+                
+                if (!constraints.ROLE_START || !constraints.ROLE_END) {
+                    continue; // No constraints configured for this guild
+                }
+
+                const startRole = guild.roles.cache.get(constraints.ROLE_START);
+                const endRole = guild.roles.cache.get(constraints.ROLE_END);
+
+                if (!startRole || !endRole) {
+                    continue;
+                }
+
+                // Fetch all members to ensure accurate member counts
+                await guild.members.fetch();
+
+                // Get all roles between the constraints
+                // ROLE_START is highest position (top), ROLE_END is lowest position (bottom)
+                const customRoles = guild.roles.cache.filter(role =>
+                    role.position < startRole.position &&
+                    role.position > endRole.position &&
+                    !role.managed // Exclude bot-managed roles
+                );
+
+                // Validate each role
+                for (const role of customRoles.values()) {
+                    try {
+                        const memberCount = role.members.size;
+                        
+                        if (memberCount === 1) {
+                            // Valid custom role - store in map
+                            const member = role.members.first();
+                            if (member) {
+                                supporterRoles.set(member.id, role.id);
+                                validatedCount++;
+                                await logger.log(`✅ Found valid custom role: ${role.name} (${role.id}) for ${member.user.tag} (${member.id})`);
+                            }
+                        } else {
+                            // Invalid role - clean it up
+                            await cleanupInvalidRole(role);
+                        }
+                    } catch (err) {
+                        await logger.log(`⚠️ Error validating role ${role.name} (${role.id}): ${err.message}`);
+                    }
+                }
+            } catch (err) {
+                await logger.log(`⚠️ Error scanning guild ${guild.name}: ${err.message}`);
+            }
+        }
+
+        await logger.log(`✅ Scan complete: Validated ${validatedCount} custom role(s)`);
+    } catch (err) {
+        await logger.log(`❌ Error scanning custom roles: ${err.message}`);
     }
 }
 
@@ -884,14 +1085,19 @@ export function init(client) {
         }
     });
 
-    // Run cleanup periodically (every 6 hours) - removes roles with no members OR without permission
-    // Note: We do NOT run cleanup on startup to avoid deleting roles that still have members
-    // (cache might not be fully loaded on startup, causing false positives)
+    // Scan and validate custom roles on startup - populate map with valid roles (exactly 1 member)
+    // This ensures the interface recognizes existing valid custom roles after bot restart
+    // Wait 10 seconds to allow sync to complete first
+    setTimeout(async () => {
+        await scanAndValidateCustomRoles(client);
+    }, 10000); // Wait 10 seconds for sync to complete
+
+    // Run cleanup periodically (every 6 hours) - removes roles with no members, more than 1 member, or without permission
     setInterval(async () => {
         await cleanupCustomRoles(client);
     }, 6 * 60 * 60 * 1000); // 6 hours in milliseconds
 
-    logger.log("💎 Custom supporter role component initialized - Permission monitoring and cleanup active");
+    logger.log("💎 Custom supporter role component initialized - Scanning, validation, and cleanup active");
 }
 
 export default { init };

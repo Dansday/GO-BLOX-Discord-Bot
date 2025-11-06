@@ -100,6 +100,7 @@ CREATE TABLE IF NOT EXISTS server_settings (
     server_id UUID NOT NULL REFERENCES servers(id) ON DELETE CASCADE,
     component_name TEXT NOT NULL,
     settings JSONB NOT NULL DEFAULT '{}',
+    last_accessed TIMESTAMP WITH TIME ZONE,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     UNIQUE(server_id, component_name)

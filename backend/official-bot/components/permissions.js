@@ -77,7 +77,3 @@ export async function hasPermission(member, action) {
     return false;
 }
 
-// Clear cache for a guild (call when permissions are updated)
-export function clearPermissionsCache(guildId) {
-    permissionsCache.delete(guildId);
-}

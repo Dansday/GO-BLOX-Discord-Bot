@@ -26,12 +26,17 @@ export async function handleHelpButton(interaction) {
             },
             {
                 name: "💎 Custom Supporter Role",
-                value: "Create, edit, or delete a custom role with name, color, and icon.\n**Permission:** Supporter+ or Staff+",
+                value: "Create, edit, or delete a custom role with name, color, and icon. Role is automatically positioned between configured role constraints (role start and role end). Each user can have exactly one custom role. Roles are automatically cleaned up if they have no members or more than one member.\n**Permission:** Supporter+ or Staff+",
                 inline: false
             },
             {
                 name: "⏸️ AFK",
-                value: "Set yourself as AFK with an optional message. Your nickname will be prefixed with [AFK]. If in voice channel, you'll be automatically muted and deafened. AFK status auto-removes when you send a message or unmute/undeafen in voice. When mentioned while AFK, you'll receive a DM notification.\n**Permission:** Member+",
+                value: "Set yourself as AFK with an optional message. Your nickname will be prefixed with [AFK]. If in voice channel, you'll be automatically muted and deafened. AFK status auto-removes when you send a message or unmute/undeafen in voice. When mentioned while AFK, you'll receive a DM notification. Your original display name will be restored when AFK is removed.\n**Permission:** Member+",
+                inline: false
+            },
+            {
+                name: "💬 Feedback",
+                value: "Submit feedback, suggestions, or concerns to the server staff. All submissions are posted to the configured feedback channel with staff role mentions.\n**Permission:** Member+",
                 inline: false
             },
             {
@@ -40,13 +45,8 @@ export async function handleHelpButton(interaction) {
                 inline: false
             },
             {
-                name: "💬 Feedback",
-                value: "Submit feedback, suggestions, or concerns to the server staff.\n**Permission:** Member+",
-                inline: false
-            },
-            {
                 name: "🔐 Permissions Summary",
-                value: "**Admin:** Full access\n**Staff:** All interfaces\n**Supporter:** Custom Supporter Role, Help\n**Member:** AFK, Help, Feedback",
+                value: "**Admin:** Full access\n**Staff:** All interfaces (Send Message, Custom Supporter Role, AFK, Help, Feedback)\n**Supporter:** Custom Supporter Role, Help\n**Member:** AFK, Help, Feedback",
                 inline: false
             }
         ])

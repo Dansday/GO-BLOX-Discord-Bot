@@ -1,24 +1,26 @@
 # GO BLOX Bot System
 
-A Discord bot system that separates self-bot monitoring from official bot forwarding for better security and maintainability.
+A comprehensive Discord bot management system with a web-based control panel. Features dual bot architecture (self-bot monitoring + official bot forwarding) with database-driven configuration, multiple server support, and extensive moderation/management features.
 
 ## Architecture
 
-### Self-Bot (`self-bot/`)
+### Self-Bot (`backend/self-bot/`)
 - **Purpose**: Monitors source Discord servers for new messages
 - **Technology**: `discord.js-selfbot-v13`
 - **Functionality**: 
-  - Listens to configured source channels
-  - Processes messages and sends data to official bot
-  - Handles historical message fetching
+  - Listens to configured source channels from database
+  - Processes messages and sends data to official bot via webhook
+  - Syncs server/channel/role data to database
+  - Multiple self-bots can connect to one official bot
 
-### Official Bot (`official-bot/`)
-- **Purpose**: Forwards messages to target channels, welcomes new users, provides interactive interface, and manages server features
-- **Technology**: `discord.js` (official bot)
+### Official Bot (`backend/official-bot/`)
+- **Purpose**: Forwards messages, manages server features, and provides interactive interface
+- **Technology**: `discord.js` (official bot API)
 - **Functionality**:
-  - Receives message data from self-bot
+  - Receives message data from self-bot(s) via webhook server
   - Forwards messages to target channels with role mentions
   - Welcomes new users with random messages
+  - Thanks server boosters with custom messages
   - Provides interactive button-based interface
   - Tracks moderation actions (bans, unbans, kicks)
   - Finds inactive members
@@ -26,144 +28,209 @@ A Discord bot system that separates self-bot monitoring from official bot forwar
   - AFK system with voice mute/deafen
   - Feedback submission system
   - Role-based permission system
+  - Syncs server/channel/role data to database
+
+### Control Panel (`frontend/`)
+- **Purpose**: Web-based management interface for all bots
+- **Technology**: Express.js with session-based authentication
+- **Functionality**:
+  - Create and manage multiple bots (official + self-bots)
+  - Start/stop/restart bots remotely
+  - Configure all bot settings via web interface
+  - View bot status, uptime, and process information
+  - Manage server configurations per bot
+  - Configure forwarder, welcomer, booster, permissions, and more
 
 ## Project Structure
 
 ```
-go-blox-bot/
-├── main.js                # Frontend entry point (control panel server)
-├── package.json           # Single package.json with all dependencies
+GOBLOX/
+├── main.js                    # Control panel server entry point
+├── package.json               # Dependencies and scripts
+├── example.env               # Environment variables template
+├── .env                      # Your environment variables (create this)
 ├── frontend/
-│   ├── index.js          # Control panel server
-│   ├── index.html        # Web interface
-│   └── config.js         # Frontend configuration
+│   ├── index.js              # Control panel Express server
+│   ├── index.html            # Web interface (4624 lines)
+│   └── config.js             # Frontend configuration
 ├── backend/
-│   ├── config.js         # Backend configuration
-│   ├── logger.js         # Logger utility
-│   ├── utils.js          # Utilities
+│   ├── config.js             # Backend configuration (database-driven)
+│   ├── logger.js             # Centralized logging utility
+│   ├── utils.js              # Utility functions
 │   ├── official-bot/
-│   │   ├── officialbot.js # Official bot entry point
+│   │   ├── officialbot.js   # Official bot entry point
 │   │   └── components/
-│   │       ├── forwarder.js  # Message forwarding component
-│   │       ├── welcomer.js   # User welcoming component
-│   │       ├── webhook.js    # Webhook server component
-│   │       ├── commands.js   # Slash command system
-│   │       ├── interface.js  # Interface component
-│   │       ├── moderation.js # Moderation tracking component
-│   │       ├── permissions.js # Permission checking system
-│   │       ├── commands/     # Command definitions
+│   │       ├── forwarder.js      # Message forwarding component
+│   │       ├── welcomer.js       # User welcoming component
+│   │       ├── booster.js         # Server booster thank you messages
+│   │       ├── webhook.js        # Webhook server for self-bot communication
+│   │       ├── commands.js       # Slash command system
+│   │       ├── interface.js      # Button interface component
+│   │       ├── moderation.js     # Moderation tracking component
+│   │       ├── permissions.js    # Permission checking system
+│   │       ├── sync.js           # Server/channel/role sync to database
+│   │       ├── commands/         # Command definitions
 │   │       │   └── admin/
 │   │       │       └── setup.js  # Setup command
-│   │       └── interface/    # Interface button handlers
-│   │           ├── status.js # Status button handler
-│   │           ├── help.js   # Help button handler
-│   │           ├── pause.js  # Pause button handler
-│   │           ├── sendmessage.js # Send message button handler
-│   │           ├── inactive.js # Inactive members button handler
-│   │           ├── customsupporterrole.js # Custom supporter role handler
-│   │           ├── feedback.js # Feedback button handler
-│   │           └── afk.js # AFK button handler
+│   │       └── interface/        # Interface button handlers
+│   │           ├── afk.js            # AFK button handler
+│   │           ├── feedback.js      # Feedback button handler
+│   │           ├── sendmessage.js    # Send message button handler
+│   │           ├── help.js           # Help button handler
+│   │           ├── customsupporterrole.js # Custom role handler
+│   │           └── ... (other handlers)
 │   └── self-bot/
-│       ├── selfbot.js    # Self-bot entry point
+│       ├── selfbot.js         # Self-bot entry point
 │       └── components/
-│           └── forwarder.js  # Message monitoring component
+│           ├── forwarder.js    # Message monitoring component
+│           └── sync.js         # Server/channel/role sync to database
+└── database/
+    ├── database.js            # Neon database client and operations
+    └── schema.sql             # Database schema (tables, indexes)
 ```
+
+## Features
+
+### Core Features
+- **Message Forwarding**: Forward messages from source channels to target channels with role mentions
+- **Welcome System**: Custom welcome messages for new members with beautiful embeds
+- **Booster System**: Thank server boosters with custom messages and embeds
+- **Moderation Tracking**: Automatically log bans, unbans, and kicks with moderator information
+- **Inactive Member Detection**: Find members who haven't been active in configured period
+- **Custom Supporter Roles**: Allow supporters to create custom roles with icons and colors
+- **AFK System**: Set AFK status with automatic nickname prefix and voice mute/deafen
+- **Feedback System**: Submit feedback to staff with automatic channel posting
+- **Permission System**: Role-based permissions (Admin, Staff, Supporter, Member)
+- **Testing/Production Modes**: Switch between test and production channels
+
+### Management Features
+- **Web Control Panel**: Full web interface for bot management
+- **Multiple Bot Support**: Manage multiple official bots and self-bots
+- **Database-Driven Config**: All settings stored in Neon PostgreSQL (no file editing needed)
+- **Real-time Status**: Live bot status, uptime, and process information
+- **Remote Control**: Start/stop/restart bots from anywhere
+- **Session Authentication**: Secure password-protected control panel
 
 ## Setup
 
-1. **Install dependencies**:
-   ```bash
-   npm install
-   ```
-   
-   > **Note**: This project uses a single `package.json` file for direct admin hosting compatibility.
+### Prerequisites
+- Node.js (v18+ recommended)
+- Neon PostgreSQL account (free tier works)
+- Discord bot token(s)
+- Discord application ID (for official bots)
 
-2. **Configure environment**:
-   - Edit `backend/config.js`
-   - Set `ENV.PRODUCTION` to `true` for production or `false` for testing
+### 1. Install Dependencies
+```bash
+npm install
+```
 
-3. **Configure tokens**:
-   - Edit `backend/config.js`
-   - Set `SELF_BOT_TOKEN` (your self-bot token)
-   - Set `OFFICIAL_BOT_TOKEN` (your official bot token)
+### 2. Configure Environment Variables
+Create a `.env` file in the root directory (copy from `example.env`):
 
-4. **Configure communication**:
-   - Edit `backend/config.js`
-   - Set `COMMUNICATION.WEBHOOK_URL` to local webhook server (default: `http://localhost:7777`)
-   - Set `COMMUNICATION.SECRET_KEY` for webhook authentication
-   - Set `COMMUNICATION.PORT` for webhook server (default: 7777)
+```env
+# Neon PostgreSQL Configuration (Required)
+DATABASE_URL=postgresql://user:password@host/database?sslmode=require
 
-5. **Configure embed appearance**:
-   - Edit `backend/config.js`
-   - Set `EMBED.COLOR` for embed color (default: red `0xff0000`)
-   - Set `EMBED.FOOTER` for footer text (default: "Copyright GO BLOX [year]")
+# Control Panel Configuration
+CONTROL_PANEL_PORT=8080
 
-6. **Configure database (Supabase)**:
-   - Create `.env` file in root directory (copy from `example.env`)
-   - Set `SUPABASE_URL` (your Supabase project URL) - Get from: Settings → API
-   - Set `SUPABASE_KEY` (your Supabase anon key) - Get from: Settings → API
-   - Set `DATABASE_URL` (PostgreSQL connection string) - Get from: Settings → Database → Connection pooler
-   - Run `npm run db:migrate` to create tables, or run SQL schema manually in Supabase SQL Editor
+# Session Secret (optional, for production)
+SESSION_SECRET=your-random-secret-key
+```
 
-7. **Configure control panel**:
-   - Control panel settings are now in `.env` file
-   - Set `CONTROL_PANEL_PORT` (default: 8888)
+**Getting Neon Credentials:**
+- **DATABASE_URL**: Go to Neon Dashboard → Connection Details → Copy connection string
 
-## Usage
+### 3. Initialize Database
+The database will be automatically initialized when you start the control panel. If `DATABASE_URL` is set, tables will be created automatically. Otherwise, you can manually run the SQL schema:
 
-### Start Control Panel (Recommended)
+1. Open Neon Dashboard → SQL Editor
+2. Copy and paste the contents of `database/schema.sql`
+3. Execute the SQL
+
+### 4. Start Control Panel
 ```bash
 npm start
 ```
 
-This starts the **Control Panel web interface**. Then:
-1. Open your browser: `http://your-server-ip:8888` (or `http://localhost:8888`)
-2. Complete the initial setup form (first time only):
-   - Enter Official Bot Token (required)
-   - Enter Secret Key (required)
-   - Enter Self-Bot Token (optional)
-   - Configure other settings
-3. Click "Start" to start the bot
-4. Use the web interface to Start/Stop/Restart anytime
+This starts the control panel web server. Access it at `http://localhost:8080` (or your configured port).
 
-**Everything controlled from the web frontend - no SSH needed!** 🎉
+### 5. First-Time Setup
 
-**Note:** First-time setup requires database tables. If `DATABASE_URL` is set in `.env`, tables will be created automatically. Otherwise, run the SQL schema from `database/schema.sql` in Supabase SQL Editor.
+1. **Register Panel Password**: 
+   - On first access, you'll be prompted to create a panel password
+   - This password protects your control panel (minimum 6 characters)
 
-### Control Panel Features
-- **Initial Setup Form**: Configure bot tokens and settings on first run
-- **Start Bot**: Start both bots or choose mode
-- **Stop Bot**: Gracefully stop the bot
-- **Restart Bot**: Restart with one click
-- **Live Status**: Shows PID, uptime, status (updates every 2 seconds)
-- **Database Integration**: All configurations stored in Supabase
+2. **Create Official Bot**:
+   - Click "Add Bot" → Select "Official Bot"
+   - Enter:
+     - Bot name (e.g., "My Bot")
+     - Official bot token (from Discord Developer Portal)
+     - Application ID (from Discord Developer Portal)
+     - Port (unique port for webhook server, e.g., 7777)
+     - Secret key (random string for webhook authentication)
 
-## Slash Commands
+3. **Create Self-Bot** (Optional):
+   - Click "Add Bot" → Select "Self-Bot"
+   - Enter:
+     - Bot name (e.g., "Monitor Bot")
+     - Self-bot token (your user token)
+     - Connect to: Select the official bot created above
 
-The official bot provides a single slash command for bot management:
+4. **Configure Bot Settings**:
+   - All settings are configured through the web interface
+   - No file editing required!
+   - Settings include:
+     - Forwarder configuration (source/target channels, role mentions)
+     - Welcome messages and channels
+     - Booster messages and channels
+     - Permission roles (Admin, Staff, Supporter, Member)
+     - Embed colors and footers
+     - Main channel (for moderation logs)
+     - Logger channel
+     - Feedback channel
+     - Custom role constraints
 
-### Admin Commands (Require Administrator permissions)
-- `/interface` - Send bot interface with buttons to target channel
+5. **Start Bots**:
+   - Click "Start" on any bot to start it
+   - Bot status updates in real-time
+   - View uptime and process ID
 
-### Interface Features
+## Usage
+
+### Control Panel
+Access the control panel at `http://localhost:8080` (or your configured port).
+
+**Features:**
+- **Dashboard**: View all bots and their status
+- **Bot Management**: Create, edit, delete bots
+- **Server Configuration**: Configure settings per Discord server
+- **Start/Stop/Restart**: Control bots remotely
+- **Real-time Status**: Live updates every 2 seconds
+
+### Discord Commands
+
+#### Admin Commands
+- `/interface #channel` - Send bot interface with buttons to target channel (requires Administrator permissions)
+
+### Interface Buttons
+
+The `/interface` command creates a visual interface with buttons. All button responses are ephemeral (private to the user).
 
 #### 📊 Status Button
 - Shows bot status, uptime, and component information
 - **Permission:** Member+
 
 #### ⏸️ AFK Button
-- Set yourself as AFK (Away From Keyboard) with an optional message
+- Set yourself as AFK (Away From Keyboard) with optional message
 - Features:
   - Optional custom AFK message
   - Nickname automatically prefixed with `[AFK]`
+  - Original display name is restored when AFK is removed
   - If in voice channel: automatically muted and deafened
-  - Auto-removal: Removed when you send any message, unmute/undeafen in voice, or manually remove
-  - Mention notifications: When someone mentions you, they're notified you're AFK
+  - Auto-removal when you send any message, unmute/undeafen, or manually remove
+  - Mention notifications: Users notified when mentioning you while AFK
   - DM notifications: You receive a DM when mentioned while AFK
-- **Permission:** Member+
-
-#### 📊 Status Button
-- Shows bot status, uptime, and server information
 - **Permission:** Member+
 
 #### ❓ Help Button
@@ -173,8 +240,8 @@ The official bot provides a single slash command for bot management:
 #### 💬 Feedback Button
 - Submit feedback, suggestions, or concerns to server staff
 - Features:
-  - Simple modal with text input
-  - All submissions logged with submission number and user information
+  - Simple modal with text input (up to 2000 characters)
+  - All submissions posted to configured feedback channel with user information
   - Staff role automatically mentioned in feedback channel
 - **Permission:** Member+
 
@@ -191,8 +258,8 @@ The official bot provides a single slash command for bot management:
   - Custom title (required)
   - Custom description (optional)
   - Optional image URL
-  - Optional color customization (hex/decimal/name)
-  - Optional footer text (defaults to config footer if empty)
+  - Optional color customization (hex/decimal/color name)
+  - Optional footer text (defaults to configured footer if empty)
 - Step-by-step process: Select channel → Choose role (optional) → Fill embed details → Send
 - **Permission:** Staff+
 
@@ -209,7 +276,8 @@ The official bot provides a single slash command for bot management:
   - Set custom role name (1-100 characters)
   - Set role color (hex format like #FF5733, decimal number, or color name)
   - Set role icon (Unicode emoji or JPG/PNG image URL)
-  - Role automatically positioned between Supporter and Staff roles
+  - Role automatically positioned between configured role constraints (role start and role end)
+  - Each user can have exactly one custom role
 - **Edit Features:**
   - Modify existing role name, color, or icon
   - Pre-filled with current values
@@ -218,230 +286,230 @@ The official bot provides a single slash command for bot management:
   - Permanently delete your custom role
   - Role and all permissions removed
 - **Auto-Cleanup:**
-  - Unused roles (no members) are automatically removed
-  - Cleanup runs on bot startup and every 6 hours
+  - Roles with no members or more than one member are automatically removed
+  - Cleanup runs on bot startup (after 5 seconds) and every 6 hours
   - Roles removed when members lose permission or leave server
+  - Valid roles (exactly 1 member) are preserved across bot restarts
 - **Permission:** Supporter, Staff, or Admin
-
-### Command Features
-- **Ephemeral responses** - All command responses are private to the user
-- **Permission checking** - Admin commands verify Administrator permissions
-- **Error handling** - Detailed error messages for command failures
-- **Interface-based interaction** - Users interact through visual buttons instead of slash commands
-
-## Button Interface
-
-The `/interface` command creates a visual interface with buttons that users can click instead of using slash commands:
-
-### Interface Features
-
-See the full interface features list in the "Slash Commands" section above.
-
-### How to Use
-1. Admin uses `/interface #channel` to send the interface to any text channel
-2. Users can click buttons for instant bot interaction
-3. All button responses are ephemeral (private to the user)
-4. Pause/Resume button requires Administrator permissions
-
-### Feature Details
-
-#### Send Message Feature
-The Send Message button provides a step-by-step process:
-1. **Select Channel** - Choose which channel to send the message to using channel selector
-2. **Choose Role** - Optionally select one or more roles to mention (can skip)
-3. **Fill Embed Details** - Enter title (required), description (required), image URL, color, and footer
-4. **Send** - Message is sent with role mentions and embed formatting
-
-#### Inactive Members Feature
-- Searches through configured category channels for member activity
-- Calculates last message timestamp for each member
-- Lists members who haven't sent messages within the inactivity period
-- Results displayed as an embed with member information and last activity time
-
-#### Custom Supporter Role Feature
-**First Time Use:**
-1. Click "💎 Custom Supporter Role" button
-2. Modal opens for role creation
-3. Fill in role name (required), color (optional), and icon (optional)
-4. Role is created and assigned to you
-
-**Subsequent Uses (If You Have a Role):**
-1. Click "💎 Custom Supporter Role" button
-2. Options appear: "✏️ Edit Role" or "🗑️ Delete Role"
-3. Choose to edit (modify existing role) or delete (permanently remove role)
-
-**Icon Options:**
-- **Emoji:** Enter a Unicode emoji (e.g., 🔥, ⚡, 💎)
-- **Image URL:** Must be a valid JPG or PNG image URL (e.g., `https://example.com/icon.png`)
-- **Remove Icon:** Clear the icon field when editing to remove the icon
-
-**Auto-Cleanup System:**
-- Automatically removes custom roles that have no members assigned
-- Runs cleanup on bot startup (after 10 seconds) and every 6 hours
-- Removes roles when members lose required permissions
-- Removes roles when members leave the server
-
-#### AFK Feature
-**Setting AFK:**
-1. Click "⏸️ AFK" button
-2. Enter optional AFK message (or leave empty)
-3. Your nickname is prefixed with `[AFK]`
-4. If in voice channel: You're automatically muted and deafened
-
-**AFK Removal (Automatic):**
-- Sending any message removes AFK and unmutes/undeafens you
-- Unmuting/undeafening in voice removes AFK
-- AFK removal automatically restores your nickname and voice status
-
-**AFK Removal (Manual):**
-- Click "⏸️ AFK" button → Click "🔄 Remove AFK" button
-
-**Mention Notifications:**
-- When someone mentions you while AFK:
-  - They receive a notification in channel (auto-deletes after 10 seconds)
-  - You receive a DM with who mentioned you and message preview
-  - Shows your AFK message and duration
-
-#### Feedback Feature
-**Submitting Feedback:**
-1. Click "💬 Feedback" button
-2. Enter your feedback message (up to 2000 characters)
-3. Feedback is sent to configured feedback channel
-4. Staff role is automatically mentioned
-5. You receive confirmation with submission number
-
-### Benefits
-- **User-friendly** - No need to remember slash command syntax
-- **Visual** - Clear buttons with icons and labels
-- **Accessible** - Works for users who prefer clicking over typing
-- **Simplified** - Only one slash command needed (admin only)
-- **Clean** - No command clutter in Discord's slash command menu
 
 ## Communication Method
 
 ### Webhook Communication
-- Self-bot sends message data via HTTP POST to local webhook server (`http://localhost:7777`)
-- Official bot runs a webhook server on port 7777 to receive the data
-- **Secret key authentication** - only authorized self-bot can access webhook
-- **Local communication** - both bots run on same server, communicate via localhost
+- Self-bot sends message data via HTTP POST to local webhook server
+- Official bot runs a webhook server on configured port (default: 7777)
+- **Secret key authentication**: All endpoints require `X-Secret-Key` header
+- **Health Check Endpoint**: `GET /status` or `GET /health` - Returns bot status, uptime, guild count (requires secret key)
+- **Local communication**: Both bots run on same server, communicate via localhost
 - Real-time communication for instant message forwarding
-- Configured in `config.js` with `COMMUNICATION` settings
-
-## Environment Configuration
-
-### Production vs Testing
-- **Production Mode** (`ENV.PRODUCTION: true`): Uses all source channels for full functionality
-- **Testing Mode** (`ENV.PRODUCTION: false`): Uses only test channels for safe testing
-- Easy switching between environments by changing one flag
-
-### Security
-- **Secret Key Authentication**: Webhook requires `X-Secret-Key` header
-- **Unauthorized Access Logging**: Failed authentication attempts are logged
-- **Secure Communication**: Only self-bot with correct secret key can send data
+- Each official bot can have its own port (multiple bots supported)
 
 ## Configuration
 
-Configuration is separated into frontend and backend:
+### Database-Driven Configuration
+**All configuration is stored in Neon PostgreSQL database** - no file editing required!
 
-### Environment Configuration (`.env`)
-- **SUPABASE_URL**: Your Supabase project URL (required for database queries)
-- **SUPABASE_KEY**: Your Supabase anon key (required for database queries)
-- **DATABASE_URL**: PostgreSQL connection string (required for automatic table creation)
-- **CONTROL_PANEL_PORT**: Control panel web interface port (default: 8888)
+Configuration is managed through:
+1. **Web Control Panel**: Primary method for all settings
+2. **Database**: Settings stored in `server_settings` table with JSONB
 
-### Database Configuration
-All bot configurations are stored in Supabase database:
-- **servers**: Bot server configurations (tokens, settings)
-- **channels**: Discord channel information (synced from Discord)
-- **roles**: Discord role information (synced from Discord)
-- **server_settings**: Additional server settings
+### Configuration Components
 
-### Backend Configuration (`backend/config.js`)
+#### Forwarder Configuration
+- Source channels (from self-bot servers)
+- Target channels (in official bot servers)
+- Role mentions per forwarder
+- Production/test mode support
 
-### Core Configuration
-- **Source Channels**: Configure which channels to monitor
-- **Target Channels**: Configure where to forward messages
-- **Role Mentions**: Configure role mentions for each group
-- **Welcome Messages**: Configure welcome message templates
-- **Excluded Users**: Configure users to exclude from forwarding
-- **Main Channel**: Configure main channel for moderation logs (production/test)
+#### Welcomer Configuration
+- Welcome channels
+- Welcome message templates (with `{user}` placeholder)
+- Random message selection
 
-### Permissions Configuration
-Role-based permission system with the following roles:
-- **ADMIN_ROLE**: Full access to all commands and interfaces
-- **STAFF_ROLE**: All interfaces except pause/setup
-- **SUPPORTER_ROLE**: Can use custom supporter role feature, status, and help
-- **MEMBER_ROLE**: Can use AFK, status, help, and feedback
+#### Booster Configuration
+- Booster channels
+- Booster message templates (with `{user}` placeholder)
+- Random message selection
 
-### Activity Tracker Configuration
-- **ALLOWED_CATEGORIES**: Categories to search for member activity
-- **INACTIVITY_DAYS**: Number of days of inactivity (default: 90)
+#### Permissions Configuration
+- Admin roles (full access)
+- Staff roles (all interfaces: Send Message, Custom Supporter Role, AFK, Help, Feedback)
+- Supporter roles (Custom Supporter Role, Help)
+- Member roles (AFK, Help, Feedback)
 
-### Custom Supporter Role Configuration
-- **ROLE_ABOVE**: Custom roles must be above this role (typically Supporter role)
-- **ROLE_BELOW**: Custom roles must be below this role (typically Staff role)
+#### Main Configuration
+- Production channel (for moderation logs)
+- Test channel (for testing mode)
+- Logger channel (for bot logs)
+- Embed color (hex format)
+- Embed footer (with placeholders: `{server}`, `{year}`, `{date}`, `{time}`)
 
-## Data Management
+#### Feedback Configuration
+- Feedback channel ID (where submissions are posted)
+- Staff roles automatically mentioned in feedback channel
 
-### Real-time Operations
-- **No Historical Fetching**: Messages are only forwarded when the bot is online
-- **No Duplicate Tracking**: Each message is processed once when received
-- **No Welcome Tracking**: New members are welcomed immediately when they join
-- **Simplified Operation**: No complex state management or JSON tracking
-- **Beautiful Embeds**: Welcome messages are sent as rich embeds with user info
+#### Custom Supporter Role Configuration
+- Role Start (top/highest position - typically Supporter role)
+- Role End (bottom/lowest position - typically Staff role)
+- Custom roles are created between these constraints
 
-## Security Benefits
+#### Activity Tracker Configuration
+- Allowed categories for activity search
+- Inactivity days (default: 90)
 
-1. **Separation of Concerns**: Self-bot only monitors, official bot only forwards
-2. **Token Isolation**: Self-bot and official bot use different tokens
-3. **Reduced Risk**: Official bot doesn't need access to source servers
-4. **Better Logging**: Clear separation of monitoring vs forwarding logs
+## Testing vs Production Mode
+
+- **Testing Mode** (`is_testing: true`): Uses test channels for safe testing
+- **Production Mode** (`is_testing: false`): Uses production channels for full functionality
+- Mode is set per official bot in the control panel
+- Self-bots automatically inherit mode from their connected official bot
+- Easy switching between modes via web interface
+
+## Security Features
+
+1. **Panel Authentication**: Password-protected control panel with session management
+2. **Secret Key Authentication**: Webhook requires `X-Secret-Key` header
+3. **Unauthorized Access Logging**: Failed authentication attempts are logged
+4. **Secure Communication**: Only self-bot with correct secret key can send data
+5. **Token Isolation**: Self-bot and official bot use different tokens
+6. **Separation of Concerns**: Self-bot only monitors, official bot only forwards
+7. **Process Verification**: Bot status verified against actual running processes
 
 ## Components
 
 Each feature is organized as a component for easy maintenance:
 
+### Official Bot Components
 - **Forwarder Component**: Handles message processing and forwarding
 - **Welcomer Component**: Handles new user welcoming with beautiful embeds
-- **Webhook Component**: Handles webhook server for self-bot communication
+- **Booster Component**: Handles server booster thank you messages
+- **Webhook Component**: Handles webhook server for self-bot communication and health check endpoint
 - **Commands Component**: Handles slash command system and execution
 - **Interface Component**: Handles button interface creation and interactions
 - **Moderation Component**: Tracks bans, unbans, and kicks in real-time, logs to main channel
-- **Logger Component**: Centralized logging system
 - **Permissions Component**: Role-based permission checking system
+- **Sync Component**: Event-driven sync system - syncs on bot startup and when configs are accessed/updated (30-minute cooldown)
 
-### Moderation Component
+### Self-Bot Components
+- **Forwarder Component**: Handles message monitoring and filtering
+- **Sync Component**: Syncs server data to database
 
-The moderation component automatically tracks moderation actions:
-- **Bans**: Logs when members are banned, including moderator and reason
-- **Unbans**: Logs when members are unbanned, including moderator and reason
-- **Kicks**: Logs when members are kicked, including moderator and reason
-- **Audit Log Integration**: Uses Discord audit logs to identify moderators
-- **Main Channel Logging**: All moderation actions are logged to the configured main channel
-- **Simplified Format**: Shows only user tags and moderator tags (no IDs)
+### Utility Components
+- **Logger Component**: Centralized logging system with Discord channel integration
 
-### Interface Components
+## Database Schema
 
-Located in `official-bot/components/interface/`:
-- **status.js**: Status button handler - displays bot information
-- **help.js**: Help button handler - displays comprehensive help
-- **pause.js**: Pause/Resume button handler - bot control
-- **sendmessage.js**: Send message button handler - embed message creation
-- **inactive.js**: Inactive members button handler - activity tracking
-- **customsupporterrole.js**: Custom role button handler - role management
-- **feedback.js**: Feedback button handler - feedback submission system
-- **afk.js**: AFK button handler - AFK status management with voice integration
+The system uses Neon PostgreSQL with the following main tables:
+
+- **panel**: Panel administrator credentials
+- **panel_logs**: Login attempt logs
+- **bots**: Bot configurations (tokens, ports, status, etc.)
+- **servers**: Discord server information per bot
+- **categories**: Discord category information (type 4 channels)
+- **channels**: Discord channel information
+- **roles**: Discord role information
+- **server_settings**: Component-specific settings per server (JSONB)
 
 ## Troubleshooting
 
-1. **Database tables not found**: 
-   - Set `DATABASE_URL` in `.env` and run `npm run db:migrate`
-   - Or manually run SQL schema from `database/schema.sql` in Supabase SQL Editor
-2. **Setup form not working**: Check that database tables exist and Supabase credentials are correct
-3. **Self-bot not receiving messages**: Check source channel IDs and permissions
-4. **Official bot not forwarding**: Check target channel IDs and bot permissions
-5. **Communication issues**: Verify webhook URL and secret key
-6. **Token issues**: Ensure tokens are valid and have proper permissions
-7. **Interface not appearing**: Use `/interface #channel` to create the interface
-8. **Permission errors**: Interface creation requires Administrator permissions
-9. **Bot appears paused**: Use the Pause/Resume button in the interface to resume the bot
+### Database Issues
+1. **Tables not found**: 
+   - Ensure `DATABASE_URL` is set in `.env`
+   - Database will auto-create tables on first startup
+   - Or manually run `database/schema.sql` in Neon SQL Editor
+
+2. **Connection errors**: 
+   - Verify `DATABASE_URL` in `.env`
+   - Check `DATABASE_URL` format and credentials
+   - Ensure Neon project is active
+
+### Bot Issues
+1. **Bot won't start**: 
+   - Check bot token is valid
+   - Verify bot has required permissions in Discord
+   - Check application ID is correct for official bots
+   - Review control panel logs for errors
+
+2. **Self-bot not receiving messages**: 
+   - Verify forwarder configuration in control panel
+   - Check source channel IDs are correct
+   - Ensure self-bot is in the source server
+   - Check self-bot token is valid
+
+3. **Official bot not forwarding**: 
+   - Verify forwarder configuration (target channels, roles)
+   - Check webhook server is running (check port)
+   - Verify secret key matches between self-bot and official bot
+   - Check official bot has permissions in target channels
+
+4. **Communication issues**: 
+   - Verify webhook URL and port configuration
+   - Check secret key matches
+   - Ensure both bots are running
+   - Check firewall/network settings for localhost
+   - Test health endpoint: `curl -H "x-secret-key: YOUR_KEY" http://localhost:PORT/status`
+
+5. **Sync issues**: 
+   - Sync runs on bot startup automatically
+   - Sync also triggers when configs are accessed or updated
+   - 30-minute cooldown between syncs per server
+   - Check `last_accessed` timestamp in `server_settings` table if sync seems delayed
+
+### Control Panel Issues
+1. **Can't login**: 
+   - If first time, register a password
+   - Check password is correct
+   - View login logs in database (`panel_logs` table)
+
+2. **Interface not loading**: 
+   - Check browser console for errors
+   - Verify control panel server is running
+   - Check port is not blocked by firewall
+
+3. **Bot status not updating**: 
+   - Refresh the page
+   - Check bot process is actually running
+   - Verify database connection
+
+### Feature Issues
+1. **Interface not appearing**: 
+   - Use `/interface #channel` to create the interface
+   - Requires Administrator permissions
+
+2. **Permission errors**: 
+   - Verify permission roles are configured in control panel
+   - Check user has required role in Discord
+   - Ensure roles are synced to database
+
+3. **Bot appears paused**: 
+   - Use the Pause/Resume button in the interface to resume
+   - Requires Administrator permissions
+
+## Development
+
+### Project Structure
+- Modular component-based architecture
+- Database-driven configuration (no hardcoded settings)
+- Type: ES Modules (`"type": "module"` in package.json)
+
+### Adding New Features
+1. Create component in appropriate directory (`backend/official-bot/components/` or `backend/self-bot/components/`)
+2. Export init function and any handlers
+3. Import and initialize in bot entry point
+4. Add configuration to database schema if needed
+5. Add UI controls in control panel if needed
+
+## License
+
+MIT License - See LICENSE file for details
+
+## Author
+
+Akbar Yudhanto
+
+## Version
+
+5.0.0
+
+---
+
+**Note**: This is a comprehensive bot management system. For detailed component documentation, refer to individual component files in the codebase.

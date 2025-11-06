@@ -1,7 +1,6 @@
 import { WELCOMER, getEmbedConfig } from "../../config.js";
 import { EmbedBuilder } from "discord.js";
 import logger from "../../logger.js";
-import db from "../../../database/supabase.js";
 
 // Replace placeholders in message
 function replacePlaceholders(message, member, guild) {
