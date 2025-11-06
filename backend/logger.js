@@ -20,7 +20,7 @@ async function log(text, guildId = null) {
                         await serverLogChannel.send(`[${timestamp}] ${text}`);
                         return;
                     } catch (err) {
-                        // Fall through to default logger if server-specific logger fails
+                        // Fall through to default logger or console.log if server-specific logger fails
                     }
                 }
             }
@@ -31,6 +31,9 @@ async function log(text, guildId = null) {
 
     // Use default logger channel if no guildId provided or server-specific logger failed
     if (!logChannel || !hasPermission) {
+        // Fallback to console.log if logger channel is not set
+        const timestamp = formatTimestamp(Date.now(), true);
+        console.log(`[${timestamp}] ${text}`);
         return;
     }
 
@@ -42,13 +45,10 @@ async function log(text, guildId = null) {
         if (err.code === 50001 || err.code === 50013) {
             // Missing Access (50001) or Missing Permissions (50013)
             hasPermission = false;
-            // Silently stop logging (no console output)
-        } else {
-            // Other errors (network issues, etc.) - silently fail
-            if (!err._logged) {
-                err._logged = true;
-            }
         }
+        // Fallback to console.log for any error
+        const timestamp = formatTimestamp(Date.now(), true);
+        console.log(`[${timestamp}] ${text}`);
     }
 }
 

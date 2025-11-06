@@ -1,5 +1,5 @@
 // Backend Configuration for both Self-Bot and Official Bot
-import db from '../database/supabase.js';
+import db from '../database/database.js';
 
 // Bot configuration loaded from database
 let botConfig = null;
@@ -80,6 +80,19 @@ function getOfficialBotId() {
         return botConfig.connect_to;
     }
     return botConfig.id;
+}
+
+// Helper function to get server for current bot (not official bot)
+export async function getServerForCurrentBot(guildId) {
+    requireBotConfig();
+    requireGuildId(guildId, 'getting server');
+
+    const server = await db.getServerByDiscordId(botConfig.id, guildId);
+    if (!server) {
+        throw new Error(`Server not found for guild ${guildId}`);
+    }
+
+    return server;
 }
 
 // Helper function to get official bot server for a guild

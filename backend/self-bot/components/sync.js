@@ -1,4 +1,4 @@
-import db from '../../../database/supabase.js';
+import db from '../../../database/database.js';
 import logger from '../../logger.js';
 import { getLoggerChannel } from '../../config.js';
 import { separateChannelsAndCategories, mapCategoriesForSync, mapChannelsForSync } from '../../utils.js';
@@ -95,12 +95,15 @@ async function syncAllGuilds() {
         }
 
         const guilds = client.guilds.cache;
+        logger.log(`🔄 Selfbot sync started: ${guilds.size} server(s)`);
 
-        logger.log(`🔄 Syncing ${guilds.size} server(s)...`);
-
+        let completed = 0;
         for (const [guildId, guild] of guilds) {
             await syncGuildData(guild);
+            completed++;
         }
+        
+        logger.log(`✅ Selfbot sync completed: ${completed}/${guilds.size} server(s)`);
     } catch (error) {
         logger.log(`❌ Error syncing all guilds: ${error.message}`);
     }
@@ -166,23 +169,20 @@ async function init(discordClient, botIdFromEnv) {
         logger.log(`⚠️  BOT_ID not set. Sync will be limited.`);
     }
 
-    // Sync when bot is ready
-    client.once('ready', async () => {
-        // Update bot name and icon from Discord
-        await updateBotInfo();
+    // Since sync.init() is called from within ready handler, client is already ready
+    // Sync immediately after a short delay to ensure all components are initialized
+    setTimeout(async () => {
+        if (botId) {
+            logger.log('🔄 Starting initial guild data sync...');
+            // Always sync on first bot start (regardless of last_accessed)
+            await syncAllGuilds();
+            logger.log('✅ Initial sync complete');
 
-        // Small delay to ensure all components are initialized
-        setTimeout(async () => {
-            if (botId) {
-                logger.log('🔄 Starting initial guild data sync...');
-                await syncAllGuilds();
-                logger.log('✅ Initial sync complete');
-
-                // Mark all servers as synced to prevent immediate re-sync if config is visited right after bot start
-                await markAllServersAsSynced();
-            }
-        }, 2000);
-    });
+            // Mark all servers as synced to prevent immediate re-sync if config is visited right after bot start
+            // This only marks servers that have settings - new servers without settings will be synced every 5 minutes
+            await markAllServersAsSynced();
+        }
+    }, 2000);
 
     // Sync when bot joins a new guild
     client.on('guildCreate', async (guild) => {
@@ -190,18 +190,8 @@ async function init(discordClient, botIdFromEnv) {
         await syncGuildData(guild);
     });
 
-    // Sync on member count changes
-    client.on('guildMemberAdd', async (member) => {
-        if (member.guild && botId) {
-            await syncGuildData(member.guild);
-        }
-    });
-
-    client.on('guildMemberRemove', async (member) => {
-        if (member.guild && botId) {
-            await syncGuildData(member.guild);
-        }
-    });
+    // Don't sync on member add/remove - these events fire too frequently on large servers
+    // Member count updates will be synced via periodic check (every 5 minutes)
 
     // Sync on server boost changes
     client.on('guildUpdate', async (oldGuild, newGuild) => {

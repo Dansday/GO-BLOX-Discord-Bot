@@ -1,4 +1,4 @@
-import db from '../../../database/supabase.js';
+import db from '../../../database/database.js';
 import logger from '../../logger.js';
 import { getLoggerChannel } from '../../config.js';
 import { separateChannelsAndCategories, mapCategoriesForSync, mapChannelsForSync } from '../../utils.js';
@@ -100,10 +100,15 @@ async function syncAllGuilds() {
 
     try {
         const guilds = client.guilds.cache;
+        logger.log(`🔄 Official bot sync started: ${guilds.size} server(s)`);
 
+        let completed = 0;
         for (const [guildId, guild] of guilds) {
             await syncGuildData(guild);
+            completed++;
         }
+        
+        logger.log(`✅ Official bot sync completed: ${completed}/${guilds.size} server(s)`);
     } catch (error) {
         logger.log(`❌ Error syncing all guilds: ${error.message}`);
     }
@@ -156,33 +161,42 @@ async function init(discordClient, botToken) {
     if (!bot) {
         logger.log(`⚠️  Bot not found in database with token. Sync will be limited.`);
         logger.log(`💡 Create bot entry in database first`);
-    } else {
-        botId = bot.id;
-        logger.log(`✅ Found bot in database: ${bot.name} (${bot.bot_type})`);
+        return;
+    }
+    
+    botId = bot.id;
+    logger.log(`✅ Found bot in database: ${bot.name} (${bot.bot_type})`);
 
-        // Update bot info immediately if client is already ready
-        if (client.user) {
-            await updateBotInfo();
-        }
+    // Update bot info immediately if client is already ready
+    if (client.user) {
+        await updateBotInfo();
     }
 
-    // Sync when bot is ready
-    client.once('clientReady', async () => {
-        // Update bot name and icon from Discord
-        await updateBotInfo();
+    // Since sync.init() is called from within clientReady handler, client is already ready
+    // Sync immediately after a short delay to ensure all components are initialized
+    setTimeout(async () => {
+        if (botId) {
+            logger.log('🔄 Starting initial guild data sync...');
+            // Always sync on first bot start (regardless of last_accessed)
+            await syncAllGuilds();
+            logger.log('✅ Initial sync complete');
 
-        // Small delay to ensure all components are initialized
-        setTimeout(async () => {
-            if (botId) {
-                logger.log('🔄 Starting initial guild data sync...');
-                await syncAllGuilds();
-                logger.log('✅ Initial sync complete');
-
-                // Mark all servers as synced to prevent immediate re-sync if config is visited right after bot start
-                await markAllServersAsSynced();
+            // Check if this official bot has connected selfbots - wait for them to sync too
+            const allBots = await db.getAllBots();
+            const connectedSelfbots = allBots.filter(b => b.bot_type === 'selfbot' && b.connect_to === botId);
+            
+            if (connectedSelfbots.length > 0) {
+                logger.log(`⏳ Waiting for ${connectedSelfbots.length} connected selfbot(s) to finish syncing...`);
+                // Wait 10 seconds for selfbots to complete their sync (they start 2 seconds after ready)
+                await new Promise(resolve => setTimeout(resolve, 10000));
+                logger.log('✅ Connected selfbots should be synced now');
             }
-        }, 2000);
-    });
+
+            // Mark all servers as synced to prevent immediate re-sync if config is visited right after bot start
+            // This only marks servers that have settings - new servers without settings will be synced every 5 minutes
+            await markAllServersAsSynced();
+        }
+    }, 2000);
 
     // Sync when bot joins a new guild
     client.on('guildCreate', async (guild) => {

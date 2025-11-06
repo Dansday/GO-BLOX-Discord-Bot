@@ -1,4 +1,4 @@
-import { getEmbedConfig } from "../../config.js";
+import { getEmbedConfig, getServerForCurrentBot } from "../../config.js";
 import { ActionRowBuilder, ButtonBuilder, ButtonStyle } from 'discord.js';
 import logger from "../../logger.js";
 import { handleHelpButton } from './interface/help.js';
@@ -151,10 +151,10 @@ function init(client) {
 
             // Check if this server belongs to this bot instance
             try {
-                const { getServerByDiscordId } = await import('../../config.js');
-                await getServerByDiscordId(interaction.guild.id);
+                await getServerForCurrentBot(interaction.guild.id);
             } catch (error) {
                 // Server not found for this bot, ignore interaction
+                await logger.log(`⚠️  Server ${interaction.guild.name} (${interaction.guild.id}) not found for this bot, ignoring interaction`);
                 return;
             }
 
@@ -181,10 +181,10 @@ function init(client) {
 
             // Check if this server belongs to this bot instance
             try {
-                const { getServerByDiscordId } = await import('../../config.js');
-                await getServerByDiscordId(interaction.guild.id);
+                await getServerForCurrentBot(interaction.guild.id);
             } catch (error) {
                 // Server not found for this bot, ignore interaction
+                await logger.log(`⚠️  Server ${interaction.guild.name} (${interaction.guild.id}) not found for this bot, ignoring interaction`);
                 return;
             }
 
@@ -225,10 +225,10 @@ function init(client) {
 
             // Check if this server belongs to this bot instance
             try {
-                const { getServerByDiscordId } = await import('../../config.js');
-                await getServerByDiscordId(interaction.guild.id);
+                await getServerForCurrentBot(interaction.guild.id);
             } catch (error) {
                 // Server not found for this bot, ignore interaction
+                await logger.log(`⚠️  Server ${interaction.guild.name} (${interaction.guild.id}) not found for this bot, ignoring interaction`);
                 return;
             }
 
@@ -264,10 +264,10 @@ function init(client) {
 
             // Check if this server belongs to this bot instance
             try {
-                const { getServerByDiscordId } = await import('../../config.js');
-                await getServerByDiscordId(interaction.guild.id);
+                await getServerForCurrentBot(interaction.guild.id);
             } catch (error) {
                 // Server not found for this bot, ignore interaction
+                await logger.log(`⚠️  Server ${interaction.guild.name} (${interaction.guild.id}) not found for this bot, ignoring interaction`);
                 return;
             }
 

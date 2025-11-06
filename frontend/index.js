@@ -7,7 +7,7 @@ import { readFileSync } from 'fs';
 import bcrypt from 'bcrypt';
 import { CONTROL_PANEL } from './config.js';
 import logger from '../backend/logger.js';
-import db, { initializeDatabase } from '../database/supabase.js';
+import db, { initializeDatabase } from '../database/database.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -17,6 +17,17 @@ let app = null;
 let server = null;
 // Store bot processes by bot_id
 let botProcesses = new Map(); // Map<bot_id, { process, pid, startTime, status }>
+
+// Get connected selfbots for an official bot
+async function getConnectedSelfbots(officialBotId) {
+    try {
+        const allBots = await db.getAllBots();
+        return allBots.filter(b => b.bot_type === 'selfbot' && b.connect_to === officialBotId);
+    } catch (error) {
+        logger.log(`⚠️  Error getting connected selfbots: ${error.message}`);
+        return [];
+    }
+}
 
 // Start a specific bot by ID
 async function startBotById(botId, bot) {
@@ -168,6 +179,24 @@ async function startBotById(botId, bot) {
         }, 2000); // Wait 2 seconds for process to start
 
         logger.log(`✅ Started bot ${botId} (${bot.bot_type}) with PID ${botProcess.pid}`);
+        
+        // If this is an official bot, also start all connected selfbots
+        if (bot.bot_type === 'official') {
+            const connectedSelfbots = await getConnectedSelfbots(botId);
+            if (connectedSelfbots.length > 0) {
+                logger.log(`🔄 Starting ${connectedSelfbots.length} connected selfbot(s)...`);
+                const startPromises = connectedSelfbots.map(selfbot => 
+                    startBotById(selfbot.id, selfbot).catch(err => {
+                        logger.log(`⚠️  Failed to start connected selfbot ${selfbot.id}: ${err.message}`);
+                        return { success: false, error: err.message };
+                    })
+                );
+                const results = await Promise.all(startPromises);
+                const successful = results.filter(r => r.success).length;
+                logger.log(`✅ Started ${successful}/${connectedSelfbots.length} connected selfbot(s)`);
+            }
+        }
+        
         return { success: true, pid: botProcess.pid };
     } catch (error) {
         return { success: false, error: error.message };
@@ -269,6 +298,29 @@ async function stopBotById(botId) {
 }
 
     logger.log(`⏹️  Stopped bot ${botId}`);
+    
+    // If this was an official bot, also stop all connected selfbots
+    try {
+        const bot = await db.getBot(botId);
+        if (bot && bot.bot_type === 'official') {
+            const connectedSelfbots = await getConnectedSelfbots(botId);
+            if (connectedSelfbots.length > 0) {
+                logger.log(`🔄 Stopping ${connectedSelfbots.length} connected selfbot(s)...`);
+                const stopPromises = connectedSelfbots.map(selfbot => 
+                    stopBotById(selfbot.id).catch(err => {
+                        logger.log(`⚠️  Failed to stop connected selfbot ${selfbot.id}: ${err.message}`);
+                        return { success: false, error: err.message };
+                    })
+                );
+                const results = await Promise.all(stopPromises);
+                const successful = results.filter(r => r.success).length;
+                logger.log(`✅ Stopped ${successful}/${connectedSelfbots.length} connected selfbot(s)`);
+            }
+        }
+    } catch (err) {
+        logger.log(`⚠️  Error handling connected bots: ${err.message}`);
+    }
+    
     return { success: true };
 }
 

@@ -210,10 +210,12 @@ async function getRolePosition(guild) {
         throw new Error('Could not find role position constraints');
     }
 
-    // Position should be just below ROLE_START (so it appears just below the start role)
+    // Position should be between ROLE_START and ROLE_END
     // Discord roles: higher position number = appears higher in list
-    // ROLE_START is the highest position (top), so we place custom role just below it
-    return startRole.position - 1;
+    // ROLE_START is the highest position (top), ROLE_END is the lowest position (bottom)
+    // We want to place the custom role between them, so we place it just above ROLE_END
+    // This ensures it's between start and end, not below end
+    return endRole.position + 1;
 }
 
 // Handle custom supporter role button click
@@ -528,8 +530,15 @@ export async function handleCustomSupporterRoleModal(interaction) {
                     try {
                         // Check if it's a URL or emoji
                         if (trimmedIconInput.startsWith('http://') || trimmedIconInput.startsWith('https://')) {
-                            // It's a URL - validate and set
-                            if (isValidImageUrl(trimmedIconInput)) {
+                            // It's a URL - check if server has boost level for custom icons
+                            const premiumTier = interaction.guild.premiumTier;
+                            if (premiumTier < 2) {
+                                // Server doesn't have Level 2 boost - can't use custom image icons
+                                iconStatus = 'failed';
+                                iconError = 'This server needs Level 2 Server Boost to use custom role icons. You can use an emoji instead!';
+                                await logger.log(`⚠️ Cannot set custom icon: Server needs Level 2 boost (current: ${premiumTier})`);
+                            } else if (isValidImageUrl(trimmedIconInput)) {
+                                // It's a URL, server has boost, and URL is valid
                                 await existingRole.setIcon(trimmedIconInput, { reason: updateData.reason });
                                 await logger.log(`✅ Set role icon to image URL: ${trimmedIconInput}`);
                                 iconStatus = 'updated';
@@ -549,9 +558,14 @@ export async function handleCustomSupporterRoleModal(interaction) {
                         }
                     } catch (err) {
                         await logger.log(`⚠️ Could not set role icon: ${err.message}`);
+                        // Check if error is about boosts
+                        if (err.message && err.message.includes('boost')) {
+                            iconError = 'This server needs Level 2 Server Boost to use custom role icons. You can use an emoji instead!';
+                        } else {
+                            iconError = err.message;
+                        }
                         await logger.log(`⚠️ Note: Role still updated successfully. Icon requires server boost level 2+ and accessible JPG/PNG image or valid emoji.`);
                         iconStatus = 'failed';
-                        iconError = err.message;
                     }
                 } else if (existingRole.icon) {
                     // Icon field is empty and role has icon - remove it
@@ -573,10 +587,18 @@ export async function handleCustomSupporterRoleModal(interaction) {
                 else if (iconStatus === 'invalid') iconStatusText = 'Invalid format (role updated without icon)';
 
                 const embedConfig = await getEmbedConfig(interaction.guild.id);
+                let updateDescription = `Your custom role **${roleName}** has been updated!`;
+                if (iconError) {
+                    if (iconError.includes('boost')) {
+                        updateDescription += '\n\n⚠️ **Custom Icon Not Available:** This server needs Level 2 Server Boost to use custom role icons (images). You can use an emoji instead!';
+                    } else {
+                        updateDescription += '\n\n⚠️ **Note:** Icon could not be set, but role was updated successfully.';
+                    }
+                }
                 const successEmbed = new EmbedBuilder()
                     .setColor(embedConfig.COLOR)
                     .setTitle('✅ Custom Supporter Role Updated!')
-                    .setDescription(`Your custom role **${roleName}** has been updated!${iconError ? '\n\n⚠️ Note: Icon could not be set, but role was updated successfully.' : ''}`)
+                    .setDescription(updateDescription)
                     .addFields([
                         {
                             name: '🎨 Role Details',
@@ -642,7 +664,18 @@ export async function handleCustomSupporterRoleModal(interaction) {
         if (trimmedIconInput) {
             // Check if it's a URL or emoji
             if (trimmedIconInput.startsWith('http://') || trimmedIconInput.startsWith('https://')) {
-                // It's a URL
+                // It's a URL - check if server has boost level for custom icons
+                const premiumTier = guild.premiumTier;
+                if (premiumTier < 2) {
+                    // Server doesn't have Level 2 boost - can't use custom image icons
+                    await interaction.editReply({
+                        content: '❌ **Custom Icon Not Available**\n\n' +
+                            'This server needs **Level 2 Server Boost** to use custom role icons (images).\n\n' +
+                            '💡 **Tip:** You can use an **emoji** instead (like 🔥, ⭐, or any custom emoji) which doesn\'t require server boosts.'
+                    });
+                    return;
+                }
+                // It's a URL and server has boost level
                 iconToSet = trimmedIconInput;
                 isEmojiIcon = false;
             } else {
@@ -694,9 +727,14 @@ export async function handleCustomSupporterRoleModal(interaction) {
                 }
             } catch (err) {
                 await logger.log(`⚠️ Could not set role icon: ${err.message}`);
+                // Check if error is about boosts
+                if (err.message && err.message.includes('boost')) {
+                    iconError = 'This server needs Level 2 Server Boost to use custom role icons. You can use an emoji instead!';
+                } else {
+                    iconError = err.message;
+                }
                 await logger.log(`⚠️ Note: Role created successfully without icon. Icon requires server boost level 2+ and accessible JPG/PNG image.`);
                 iconStatus = 'failed';
-                iconError = err.message;
             }
         } else if (isEmojiIcon && iconToSet) {
             // Emoji was set during creation
@@ -717,10 +755,18 @@ export async function handleCustomSupporterRoleModal(interaction) {
         else if (iconStatus === 'invalid') iconStatusText = 'Invalid format (role created without icon)';
 
         const embedConfigForCreate = await getEmbedConfig(interaction.guild.id);
+        let description = `Your custom role **${roleName}** has been created and assigned to you!`;
+        if (iconError) {
+            if (iconError.includes('boost')) {
+                description += '\n\n⚠️ **Custom Icon Not Available:** This server needs Level 2 Server Boost to use custom role icons (images). You can use an emoji instead!';
+            } else {
+                description += '\n\n⚠️ **Note:** Icon could not be set, but role was created successfully.';
+            }
+        }
         const successEmbed = new EmbedBuilder()
             .setColor(embedConfigForCreate.COLOR)
             .setTitle('✅ Custom Supporter Role Created!')
-            .setDescription(`Your custom role **${roleName}** has been created and assigned to you!${iconError ? '\n\n⚠️ Note: Icon could not be set, but role was created successfully.' : ''}`)
+            .setDescription(description)
             .addFields([
                 {
                     name: '🎨 Role Details',
@@ -747,11 +793,31 @@ export async function handleCustomSupporterRoleModal(interaction) {
         await logger.log(`❌ Stack: ${error.stack}`);
 
         try {
+            let errorMessage = '';
+            
+            // Check if error is boost-related
+            if (error.message && (error.message.includes('boost') || error.message.includes('Boost') || error.message.includes('more boosts'))) {
+                errorMessage = `❌ **Server Boost Required**\n\n` +
+                    `This server needs **Level 2 Server Boost** to create custom supporter roles with certain features.\n\n` +
+                    `💡 **What you can do:**\n` +
+                    `- Ask server administrators to boost the server to Level 2\n` +
+                    `- Or contact server staff for assistance\n\n` +
+                    `**Error details:** ${error.message}`;
+            } else {
+                errorMessage = `❌ **Failed to Create Role**\n\n` +
+                    `Error: ${error.message}\n\n` +
+                    `Please make sure:\n` +
+                    `- The bot has permission to create roles\n` +
+                    `- The bot has permission to manage roles\n` +
+                    `- Role position constraints are valid`;
+            }
+
             await interaction.editReply({
-                content: `❌ **Failed to Create Role**\n\nError: ${error.message}\n\nPlease make sure:\n- The bot has permission to create roles\n- The bot has permission to manage roles\n- Role position constraints are valid`
+                content: errorMessage
             });
         } catch (err) {
             // Interaction might have already been replied to
+            await logger.log(`❌ Failed to send error response: ${err.message}`);
         }
     }
 }
@@ -907,7 +973,17 @@ async function scanAndValidateCustomRoles(client) {
         for (const guild of client.guilds.cache.values()) {
             try {
                 // Get role constraints from database for this guild
-                const constraints = await CUSTOM_SUPPORTER_ROLE.getRoleConstraints(guild.id);
+                // Skip if server not synced yet (will be retried on next scan)
+                let constraints;
+                try {
+                    constraints = await CUSTOM_SUPPORTER_ROLE.getRoleConstraints(guild.id);
+                } catch (error) {
+                    if (error.message && error.message.includes('Server not found')) {
+                        // Server not synced yet, skip this guild silently
+                        continue;
+                    }
+                    throw error; // Re-throw other errors
+                }
                 
                 if (!constraints.ROLE_START || !constraints.ROLE_END) {
                     continue; // No constraints configured for this guild
@@ -1011,9 +1087,10 @@ export function init(client) {
 
     // Scan and validate custom roles on startup - populate map with valid roles (exactly 1 member)
     // This ensures the interface recognizes existing valid custom roles after bot restart
+    // Wait 10 seconds to allow sync to complete first
     setTimeout(async () => {
         await scanAndValidateCustomRoles(client);
-    }, 5000); // Wait 5 seconds for all guilds to be ready
+    }, 10000); // Wait 10 seconds for sync to complete
 
     // Run cleanup periodically (every 6 hours) - removes roles with no members, more than 1 member, or without permission
     setInterval(async () => {

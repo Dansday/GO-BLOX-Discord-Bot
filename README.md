@@ -85,7 +85,7 @@ GOBLOX/
 │           ├── forwarder.js    # Message monitoring component
 │           └── sync.js         # Server/channel/role sync to database
 └── database/
-    ├── supabase.js            # Supabase client and database operations
+    ├── database.js            # Neon database client and operations
     └── schema.sql             # Database schema (tables, indexes)
 ```
 
@@ -106,7 +106,7 @@ GOBLOX/
 ### Management Features
 - **Web Control Panel**: Full web interface for bot management
 - **Multiple Bot Support**: Manage multiple official bots and self-bots
-- **Database-Driven Config**: All settings stored in Supabase (no file editing needed)
+- **Database-Driven Config**: All settings stored in Neon PostgreSQL (no file editing needed)
 - **Real-time Status**: Live bot status, uptime, and process information
 - **Remote Control**: Start/stop/restart bots from anywhere
 - **Session Authentication**: Secure password-protected control panel
@@ -115,7 +115,7 @@ GOBLOX/
 
 ### Prerequisites
 - Node.js (v18+ recommended)
-- Supabase account (free tier works)
+- Neon PostgreSQL account (free tier works)
 - Discord bot token(s)
 - Discord application ID (for official bots)
 
@@ -128,10 +128,8 @@ npm install
 Create a `.env` file in the root directory (copy from `example.env`):
 
 ```env
-# Supabase Configuration (Required)
-SUPABASE_URL=https://your-project.supabase.co
-SUPABASE_KEY=your-anon-key
-DATABASE_URL=postgresql://postgres:[PASSWORD]@[HOST]:5432/postgres
+# Neon PostgreSQL Configuration (Required)
+DATABASE_URL=postgresql://user:password@host/database?sslmode=require
 
 # Control Panel Configuration
 CONTROL_PANEL_PORT=8080
@@ -140,14 +138,13 @@ CONTROL_PANEL_PORT=8080
 SESSION_SECRET=your-random-secret-key
 ```
 
-**Getting Supabase Credentials:**
-- **SUPABASE_URL & SUPABASE_KEY**: Go to Supabase Dashboard → Settings → API
-- **DATABASE_URL**: Go to Supabase Dashboard → Settings → Database → Connection pooler → Copy connection string
+**Getting Neon Credentials:**
+- **DATABASE_URL**: Go to Neon Dashboard → Connection Details → Copy connection string
 
 ### 3. Initialize Database
 The database will be automatically initialized when you start the control panel. If `DATABASE_URL` is set, tables will be created automatically. Otherwise, you can manually run the SQL schema:
 
-1. Open Supabase Dashboard → SQL Editor
+1. Open Neon Dashboard → SQL Editor
 2. Copy and paste the contents of `database/schema.sql`
 3. Execute the SQL
 
@@ -309,7 +306,7 @@ The `/interface` command creates a visual interface with buttons. All button res
 ## Configuration
 
 ### Database-Driven Configuration
-**All configuration is stored in Supabase database** - no file editing required!
+**All configuration is stored in Neon PostgreSQL database** - no file editing required!
 
 Configuration is managed through:
 1. **Web Control Panel**: Primary method for all settings
@@ -401,7 +398,7 @@ Each feature is organized as a component for easy maintenance:
 
 ## Database Schema
 
-The system uses Supabase (PostgreSQL) with the following main tables:
+The system uses Neon PostgreSQL with the following main tables:
 
 - **panel**: Panel administrator credentials
 - **panel_logs**: Login attempt logs
@@ -418,12 +415,12 @@ The system uses Supabase (PostgreSQL) with the following main tables:
 1. **Tables not found**: 
    - Ensure `DATABASE_URL` is set in `.env`
    - Database will auto-create tables on first startup
-   - Or manually run `database/schema.sql` in Supabase SQL Editor
+   - Or manually run `database/schema.sql` in Neon SQL Editor
 
 2. **Connection errors**: 
-   - Verify `SUPABASE_URL` and `SUPABASE_KEY` in `.env`
+   - Verify `DATABASE_URL` in `.env`
    - Check `DATABASE_URL` format and credentials
-   - Ensure Supabase project is active
+   - Ensure Neon project is active
 
 ### Bot Issues
 1. **Bot won't start**: 

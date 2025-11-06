@@ -1523,6 +1523,30 @@
                 }
             } else {
                 // Selfbot Status Indicators
+                if (bot.process_id) {
+                    statusHTML += `
+                        <div class="bg-gray-700 rounded-lg p-3 sm:p-4">
+                            <div class="flex items-center gap-2 mb-1">
+                                <i class="fas fa-hashtag text-xs text-gray-400"></i>
+                                <span class="text-xs text-gray-400">Process ID</span>
+                        </div>
+                            <p class="text-sm sm:text-base font-semibold text-white">${bot.process_id}</p>
+                    </div>
+                    `;
+                }
+
+                if (bot.uptime_ms && bot.status === 'running') {
+                    statusHTML += `
+                        <div class="bg-gray-700 rounded-lg p-3 sm:p-4">
+                            <div class="flex items-center gap-2 mb-1">
+                                <i class="fas fa-clock text-xs text-gray-400"></i>
+                                <span class="text-xs text-gray-400">Uptime</span>
+                                </div>
+                            <p class="text-sm sm:text-base font-semibold text-white">${formatUptime(bot.uptime_ms)}</p>
+                            </div>
+                    `;
+                }
+
                 if (bot.connected_bot_name) {
                     statusHTML += `
                         <div class="bg-gray-700 rounded-lg p-3 sm:p-4">
