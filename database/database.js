@@ -115,7 +115,7 @@ async function runMigration() {
         }
 
         logger.log('✅ Database schema created successfully!');
-        logger.log('📊 Tables created: panel, panel_logs, bots, servers, server_categories, server_channels, server_roles, server_members, server_member_roles, server_members_afk, server_settings');
+        logger.log('📊 Tables created: panel, panel_logs, bots, servers, server_categories, server_channels, server_roles, server_members, server_member_levels, server_member_roles, server_members_afk, server_settings');
         logger.log('📈 Indexes created: all indexes');
 
     } catch (error) {
@@ -144,6 +144,7 @@ async function setupDatabase() {
         { name: 'server_channels', required: true },
         { name: 'server_roles', required: true },
         { name: 'server_members', required: true },
+        { name: 'server_member_levels', required: true },
         { name: 'server_member_roles', required: true },
         { name: 'server_members_afk', required: true },
         { name: 'server_settings', required: true }
@@ -860,6 +861,151 @@ export async function memberHasAnyRole(discordMemberId, discordRoleIds, serverId
     }
 }
 
+export async function getMemberLevel(memberId) {
+    await initializeDatabase();
+    const result = await query(
+        'SELECT * FROM server_member_levels WHERE member_id = ? LIMIT 1',
+        [memberId]
+    );
+    return result[0] || null;
+}
+
+export async function ensureMemberLevel(memberId) {
+    await initializeDatabase();
+    await query(
+        `INSERT INTO server_member_levels (member_id)
+         VALUES (?)
+         ON DUPLICATE KEY UPDATE member_id = VALUES(member_id)`,
+        [memberId]
+    );
+    return await getMemberLevel(memberId);
+}
+
+export async function updateMemberLevelStats(memberId, updates = {}) {
+    await initializeDatabase();
+    if (!memberId) {
+        throw new Error('memberId is required to update leveling stats');
+    }
+
+    const clauses = [];
+    const values = [];
+
+    if (typeof updates.chatIncrement === 'number' && updates.chatIncrement !== 0) {
+        clauses.push('chat_count = chat_count + ?');
+        values.push(updates.chatIncrement);
+    }
+
+    if (typeof updates.voiceMinutesIncrement === 'number' && updates.voiceMinutesIncrement !== 0) {
+        clauses.push('voice_minutes = voice_minutes + ?');
+        values.push(updates.voiceMinutesIncrement);
+    }
+
+    if (typeof updates.experienceIncrement === 'number' && updates.experienceIncrement !== 0) {
+        clauses.push('experience = experience + ?');
+        values.push(updates.experienceIncrement);
+    }
+
+    if (updates.level !== undefined && updates.level !== null) {
+        clauses.push('level = ?');
+        values.push(updates.level);
+    }
+
+    if (updates.rank !== undefined) {
+        clauses.push('rank = ?');
+        values.push(updates.rank);
+    }
+
+    if (updates.lastMessageAt) {
+        clauses.push('last_message_at = ?');
+        values.push(toMySQLDateTime(updates.lastMessageAt));
+    }
+
+    if (clauses.length === 0) {
+        return await getMemberLevel(memberId);
+    }
+
+    clauses.push('updated_at = ?');
+    values.push(toMySQLDateTime());
+    values.push(memberId);
+
+    await query(
+        `UPDATE server_member_levels
+         SET ${clauses.join(', ')}
+         WHERE member_id = ?`,
+        values
+    );
+
+    return await getMemberLevel(memberId);
+}
+
+export async function recalculateServerMemberRanks(serverId) {
+    await initializeDatabase();
+    if (!serverId) {
+        throw new Error('serverId is required to recalculate ranks');
+    }
+
+    const connection = await getPool().getConnection();
+    try {
+        await connection.query('SET @rank := 0');
+        await connection.execute(
+            `UPDATE server_member_levels sml
+             INNER JOIN (
+                 SELECT ranked.id, (@rank := @rank + 1) AS computed_rank
+                 FROM (
+                     SELECT sml_inner.id
+                     FROM server_member_levels sml_inner
+                     INNER JOIN server_members sm_inner ON sml_inner.member_id = sm_inner.id
+                     WHERE sm_inner.server_id = ?
+                     ORDER BY sml_inner.experience DESC,
+                              sml_inner.chat_count DESC,
+                              sml_inner.voice_minutes DESC,
+                              sml_inner.id ASC
+                 ) AS ranked
+             ) AS ranks ON ranks.id = sml.id
+             SET sml.rank = ranks.computed_rank`,
+            [serverId]
+        );
+        return true;
+    } catch (error) {
+        console.error('Error recalculating server member ranks:', error);
+        return false;
+    } finally {
+        connection.release();
+    }
+}
+
+export async function getMemberLevelByDiscordId(serverId, discordMemberId) {
+    await initializeDatabase();
+    const result = await query(
+        `SELECT sml.*, sm.username, sm.display_name, sm.server_display_name, sm.discord_member_id
+         FROM server_member_levels sml
+         INNER JOIN server_members sm ON sml.member_id = sm.id
+         WHERE sm.server_id = ? AND sm.discord_member_id = ?
+         LIMIT 1`,
+        [serverId, discordMemberId]
+    );
+    return result[0] || null;
+}
+
+export async function getServerLeaderboard(serverId, limit = 10) {
+    await initializeDatabase();
+    if (!serverId) {
+        throw new Error('serverId is required to fetch leaderboard');
+    }
+    const safeLimit = Math.max(1, Math.min(50, limit));
+    const result = await query(
+        `SELECT sm.discord_member_id, sm.username, sm.display_name, sm.server_display_name, sm.avatar,
+                sml.experience, sml.level, sml.chat_count, sml.voice_minutes, sml.rank
+         FROM server_member_levels sml
+         INNER JOIN server_members sm ON sml.member_id = sm.id
+         WHERE sm.server_id = ?
+         ORDER BY sml.experience DESC, sml.chat_count DESC, sml.voice_minutes DESC, sm.id ASC
+         LIMIT ?`,
+        [serverId, safeLimit]
+    );
+    return result;
+}
+
 export async function updateCustomRoleFlags(serverId, roleStartId, roleEndId) {
     try {
         if (!roleStartId || !roleEndId) {
@@ -1294,6 +1440,12 @@ export default {
     syncMembers,
     syncMemberRoles,
     memberHasAnyRole,
+    getMemberLevel,
+    ensureMemberLevel,
+    updateMemberLevelStats,
+    recalculateServerMemberRanks,
+    getMemberLevelByDiscordId,
+    getServerLeaderboard,
     updateCustomRoleFlags,
     memberHasCustomSupporterRole,
     getPanel,

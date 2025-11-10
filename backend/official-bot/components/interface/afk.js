@@ -4,6 +4,11 @@ import logger from '../../../logger.js';
 import { hasPermission } from '../permissions.js';
 import db from '../../../../database/database.js';
 
+function stripAfkPrefix(name) {
+    if (!name || typeof name !== 'string') return '';
+    return name.replace(/^\s*(\[AFK\]\s*)+/gi, '').trim();
+}
+
 export async function getAFKStatus(userId, guildId) {
     try {
         const botConfig = getBotConfig();
@@ -37,7 +42,15 @@ async function setAFK(member, message, shouldDeafen = true) {
         const userId = member.id;
         await db.upsertMember(serverData.id, member);
         const memberData = await db.getMemberByDiscordId(serverData.id, userId);
-        const nameToUse = member.nickname || memberData?.display_name || member.user.globalName || member.user.displayName || member.user.username;
+        const existingName =
+            member.nickname ||
+            memberData?.server_display_name ||
+            memberData?.display_name ||
+            member.user.globalName ||
+            member.user.displayName ||
+            member.user.username;
+        const baseName = stripAfkPrefix(existingName) || member.user.globalName || member.user.displayName || member.user.username;
+        const nameToUse = baseName || member.user.username;
 
         if (member.voice.channel) {
             try {
@@ -65,8 +78,8 @@ async function setAFK(member, message, shouldDeafen = true) {
             const newNickname = `[AFK] ${nameToUse}`;
             if (newNickname.length <= 32) {
                 await member.setNickname(newNickname);
-                await db.upsertMember(serverData.id, member);
             }
+            await db.upsertMember(serverData.id, member);
         } catch (err) {
             await logger.log(`⚠️ Could not update nickname for ${member.id}: ${err.message}`);
         }
@@ -112,8 +125,16 @@ export async function removeAFK(member, reason = '') {
 
         try {
             const memberData = await db.getMemberByDiscordId(serverData.id, userId);
-            if (memberData?.server_display_name) {
-                await member.setNickname(memberData.server_display_name);
+            const storedName =
+                memberData?.server_display_name ||
+                memberData?.display_name ||
+                member.user.globalName ||
+                member.user.displayName ||
+                member.user.username;
+            const restoredName = stripAfkPrefix(storedName);
+
+            if (restoredName && restoredName.length <= 32) {
+                await member.setNickname(restoredName);
             } else {
                 await member.setNickname(null);
             }

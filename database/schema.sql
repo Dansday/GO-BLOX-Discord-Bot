@@ -111,6 +111,21 @@ CREATE TABLE IF NOT EXISTS server_members (
     FOREIGN KEY (server_id) REFERENCES servers(id) ON DELETE CASCADE
 );
 
+CREATE TABLE IF NOT EXISTS server_member_levels (
+    id INT PRIMARY KEY AUTO_INCREMENT,
+    member_id INT NOT NULL,
+    chat_count INT DEFAULT 0,
+    voice_minutes INT DEFAULT 0,
+    experience INT DEFAULT 0,
+    level INT DEFAULT 1,
+    rank INT DEFAULT NULL,
+    last_message_at TIMESTAMP NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    UNIQUE KEY unique_member_level (member_id),
+    FOREIGN KEY (member_id) REFERENCES server_members(id) ON DELETE CASCADE
+);
+
 CREATE TABLE IF NOT EXISTS server_member_roles (
     id INT PRIMARY KEY AUTO_INCREMENT,
     member_id INT NOT NULL,
@@ -157,6 +172,8 @@ CREATE INDEX idx_server_roles_server_id ON server_roles(server_id);
 CREATE INDEX idx_server_roles_discord_id ON server_roles(discord_role_id);
 CREATE INDEX idx_server_members_server_id ON server_members(server_id);
 CREATE INDEX idx_server_members_discord_id ON server_members(discord_member_id);
+CREATE INDEX idx_server_member_levels_member_id ON server_member_levels(member_id);
+CREATE INDEX idx_server_member_levels_rank ON server_member_levels(rank);
 CREATE INDEX idx_server_member_roles_member_id ON server_member_roles(member_id);
 CREATE INDEX idx_server_member_roles_role_id ON server_member_roles(role_id);
 CREATE INDEX idx_server_members_afk_member_id ON server_members_afk(member_id);

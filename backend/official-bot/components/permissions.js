@@ -60,7 +60,7 @@ export async function hasPermission(member, action) {
     }
 
     if (await isMember(member)) {
-        return action === 'help' || action === 'feedback' || action === 'afk';
+        return action === 'help' || action === 'feedback' || action === 'afk' || action === 'leveling';
     }
 
     return false;

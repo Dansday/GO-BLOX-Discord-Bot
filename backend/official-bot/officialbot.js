@@ -20,6 +20,7 @@ import interfaceComponent from "./components/interface.js";
 import customSupporterRole from "./components/interface/customsupporterrole.js";
 import afk from "./components/interface/afk.js";
 import sync from "./components/sync.js";
+import leveling from "./components/leveling.js";
 
 const client = new Client({
     intents: [
@@ -55,6 +56,7 @@ client.on("clientReady", async () => {
     interfaceComponent.init(client);
     customSupporterRole.init(client);
     afk.init(client);
+    leveling.init(client);
 
     await sync.init(client, BOT_TOKEN);
     webhook.startWebhookServer(client);

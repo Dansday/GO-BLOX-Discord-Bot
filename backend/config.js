@@ -201,6 +201,29 @@ export const PERMISSIONS = {
     }
 };
 
+export const LEVELING = {
+    MESSAGE: {
+        XP: 15,
+        COOLDOWN_SECONDS: 60
+    },
+    VOICE: {
+        XP_PER_MINUTE: 5,
+        MINIMUM_SESSION_MINUTES: 1
+    },
+    LEVELS: [
+        { level: 1, required_xp: 0 },
+        { level: 2, required_xp: 100 },
+        { level: 3, required_xp: 250 },
+        { level: 4, required_xp: 450 },
+        { level: 5, required_xp: 700 },
+        { level: 6, required_xp: 1000 },
+        { level: 7, required_xp: 1400 },
+        { level: 8, required_xp: 1850 },
+        { level: 9, required_xp: 2350 },
+        { level: 10, required_xp: 2900 }
+    ]
+};
+
 export const COMMUNICATION = {
 
     get WEBHOOK_URL() {

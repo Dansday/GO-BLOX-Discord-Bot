@@ -6,6 +6,7 @@ import { handleSendMessageButton, handleSendMessageModal, handleChannelSelection
 import { handleCustomSupporterRoleButton, handleCustomSupporterRoleModal, handleEditCustomSupporterRole, handleDeleteCustomSupporterRole } from './interface/customsupporterrole.js';
 import { handleFeedbackButton, handleFeedbackModal } from './interface/feedback.js';
 import { handleAFKButton, handleAFKModal, handleRemoveAFKButton } from './interface/afk.js';
+import { handleLevelingButton } from './interface/leveling.js';
 
 export async function handleButtonInteraction(interaction, client) {
     const { customId } = interaction;
@@ -29,15 +30,18 @@ export async function handleButtonInteraction(interaction, client) {
         case 'custom_supporter_role_delete':
             await handleDeleteCustomSupporterRole(interaction);
             break;
-                case 'bot_feedback':
-                    await handleFeedbackButton(interaction);
-                    break;
-                case 'bot_afk':
-                    await handleAFKButton(interaction);
-                    break;
-                case 'afk_remove':
-                    await handleRemoveAFKButton(interaction);
-                    break;
+        case 'bot_leveling':
+            await handleLevelingButton(interaction);
+            break;
+        case 'bot_feedback':
+            await handleFeedbackButton(interaction);
+            break;
+        case 'bot_afk':
+            await handleAFKButton(interaction);
+            break;
+        case 'afk_remove':
+            await handleRemoveAFKButton(interaction);
+            break;
         default:
 
             if (customId.startsWith('send_message_complete_')) {
@@ -95,15 +99,23 @@ export function createInterfaceButtons() {
         .setLabel('💎 Custom Supporter Role')
         .setStyle(ButtonStyle.Success);
 
+    const levelingButton = new ButtonBuilder()
+        .setCustomId('bot_leveling')
+        .setLabel('📈 Leveling')
+        .setStyle(ButtonStyle.Success);
+
     const afkButton = new ButtonBuilder()
         .setCustomId('bot_afk')
         .setLabel('⏸️ AFK')
         .setStyle(ButtonStyle.Success);
 
     const buttonRow1 = new ActionRowBuilder()
-        .addComponents(sendMessageButton, customSupporterRoleButton, afkButton, feedbackButton, helpButton);
+        .addComponents(sendMessageButton, customSupporterRoleButton, levelingButton);
 
-    return [buttonRow1];
+    const buttonRow2 = new ActionRowBuilder()
+        .addComponents(afkButton, feedbackButton, helpButton);
+
+    return [buttonRow1, buttonRow2];
 }
 
 export async function sendInterfaceToChannel(targetChannel, interaction, client) {
