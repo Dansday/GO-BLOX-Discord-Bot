@@ -28,7 +28,7 @@ async function getServerForInteraction(interaction) {
     return await db.getServerByDiscordId(botConfig.id, interaction.guild.id);
 }
 
-async function buildLevelingEmbeds(server, memberLevelData, sortType = 'overall', guildId = null) {
+async function buildLevelingEmbeds(server, memberLevelData, sortType = 'xp', guildId = null) {
     const embedConfig = await getEmbedConfig(guildId || server.discord_server_id);
 
     const memberDisplayName = memberLevelData?.server_display_name || memberLevelData?.display_name || memberLevelData?.username || 'Unknown';
@@ -80,9 +80,8 @@ async function buildLevelingEmbeds(server, memberLevelData, sortType = 'overall'
         case 'chat':
             leaderboardTitle = "💬 Top Chat (Top 3)";
             break;
-        case 'overall':
         default:
-            leaderboardTitle = "🏆 Overall Leaderboard (Top 3)";
+            leaderboardTitle = "⭐ Top XP (Top 3)";
             break;
     }
 
@@ -123,9 +122,8 @@ async function buildLevelingEmbeds(server, memberLevelData, sortType = 'overall'
                 case 'chat':
                     value = `${medal} **${name}**\n${formatNumber(entry.chat_count || 0)} messages • ${formatNumber(xp)} XP`;
                     break;
-                case 'overall':
                 default:
-                    value = `${medal} **${name}**\nLevel ${calculatedLevel} • ${formatNumber(xp)} XP`;
+                    value = `${medal} **${name}**\n${formatNumber(xp)} XP • Level ${calculatedLevel}`;
                     break;
             }
 
@@ -142,12 +140,7 @@ async function buildLevelingEmbeds(server, memberLevelData, sortType = 'overall'
     return { profileEmbed, leaderboardEmbed };
 }
 
-function createLeaderboardButtons(selectedType = 'overall') {
-    const overallButton = new ButtonBuilder()
-        .setCustomId('leaderboard_overall')
-        .setLabel('🏆 Overall')
-        .setStyle(selectedType === 'overall' ? ButtonStyle.Primary : ButtonStyle.Secondary);
-
+function createLeaderboardButtons(selectedType = 'xp') {
     const xpButton = new ButtonBuilder()
         .setCustomId('leaderboard_xp')
         .setLabel('⭐ Top XP')
@@ -163,7 +156,7 @@ function createLeaderboardButtons(selectedType = 'overall') {
         .setLabel('💬 Top Chat')
         .setStyle(selectedType === 'chat' ? ButtonStyle.Primary : ButtonStyle.Secondary);
 
-    return new ActionRowBuilder().addComponents(overallButton, xpButton, voiceButton, chatButton);
+    return new ActionRowBuilder().addComponents(xpButton, voiceButton, chatButton);
 }
 
 export async function handleLevelingButton(interaction) {
@@ -221,7 +214,7 @@ export async function handleLevelingButton(interaction) {
             }
         }
 
-        const sortType = 'overall';
+        const sortType = 'xp';
         const { profileEmbed, leaderboardEmbed } = await buildLevelingEmbeds(server, memberLevelData, sortType, interaction.guild.id);
         const buttons = createLeaderboardButtons(sortType);
 

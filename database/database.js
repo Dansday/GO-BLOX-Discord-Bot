@@ -995,7 +995,7 @@ export async function getMemberLevelByDiscordId(serverId, discordMemberId) {
     return result[0] || null;
 }
 
-export async function getServerLeaderboard(serverId, limit = 5, sortType = 'overall') {
+export async function getServerLeaderboard(serverId, limit = 3, sortType = 'xp') {
     await initializeDatabase();
     if (!serverId) {
         throw new Error('serverId is required to fetch leaderboard');
@@ -1013,7 +1013,6 @@ export async function getServerLeaderboard(serverId, limit = 5, sortType = 'over
         case 'chat':
             orderBy = 'sml.chat_count DESC, sml.experience DESC, sml.created_at ASC';
             break;
-        case 'overall':
         default:
             orderBy = 'sml.experience DESC, sml.level DESC, sml.created_at ASC';
             break;
