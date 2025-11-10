@@ -23,9 +23,9 @@ A comprehensive Discord bot management system with a web-based control panel. Fe
   - Thanks server boosters with custom messages
   - Provides interactive button-based interface
   - Tracks moderation actions (bans, unbans, kicks)
-  - Finds inactive members
   - Manages custom supporter roles
   - AFK system with voice mute/deafen
+  - Leveling system with XP tracking and leaderboards
   - Feedback submission system
   - Role-based permission system
   - Syncs server/channel/role data to database
@@ -49,9 +49,11 @@ GOBLOX/
 ├── package.json               # Dependencies and scripts
 ├── example.env               # Environment variables template
 ├── .env                      # Your environment variables (create this)
+├── Dockerfile                # Docker container configuration
+├── docker-compose.yml        # Docker Compose configuration
 ├── frontend/
 │   ├── index.js              # Control panel Express server
-│   ├── index.html            # Web interface (4624 lines)
+│   ├── index.html            # Web interface
 │   └── config.js             # Frontend configuration
 ├── backend/
 │   ├── config.js             # Backend configuration (database-driven)
@@ -68,6 +70,7 @@ GOBLOX/
 │   │       ├── interface.js      # Button interface component
 │   │       ├── moderation.js     # Moderation tracking component
 │   │       ├── permissions.js    # Permission checking system
+│   │       ├── leveling.js       # Leveling system component
 │   │       ├── sync.js           # Server/channel/role sync to database
 │   │       ├── commands/         # Command definitions
 │   │       │   └── admin/
@@ -77,15 +80,15 @@ GOBLOX/
 │   │           ├── feedback.js      # Feedback button handler
 │   │           ├── sendmessage.js    # Send message button handler
 │   │           ├── help.js           # Help button handler
-│   │           ├── customsupporterrole.js # Custom role handler
-│   │           └── ... (other handlers)
+│   │           ├── leveling.js        # Leveling button handler
+│   │           └── customsupporterrole.js # Custom role handler
 │   └── self-bot/
 │       ├── selfbot.js         # Self-bot entry point
 │       └── components/
 │           ├── forwarder.js    # Message monitoring component
 │           └── sync.js         # Server/channel/role sync to database
 └── database/
-    ├── database.js            # Neon database client and operations
+    ├── database.js            # MySQL database client and operations
     └── schema.sql             # Database schema (tables, indexes)
 ```
 
@@ -96,9 +99,16 @@ GOBLOX/
 - **Welcome System**: Custom welcome messages for new members with beautiful embeds
 - **Booster System**: Thank server boosters with custom messages and embeds
 - **Moderation Tracking**: Automatically log bans, unbans, and kicks with moderator information
-- **Inactive Member Detection**: Find members who haven't been active in configured period
 - **Custom Supporter Roles**: Allow supporters to create custom roles with icons and colors
 - **AFK System**: Set AFK status with automatic nickname prefix and voice mute/deafen
+- **Leveling System**: Track member activity with XP, levels, ranks, and leaderboards
+  - XP from messages (+10 XP per message, 30s cooldown)
+  - XP from voice chat (+20 XP per minute, minimum 1 minute)
+  - Exponential level curve (Level 2: 100 XP, Level 3: 200 XP, Level 4: 400 XP, etc.)
+  - Automatic level recalculation from XP
+  - Level up DM notifications
+  - Live rank calculation
+  - AFK users excluded from voice XP
 - **Feedback System**: Submit feedback to staff with automatic channel posting
 - **Permission System**: Role-based permissions (Admin, Staff, Supporter, Member)
 - **Testing/Production Modes**: Switch between test and production channels
@@ -193,6 +203,9 @@ DB_NAME=goblox_bot
 # Control Panel Configuration (Required)
 CONTROL_PANEL_PORT=8080
 SESSION_SECRET=your-random-secret-key
+
+# Bot Configuration (Set when starting bots via control panel)
+BOT_ID=1
 ```
 
 **For Remote Database (SSH Tunnel):**
@@ -276,39 +289,6 @@ Access the control panel at `http://localhost:8080` (or your configured port).
 
 The `/interface` command creates a visual interface with buttons. All button responses are ephemeral (private to the user).
 
-#### 📊 Status Button
-- Shows bot status, uptime, and component information
-- **Permission:** Member+
-
-#### ⏸️ AFK Button
-- Set yourself as AFK (Away From Keyboard) with optional message
-- Features:
-  - Optional custom AFK message
-  - Nickname automatically prefixed with `[AFK]`
-  - Original display name is restored when AFK is removed
-  - If in voice channel: automatically muted and deafened
-  - Auto-removal when you send any message, unmute/undeafen, or manually remove
-  - Mention notifications: Users notified when mentioning you while AFK
-  - DM notifications: You receive a DM when mentioned while AFK
-- **Permission:** Member+
-
-#### ❓ Help Button
-- Displays comprehensive help information for all interface features
-- **Permission:** Member+
-
-#### 💬 Feedback Button
-- Submit feedback, suggestions, or concerns to server staff
-- Features:
-  - Simple modal with text input (up to 2000 characters)
-  - All submissions posted to configured feedback channel with user information
-  - Staff role automatically mentioned in feedback channel
-- **Permission:** Member+
-
-#### ⏸️ Pause/Resume Button
-- Pauses or resumes the bot's operations
-- When paused, all bot features are disabled except this button
-- **Permission:** Admin only
-
 #### 📤 Send Message Button
 - Send custom embed messages to any channel
 - Features:
@@ -320,13 +300,6 @@ The `/interface` command creates a visual interface with buttons. All button res
   - Optional color customization (hex/decimal/color name)
   - Optional footer text (defaults to configured footer if empty)
 - Step-by-step process: Select channel → Choose role (optional) → Fill embed details → Send
-- **Permission:** Staff+
-
-#### 📊 Inactive Members Button
-- Find members who haven't chatted in the configured inactivity period
-- Default: 90 days of inactivity
-- Searches through all text and voice text channels in specified categories
-- Results show member tags and last activity time
 - **Permission:** Staff+
 
 #### 💎 Custom Supporter Role Button
@@ -351,13 +324,55 @@ The `/interface` command creates a visual interface with buttons. All button res
   - Valid roles (exactly 1 member) are preserved across bot restarts
 - **Permission:** Supporter, Staff, or Admin
 
+#### 📈 Leveling Button
+- View your leveling stats and server leaderboard
+- Features:
+  - Personal stats: Level, XP, chat count, voice minutes, rank
+  - Visual progress bar showing XP towards next level
+  - Top 10 leaderboard with member levels and XP
+  - Automatic level recalculation from XP (fixes manual database changes)
+  - Live rank calculation (updated when viewing interface)
+- **XP Sources:**
+  - Messages: +10 XP per eligible message (30 seconds cooldown)
+  - Voice chat: +20 XP per minute (minimum 1 minute per tick)
+  - **Note:** AFK users do not earn voice XP
+- **Level System:**
+  - Exponential XP curve: Level 2 = 100 XP, Level 3 = 200 XP, Level 4 = 400 XP, etc.
+  - Level up DM notifications sent automatically
+  - AFK users don't earn voice XP
+- **Permission:** Member+
+
+#### ⏸️ AFK Button
+- Set yourself as AFK (Away From Keyboard) with optional message
+- Features:
+  - Optional custom AFK message
+  - Nickname automatically prefixed with `[AFK]`
+  - Original display name is restored when AFK is removed
+  - If in voice channel: automatically muted and deafened
+  - Auto-removal when you send any message, unmute/undeafen, or manually remove
+  - Mention notifications: Users notified when mentioning you while AFK
+  - DM notifications: You receive a DM when mentioned while AFK
+- **Permission:** Member+
+
+#### 💬 Feedback Button
+- Submit feedback, suggestions, or concerns to server staff
+- Features:
+  - Simple modal with text input (up to 2000 characters)
+  - All submissions posted to configured feedback channel with user information
+  - Staff role automatically mentioned in feedback channel
+- **Permission:** Member+
+
+#### ❓ Help Button
+- Displays comprehensive help information for all interface features
+- **Permission:** Member+
+
 ## Communication Method
 
 ### Webhook Communication
 - Self-bot sends message data via HTTP POST to local webhook server
 - Official bot runs a webhook server on configured port (default: 7777)
-- **Secret key authentication**: All endpoints require `X-Secret-Key` header
-- **Health Check Endpoint**: `GET /status` or `GET /health` - Returns bot status, uptime, guild count (requires secret key)
+- **Secret key authentication**: All requests require `X-Secret-Key` header
+- **POST endpoint**: Accepts `message_forward` payloads with message data
 - **Local communication**: Both bots run on same server, communicate via localhost
 - Real-time communication for instant message forwarding
 - Each official bot can have its own port (multiple bots supported)
@@ -391,9 +406,9 @@ Configuration is managed through:
 
 #### Permissions Configuration
 - Admin roles (full access)
-- Staff roles (all interfaces: Send Message, Custom Supporter Role, AFK, Help, Feedback)
+- Staff roles (all interfaces: Send Message, Custom Supporter Role, Leveling, AFK, Help, Feedback)
 - Supporter roles (Custom Supporter Role, Help)
-- Member roles (AFK, Help, Feedback)
+- Member roles (Leveling, AFK, Help, Feedback)
 
 #### Main Configuration
 - Production channel (for moderation logs)
@@ -411,9 +426,13 @@ Configuration is managed through:
 - Role End (bottom/lowest position - typically Staff role)
 - Custom roles are created between these constraints
 
-#### Activity Tracker Configuration
-- Allowed categories for activity search
-- Inactivity days (default: 90)
+#### Leveling Configuration
+- Message XP: +10 XP per eligible message (default)
+- Message cooldown: 30 seconds (default)
+- Voice XP per minute: +20 XP per minute (default)
+- Minimum voice session minutes: 1 minute per tick (default)
+- Exponential level curve: Level 2 = 100 XP, Level 3 = 200 XP, Level 4 = 400 XP, etc.
+- AFK users excluded from voice XP
 
 ## Testing vs Production Mode
 
@@ -446,6 +465,13 @@ Each feature is organized as a component for easy maintenance:
 - **Interface Component**: Handles button interface creation and interactions
 - **Moderation Component**: Tracks bans, unbans, and kicks in real-time, logs to main channel
 - **Permissions Component**: Role-based permission checking system
+- **Leveling Component**: Tracks member XP, levels, and ranks from messages and voice activity
+  - Message XP tracking with cooldown
+  - Live voice minute tracking with per-minute intervals
+  - Automatic level calculation from XP
+  - Level up DM notifications
+  - Voice session resume after bot restarts
+  - AFK status checking (AFK users don't earn voice XP)
 - **Sync Component**: Event-driven sync system - syncs on bot startup and when configs are accessed/updated (30-minute cooldown)
 
 ### Self-Bot Components
@@ -466,6 +492,10 @@ The system uses MySQL/MariaDB with the following main tables:
 - **server_categories**: Discord category information (type 4 channels)
 - **server_channels**: Discord channel information
 - **server_roles**: Discord role information
+- **server_members**: Discord member information per server
+- **server_member_levels**: Leveling stats (XP, level, rank, chat count, voice minutes)
+- **server_member_roles**: Member role assignments
+- **server_members_afk**: AFK status and messages
 - **server_settings**: Component-specific settings per server (JSON)
 
 ## Troubleshooting
@@ -506,7 +536,7 @@ The system uses MySQL/MariaDB with the following main tables:
    - Check secret key matches
    - Ensure both bots are running
    - Check firewall/network settings for localhost
-   - Test health endpoint: `curl -H "x-secret-key: YOUR_KEY" http://localhost:PORT/status`
+   - Verify webhook server is listening on the configured port
 
 5. **Sync issues**: 
    - Sync runs on first bot startup only (when no servers exist in database)
@@ -539,9 +569,10 @@ The system uses MySQL/MariaDB with the following main tables:
    - Check user has required role in Discord
    - Ensure roles are synced to database
 
-3. **Bot appears paused**: 
-   - Use the Pause/Resume button in the interface to resume
-   - Requires Administrator permissions
+3. **Leveling not working**: 
+   - Verify member roles are configured in permissions
+   - Check user has member role
+   - Ensure leveling component is initialized
 
 ## Development
 
@@ -567,7 +598,7 @@ Akbar Yudhanto
 
 ## Version
 
-5.0.0
+7.1.0
 
 ---
 

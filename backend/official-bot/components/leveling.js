@@ -240,12 +240,17 @@ async function startVoiceSession(state, resumed = false) {
             elapsedMinutes = Math.max(0, Math.floor((now - sessionStartTime) / 60000));
 
             if (elapsedMinutes > 0) {
-                const stats = await db.updateMemberLevelStats(dbMember.id, {
-                    voiceMinutesIncrement: elapsedMinutes,
-                    experienceIncrement: getExperienceForVoiceMinutes(elapsedMinutes)
-                });
-                await handleLevelEvaluation(server, dbMember, stats, state.guild.id);
-                await logger.log(`📈 Resumed voice tracking for ${guildMember.id}: awarded ${elapsedMinutes} minutes, continuing to track`, state.guild.id);
+                const afkStatus = await db.getAFKStatus(server.id, dbMember.discord_member_id);
+                if (!afkStatus) {
+                    const stats = await db.updateMemberLevelStats(dbMember.id, {
+                        voiceMinutesIncrement: elapsedMinutes,
+                        experienceIncrement: getExperienceForVoiceMinutes(elapsedMinutes)
+                    });
+                    await handleLevelEvaluation(server, dbMember, stats, state.guild.id);
+                    await logger.log(`📈 Resumed voice tracking for ${guildMember.id}: awarded ${elapsedMinutes} minutes, continuing to track`, state.guild.id);
+                } else {
+                    await logger.log(`⏸️ Skipped voice XP for ${guildMember.id}: user is AFK`, state.guild.id);
+                }
             }
 
             await db.updateMemberLevelStats(dbMember.id, {
@@ -376,13 +381,16 @@ async function handleVoiceTick(sessionKey) {
         session.trackedMinutes = (session.trackedMinutes || 0) + 1;
 
         if (session.trackedMinutes >= voiceMinimumMinutes) {
-            const stats = await db.updateMemberLevelStats(dbMember.id, {
-                voiceMinutesIncrement: 1,
-                experienceIncrement: getExperienceForVoiceMinutes(1)
-            });
+            const afkStatus = await db.getAFKStatus(server.id, session.discordMemberId);
+            if (!afkStatus) {
+                const stats = await db.updateMemberLevelStats(dbMember.id, {
+                    voiceMinutesIncrement: 1,
+                    experienceIncrement: getExperienceForVoiceMinutes(1)
+                });
 
-            const serverInfo = { id: session.serverId, name: session.serverName };
-            await handleLevelEvaluation(serverInfo, dbMember, stats, session.guildId);
+                const serverInfo = { id: session.serverId, name: session.serverName };
+                await handleLevelEvaluation(serverInfo, dbMember, stats, session.guildId);
+            }
         }
     } catch (error) {
         await logger.log(`❌ Leveling voice tick error: ${error.message}`, session.guildId);
