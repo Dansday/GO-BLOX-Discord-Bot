@@ -24,9 +24,14 @@ async function thankBooster(member, client) {
             return;
         }
 
-        const memberData = await db.getMemberByDiscordId(serverData.id, member.user.id);
+        const memberData = await db.upsertMember(serverData.id, member);
         if (!memberData) {
             await logger.log(`⚠️ Member not found in database for ${member.user.id}, skipping booster message`);
+            return;
+        }
+
+        if (!memberData.display_name && !memberData.username) {
+            await logger.log(`⚠️ Member profile incomplete for ${member.user.id}, skipping booster message`);
             return;
         }
 
@@ -75,7 +80,7 @@ async function thankBooster(member, client) {
                     .setTimestamp();
 
                 await boosterChannel.send({ embeds: [boosterEmbed] });
-                const memberName = memberData.display_name || memberData.username || `User ${member.user.id}`;
+                const memberName = memberData.display_name || memberData.username;
                 await logger.log(`✅ Thanked booster ${memberName} (${member.user.id}) in ${serverData.name} (channel: ${boosterChannel.name})`);
             } catch (err) {
                 await logger.log(`❌ Failed to thank booster ${member.user.id} in channel ${boosterChannelId}: ${err.message}`);

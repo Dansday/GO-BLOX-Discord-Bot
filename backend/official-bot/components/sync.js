@@ -317,6 +317,18 @@ async function init(discordClient, botToken) {
 
     client.on('guildMemberAdd', async (member) => {
         if (member.guild && botId) {
+            try {
+                const serverData = await db.getServerByDiscordId(botId, member.guild.id);
+                if (serverData) {
+                    const dbMember = await db.upsertMember(serverData.id, member);
+                    if (dbMember) {
+                        const memberRoles = member.roles ? Array.from(member.roles.cache.keys()).filter(roleId => roleId !== member.guild.id) : [];
+                        await db.syncMemberRoles(dbMember.id, memberRoles, serverData.id);
+                    }
+                }
+            } catch (error) {
+                await logger.log(`⚠️ Failed to upsert member ${member.id} on join: ${error.message}`, member.guild.id);
+            }
             await syncGuildData(member.guild);
         }
     });

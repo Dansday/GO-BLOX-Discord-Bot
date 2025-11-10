@@ -39,7 +39,7 @@ async function welcomeUser(member, client) {
             return;
         }
 
-        const memberData = await db.getMemberByDiscordId(serverData.id, member.user.id);
+        const memberData = await db.upsertMember(serverData.id, member) || await db.getMemberByDiscordId(serverData.id, member.user.id);
         if (!memberData) {
             await logger.log(`⚠️ Member not found in database for ${member.user.id}, skipping welcome message`);
             return;

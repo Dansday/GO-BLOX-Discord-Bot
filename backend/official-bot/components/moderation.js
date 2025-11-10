@@ -70,10 +70,15 @@ function init(client) {
 
             const memberData = await db.getMemberByDiscordId(serverData.id, user.id);
             if (!memberData) {
+                await logger.log(`⚠️ Member not found in database for ${user.id}, skipping ban log`, guild.id);
+                return;
+            }
+            if (!memberData.display_name && !memberData.username) {
+                await logger.log(`⚠️ Member profile incomplete for ${user.id}, skipping ban log`, guild.id);
                 return;
             }
 
-            const memberName = memberData.display_name || memberData.username || `User ${user.id}`;
+            const memberName = memberData.display_name || memberData.username;
             const memberAvatar = memberData.avatar || null;
 
             const auditEntry = await getAuditLogEntry(guild, 22, user.id);
@@ -82,7 +87,9 @@ function init(client) {
             let moderatorName = "Unknown";
             if (moderator) {
                 const moderatorData = await db.getMemberByDiscordId(serverData.id, moderator.id);
-                moderatorName = moderatorData ? (moderatorData.display_name || moderatorData.username) : `User ${moderator.id}`;
+                if (moderatorData && (moderatorData.display_name || moderatorData.username)) {
+                    moderatorName = moderatorData.display_name || moderatorData.username;
+                }
             }
 
             const reason = ban.reason || auditEntry?.reason || "No reason provided";
@@ -115,59 +122,6 @@ function init(client) {
         }
     });
 
-    client.on("guildBanRemove", async (ban) => {
-        try {
-            const { guild, user } = ban;
-            const botConfig = getBotConfig();
-            if (!botConfig || !botConfig.id) {
-                return;
-            }
-
-            const serverData = await db.getServerByDiscordId(botConfig.id, guild.id);
-            if (!serverData) {
-                return;
-            }
-
-            const memberData = await db.getMemberByDiscordId(serverData.id, user.id);
-            if (!memberData) {
-                return;
-            }
-
-            const memberName = memberData.display_name || memberData.username || `User ${user.id}`;
-            const memberAvatar = memberData.avatar || null;
-
-            const auditEntry = await getAuditLogEntry(guild, 23, user.id);
-            const moderator = auditEntry?.executor || null;
-
-            let moderatorName = "Unknown";
-            if (moderator) {
-                const moderatorData = await db.getMemberByDiscordId(serverData.id, moderator.id);
-                moderatorName = moderatorData ? (moderatorData.display_name || moderatorData.username) : `User ${moderator.id}`;
-            }
-
-            await sendModerationLog(client, {
-                title: "✅ Member Unbanned",
-                description: `<@${user.id}> has been unbanned from the server.`,
-                thumbnail: memberAvatar,
-                userTag: memberName,
-                fields: [
-                    {
-                        name: "👤 User",
-                        value: memberName,
-                        inline: true
-                    },
-                    {
-                        name: "🛡️ Moderator",
-                        value: moderatorName,
-                        inline: true
-                    }
-                ]
-            }, guild.id);
-        } catch (err) {
-            await logger.log(`❌ Error handling unban: ${err.message}`);
-        }
-    });
-
     client.on("guildMemberRemove", async (member) => {
         try {
             const botConfig = getBotConfig();
@@ -180,12 +134,17 @@ function init(client) {
                 return;
             }
 
-            const memberData = await db.getMemberByDiscordId(serverData.id, member.user.id);
+            const memberData = await db.upsertMember(serverData.id, member);
             if (!memberData) {
+                await logger.log(`⚠️ Member not found in database for ${member.user.id}, skipping kick log`, member.guild.id);
+                return;
+            }
+            if (!memberData.display_name && !memberData.username) {
+                await logger.log(`⚠️ Member profile incomplete for ${member.user.id}, skipping kick log`, member.guild.id);
                 return;
             }
 
-            const memberName = memberData.display_name || memberData.username || `User ${member.user.id}`;
+            const memberName = memberData.display_name || memberData.username;
             const memberAvatar = memberData.avatar || null;
 
             const banEntry = await getAuditLogEntry(member.guild, 22, member.user.id);
@@ -204,7 +163,9 @@ function init(client) {
             let moderatorName = "Unknown";
             if (moderator) {
                 const moderatorData = await db.getMemberByDiscordId(serverData.id, moderator.id);
-                moderatorName = moderatorData ? (moderatorData.display_name || moderatorData.username) : `User ${moderator.id}`;
+                if (moderatorData && (moderatorData.display_name || moderatorData.username)) {
+                    moderatorName = moderatorData.display_name || moderatorData.username;
+                }
             }
 
             const reason = kickEntry.reason || "No reason provided";
