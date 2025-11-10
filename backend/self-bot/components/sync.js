@@ -45,7 +45,6 @@ async function syncGuildData(guild) {
                     logger.log(`✅ Logger initialized with channel from ${guild.name}`);
                 }
             } catch (error) {
-
             }
         }
 
@@ -88,10 +87,8 @@ async function syncAllGuilds() {
         const guilds = client.guilds.cache;
         logger.log(`🔄 Selfbot sync started: ${guilds.size} server(s)`);
 
-
         let completed = 0;
-        for (const [guildId, guild] of guilds) {
-
+        for (const [, guild] of guilds) {
             await syncGuildData(guild);
             completed++;
         }

@@ -34,7 +34,13 @@ async function syncGuildData(guild) {
         }
 
         await guild.fetch();
-        await guild.members.fetch();
+        
+        try {
+            await guild.members.fetch();
+        } catch (memberFetchError) {
+            logger.log(`⚠️  Could not fetch all members for ${guild.name}: ${memberFetchError.message}. Continuing with member count: ${guild.memberCount}`);
+        }
+        
         await guild.channels.fetch();
         await guild.roles.fetch();
 
@@ -56,7 +62,6 @@ async function syncGuildData(guild) {
                     logger.log(`✅ Logger initialized with channel from ${guild.name}`);
                 }
             } catch (error) {
-
             }
         }
 
@@ -89,10 +94,8 @@ async function syncAllGuilds() {
         const guilds = client.guilds.cache;
         logger.log(`🔄 Official bot sync started: ${guilds.size} server(s)`);
 
-
         let completed = 0;
-        for (const [guildId, guild] of guilds) {
-
+        for (const [, guild] of guilds) {
             await syncGuildData(guild);
             completed++;
         }
@@ -152,7 +155,13 @@ async function init(discordClient, botToken) {
                 logger.log('✅ Initial sync complete');
 
                 const allBots = await db.getAllBots();
-                const connectedSelfbots = allBots.filter(b => b.bot_type === 'selfbot' && b.connect_to === botId);
+                const botIdNum = typeof botId === 'string' ? parseInt(botId) : botId;
+                const connectedSelfbots = allBots.filter(b => {
+                    if (b.bot_type !== 'selfbot') return false;
+                    if (!b.connect_to) return false;
+                    const connectToNum = typeof b.connect_to === 'string' ? parseInt(b.connect_to) : b.connect_to;
+                    return connectToNum === botIdNum;
+                });
                 
                 if (connectedSelfbots.length > 0) {
                     logger.log(`⏳ Waiting for ${connectedSelfbots.length} connected selfbot(s) to finish syncing...`);

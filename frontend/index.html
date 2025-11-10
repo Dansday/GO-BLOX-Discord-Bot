@@ -2935,7 +2935,11 @@
                     }
                 }
 
-                const selectedServer = servers.find(s => s.id === forwarder.server_id);
+                const forwarderServerIdNum = typeof forwarder.server_id === 'string' ? parseInt(forwarder.server_id) : forwarder.server_id;
+                const selectedServer = servers.find(s => {
+                    const serverIdNum = typeof s.id === 'string' ? parseInt(s.id) : s.id;
+                    return serverIdNum === forwarderServerIdNum;
+                });
                 const serverName = selectedServer ? (selectedServer.name || `Server ${selectedServer.discord_server_id}`) : 'Unknown Server';
 
                 // Get channel names from selfbot server
@@ -3230,7 +3234,11 @@
             }
 
             const servers = forwarderSelfbotServers[selfbotId] || [];
-            const selectedServer = servers.find(s => s.id === serverDbId);
+            const serverDbIdNum = typeof serverDbId === 'string' ? parseInt(serverDbId) : serverDbId;
+            const selectedServer = servers.find(s => {
+                const serverIdNum = typeof s.id === 'string' ? parseInt(s.id) : s.id;
+                return serverIdNum === serverDbIdNum;
+            });
             currentForwarderServerId = selectedServer ? selectedServer.discord_server_id : null;
 
             fromChannelsBtn.disabled = !serverDbId;

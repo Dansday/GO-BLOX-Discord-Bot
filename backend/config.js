@@ -471,9 +471,13 @@ export const FORWARDER = {
         const environment = botConfig.is_testing ? 'testing' : 'production';
 
         const allBots = await db.getAllBots();
-        const connectedSelfbots = allBots.filter(bot =>
-            bot.bot_type === 'selfbot' && bot.connect_to === botConfig.id
-        );
+        const botConfigIdNum = typeof botConfig.id === 'string' ? parseInt(botConfig.id) : botConfig.id;
+        const connectedSelfbots = allBots.filter(bot => {
+            if (bot.bot_type !== 'selfbot') return false;
+            if (!bot.connect_to) return false;
+            const connectToNum = typeof bot.connect_to === 'string' ? parseInt(bot.connect_to) : bot.connect_to;
+            return connectToNum === botConfigIdNum;
+        });
 
         for (const officialServer of allGuilds) {
             try {
@@ -499,7 +503,11 @@ export const FORWARDER = {
                     }
 
 
-                    const forwarderSelfbot = connectedSelfbots.find(bot => bot.id === forwarder.selfbot_id);
+                    const forwarderSelfbotIdNum = typeof forwarder.selfbot_id === 'string' ? parseInt(forwarder.selfbot_id) : forwarder.selfbot_id;
+                    const forwarderSelfbot = connectedSelfbots.find(bot => {
+                        const botIdNum = typeof bot.id === 'string' ? parseInt(bot.id) : bot.id;
+                        return botIdNum === forwarderSelfbotIdNum;
+                    });
                     if (!forwarderSelfbot) {
                         continue;
                     }

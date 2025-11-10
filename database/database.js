@@ -287,6 +287,8 @@ export async function updateBot(botId, botData) {
 
         if (botData.status === 'running' && !botData.uptime_started_at) {
             updateData.uptime_started_at = toMySQLDateTime();
+        } else if (botData.uptime_started_at) {
+            updateData.uptime_started_at = toMySQLDateTime(botData.uptime_started_at);
         }
 
         if (botData.status === 'stopped') {
@@ -734,11 +736,34 @@ async function getServerSettings(serverId, componentName = null) {
             'SELECT * FROM server_settings WHERE server_id = ? AND component_name = ? LIMIT 1',
             [serverId, componentName]
         );
+        if (result[0] && result[0].settings) {
+            try {
+                result[0].settings = typeof result[0].settings === 'string' 
+                    ? JSON.parse(result[0].settings) 
+                    : result[0].settings;
+            } catch (e) {
+                console.error('Error parsing settings JSON:', e);
+                result[0].settings = {};
+            }
+        }
     } else {
         result = await query(
             'SELECT * FROM server_settings WHERE server_id = ?',
             [serverId]
         );
+        result = result.map(row => {
+            if (row.settings) {
+                try {
+                    row.settings = typeof row.settings === 'string' 
+                        ? JSON.parse(row.settings) 
+                        : row.settings;
+                } catch (e) {
+                    console.error('Error parsing settings JSON:', e);
+                    row.settings = {};
+                }
+            }
+            return row;
+        });
     }
 
     return componentName ? (result[0] || null) : result;

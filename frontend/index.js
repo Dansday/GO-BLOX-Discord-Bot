@@ -21,7 +21,13 @@ let botProcesses = new Map();
 async function getConnectedSelfbots(officialBotId) {
     try {
         const allBots = await db.getAllBots();
-        return allBots.filter(b => b.bot_type === 'selfbot' && b.connect_to === officialBotId);
+        const officialBotIdNum = typeof officialBotId === 'string' ? parseInt(officialBotId) : officialBotId;
+        return allBots.filter(b => {
+            if (b.bot_type !== 'selfbot') return false;
+            if (!b.connect_to) return false;
+            const connectToNum = typeof b.connect_to === 'string' ? parseInt(b.connect_to) : b.connect_to;
+            return connectToNum === officialBotIdNum;
+        });
     } catch (error) {
         logger.log(`⚠️  Error getting connected selfbots: ${error.message}`);
         return [];
@@ -171,8 +177,12 @@ async function startBotById(botId, bot) {
 
         if (bot.bot_type === 'official') {
             const connectedSelfbots = await getConnectedSelfbots(botId);
+            logger.log(`🔍 Found ${connectedSelfbots.length} selfbot(s) connected to official bot ${botId}`);
             if (connectedSelfbots.length > 0) {
                 logger.log(`🔄 Starting ${connectedSelfbots.length} connected selfbot(s)...`);
+                for (const selfbot of connectedSelfbots) {
+                    logger.log(`  - Selfbot ${selfbot.id} (${selfbot.name}) - connect_to: ${selfbot.connect_to}`);
+                }
                 const startPromises = connectedSelfbots.map(selfbot => 
                     startBotById(selfbot.id, selfbot).catch(err => {
                         logger.log(`⚠️  Failed to start connected selfbot ${selfbot.id}: ${err.message}`);
@@ -180,8 +190,10 @@ async function startBotById(botId, bot) {
                     })
                 );
                 const results = await Promise.all(startPromises);
-                const successful = results.filter(r => r.success).length;
+                const successful = results.filter(r => r && r.success).length;
                 logger.log(`✅ Started ${successful}/${connectedSelfbots.length} connected selfbot(s)`);
+            } else {
+                logger.log(`ℹ️  No selfbots found connected to official bot ${botId}`);
             }
         }
         
@@ -775,15 +787,19 @@ export async function init() {
             }
 
             const allBots = await db.getAllBots();
-            const selfbots = allBots.filter(bot =>
-                bot.bot_type === 'selfbot' && bot.connect_to === req.params.id
-            );
+            const officialBotIdNum = typeof req.params.id === 'string' ? parseInt(req.params.id) : req.params.id;
+            const selfbots = allBots.filter(bot => {
+                if (bot.bot_type !== 'selfbot') return false;
+                if (!bot.connect_to) return false;
+                const connectToNum = typeof bot.connect_to === 'string' ? parseInt(bot.connect_to) : bot.connect_to;
+                return connectToNum === officialBotIdNum;
+            });
 
             res.json(selfbots);
         } catch (error) {
             res.status(500).json({ error: error.message });
-                }
-            });
+        }
+    });
 
     app.get('/api/bots/:selfbotId/servers/:serverId/channels', requireAuth, async (req, res) => {
         try {
@@ -791,11 +807,17 @@ export async function init() {
             const { search, discordServerId } = req.query;
 
             const server = await db.getServerByDiscordId(selfbotId, discordServerId);
-            if (!server || server.id !== serverId) {
+            if (!server) {
                 return res.status(404).json({ error: 'Server not found' });
             }
 
-            let channels = await db.getChannelsForServer(serverId);
+            const serverIdNum = typeof serverId === 'string' ? parseInt(serverId) : serverId;
+            const serverDbIdNum = typeof server.id === 'string' ? parseInt(server.id) : server.id;
+            if (serverDbIdNum !== serverIdNum) {
+                return res.status(404).json({ error: 'Server not found' });
+            }
+
+            let channels = await db.getChannelsForServer(serverIdNum);
 
             if (search) {
                 const searchLower = search.toLowerCase();
@@ -959,9 +981,13 @@ export async function init() {
 
             try {
                 const allBots = await db.getAllBots();
-                const connectedSelfbots = allBots.filter(b =>
-                    b.bot_type === 'selfbot' && b.connect_to === req.params.id
-                );
+                const officialBotIdNum = typeof req.params.id === 'string' ? parseInt(req.params.id) : req.params.id;
+                const connectedSelfbots = allBots.filter(b => {
+                    if (b.bot_type !== 'selfbot') return false;
+                    if (!b.connect_to) return false;
+                    const connectToNum = typeof b.connect_to === 'string' ? parseInt(b.connect_to) : b.connect_to;
+                    return connectToNum === officialBotIdNum;
+                });
 
                 for (const selfbot of connectedSelfbots) {
                     await db.updateBot(selfbot.id, { is_testing });
