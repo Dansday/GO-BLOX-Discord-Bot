@@ -109,10 +109,13 @@ export function createInterfaceButtons() {
         .setLabel('⏸️ AFK')
         .setStyle(ButtonStyle.Success);
 
-    const buttonRow = new ActionRowBuilder()
-        .addComponents(sendMessageButton, customSupporterRoleButton, levelingButton, afkButton, feedbackButton, helpButton);
+    const buttonRow1 = new ActionRowBuilder()
+        .addComponents(sendMessageButton, customSupporterRoleButton, levelingButton, afkButton, feedbackButton);
 
-    return [buttonRow];
+    const buttonRow2 = new ActionRowBuilder()
+        .addComponents(helpButton);
+
+    return [buttonRow1, buttonRow2];
 }
 
 export async function sendInterfaceToChannel(targetChannel, interaction, client) {
