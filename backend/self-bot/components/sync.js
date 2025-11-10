@@ -91,7 +91,7 @@ async function syncAllGuilds() {
             await syncGuildData(guild);
             completed++;
         }
-        
+
         logger.log(`✅ Selfbot sync completed: ${completed}/${guilds.size} server(s)`);
     } catch (error) {
         logger.log(`❌ Error syncing all guilds: ${error.message}`);
@@ -119,16 +119,16 @@ async function updateBotInfo() {
 
 async function getLoggerChannelFromOfficialBot(discordGuildId) {
     if (!connectedOfficialBotId) return null;
-    
+
     try {
         const officialServer = await db.getServerByDiscordId(connectedOfficialBotId, discordGuildId);
         if (!officialServer) return null;
-        
+
         const settings = await db.getServerSettings(officialServer.id, 'main_config');
         if (!settings || !settings.settings || !settings.settings.logger_channel) {
             return null;
         }
-        
+
         return settings.settings.logger_channel;
     } catch (error) {
         return null;
@@ -137,7 +137,7 @@ async function getLoggerChannelFromOfficialBot(discordGuildId) {
 
 async function initLoggerChannel() {
     if (!client || loggerInitialized || !connectedOfficialBotId) return;
-    
+
     try {
         let guilds = client.guilds.cache;
         if (guilds.size === 0) {
@@ -147,7 +147,7 @@ async function initLoggerChannel() {
             } catch (fetchError) {
             }
         }
-        
+
         for (const [, guild] of guilds) {
             try {
                 const loggerChannelId = await getLoggerChannelFromOfficialBot(guild.id);
@@ -240,7 +240,7 @@ async function init(discordClient, botIdFromEnv) {
             const channelType = newChannel.type === 4 ? 'Category' : newChannel.type === 0 ? 'Text Channel' : newChannel.type === 5 ? 'News Channel' : 'Channel';
             const oldName = oldChannel.name || 'Unknown';
             const newName = newChannel.name || 'Unknown';
-            
+
             if (oldName !== newName) {
                 await logger.log(`✏️ ${channelType} renamed: **${oldName}** → **${newName}** (${newChannel.id})`, newChannel.guild.id);
             } else {

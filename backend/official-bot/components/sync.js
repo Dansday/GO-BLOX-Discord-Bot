@@ -34,13 +34,13 @@ async function syncGuildData(guild) {
         }
 
         await guild.fetch();
-        
+
         try {
             await guild.members.fetch();
         } catch (memberFetchError) {
             logger.log(`⚠️  Could not fetch all members for ${guild.name}: ${memberFetchError.message}. Continuing with member count: ${guild.memberCount}`);
         }
-        
+
         await guild.channels.fetch();
         await guild.roles.fetch();
 
@@ -113,7 +113,7 @@ async function syncAllGuilds() {
             await syncGuildData(guild);
             completed++;
         }
-        
+
         logger.log(`✅ Official bot sync completed: ${completed}/${guilds.size} server(s)`);
     } catch (error) {
         logger.log(`❌ Error syncing all guilds: ${error.message}`);
@@ -141,7 +141,7 @@ async function updateBotInfo() {
 
 async function initLoggerChannel() {
     if (!client || loggerInitialized) return;
-    
+
     try {
         let guilds = client.guilds.cache;
         if (guilds.size === 0) {
@@ -151,7 +151,7 @@ async function initLoggerChannel() {
             } catch (fetchError) {
             }
         }
-        
+
         for (const [, guild] of guilds) {
             try {
                 const loggerChannelId = await getLoggerChannel(guild.id);
@@ -177,7 +177,7 @@ async function init(discordClient, botToken) {
         logger.log(`💡 Create bot entry in database first`);
         return;
     }
-    
+
     botId = bot.id;
     logger.log(`✅ Found bot in database: ${bot.name} (${bot.bot_type})`);
 
@@ -205,7 +205,7 @@ async function init(discordClient, botToken) {
                     const connectToNum = typeof b.connect_to === 'string' ? parseInt(b.connect_to) : b.connect_to;
                     return connectToNum === botIdNum;
                 });
-                
+
                 if (connectedSelfbots.length > 0) {
                     logger.log(`⏳ Waiting for ${connectedSelfbots.length} connected selfbot(s) to finish syncing...`);
 
@@ -214,6 +214,30 @@ async function init(discordClient, botToken) {
                 }
             } else {
                 logger.log('⏭️  Skipping initial sync (servers have data). Sync will run on Discord events only.');
+
+                try {
+                    const { CUSTOM_SUPPORTER_ROLE } = await import('../../config.js');
+                    const guilds = client.guilds.cache;
+
+                    for (const [, guild] of guilds) {
+                        try {
+                            const serverData = await db.getServerByDiscordId(botId, guild.id);
+                            if (serverData) {
+                                const constraints = await CUSTOM_SUPPORTER_ROLE.getRoleConstraints(guild.id);
+                                if (constraints.ROLE_START && constraints.ROLE_END) {
+                                    await db.updateCustomRoleFlags(serverData.id, constraints.ROLE_START, constraints.ROLE_END);
+                                } else {
+                                    await db.updateCustomRoleFlags(serverData.id, null, null);
+                                }
+                            }
+                        } catch (error) {
+                        }
+                    }
+                    logger.log('✅ Recalculated custom supporter role flags for all servers');
+                } catch (error) {
+                }
+
+                logger.log('ℹ️  Note: Booster status (is_booster, booster_since) will be updated automatically when member events occur');
             }
         }
     }, 2000);
@@ -237,7 +261,7 @@ async function init(discordClient, botToken) {
             const channelType = newChannel.type === 4 ? 'Category' : newChannel.type === 0 ? 'Text Channel' : newChannel.type === 5 ? 'News Channel' : 'Channel';
             const oldName = oldChannel.name || 'Unknown';
             const newName = newChannel.name || 'Unknown';
-            
+
             if (oldName !== newName) {
                 await logger.log(`✏️ ${channelType} renamed: **${oldName}** → **${newName}** (${newChannel.id})`, newChannel.guild.id);
             } else {
@@ -271,7 +295,7 @@ async function init(discordClient, botToken) {
             const newName = newRole.name || 'Unknown';
             const oldColor = oldRole.hexColor !== '#000000' ? oldRole.hexColor : 'No color';
             const newColor = newRole.hexColor !== '#000000' ? newRole.hexColor : 'No color';
-            
+
             if (oldName !== newName) {
                 await logger.log(`✏️ Role renamed: **${oldName}** → **${newName}** (${newRole.id})`, newRole.guild.id);
             } else if (oldColor !== newColor) {
@@ -315,7 +339,7 @@ async function init(discordClient, botToken) {
                     }
                 }
             } catch (error) {
-                logger.log(`❌ Error syncing member roles on update: ${error.message}`);
+                logger.log(`❌ Error syncing member on update: ${error.message}`);
             }
         }
     });

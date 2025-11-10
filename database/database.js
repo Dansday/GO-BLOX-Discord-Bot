@@ -115,7 +115,7 @@ async function runMigration() {
         }
 
         logger.log('✅ Database schema created successfully!');
-        logger.log('📊 Tables created: panel, panel_logs, bots, servers, server_categories, server_channels, server_roles, server_members, server_member_roles, server_settings');
+        logger.log('📊 Tables created: panel, panel_logs, bots, servers, server_categories, server_channels, server_roles, server_members, server_member_roles, server_members_afk, server_settings');
         logger.log('📈 Indexes created: all indexes');
 
     } catch (error) {
@@ -145,6 +145,7 @@ async function setupDatabase() {
         { name: 'server_roles', required: true },
         { name: 'server_members', required: true },
         { name: 'server_member_roles', required: true },
+        { name: 'server_members_afk', required: true },
         { name: 'server_settings', required: true }
     ];
 
@@ -187,6 +188,42 @@ async function setupDatabase() {
             logger.log('📄 Please run the SQL schema manually in your MySQL client');
             throw new Error(`Missing tables: ${missingTables.join(', ')}`);
         }
+    }
+
+    try {
+        const columnsResult = await query(
+            `SELECT COLUMN_NAME FROM information_schema.COLUMNS 
+             WHERE TABLE_SCHEMA = ? AND TABLE_NAME = 'server_members' AND COLUMN_NAME IN ('is_booster', 'booster_since')`,
+            [connectionConfig.database]
+        );
+
+        const existingColumns = columnsResult.map(row => row.COLUMN_NAME);
+
+        if (!existingColumns.includes('is_booster')) {
+            logger.log('🔧 Adding is_booster column to server_members table...');
+            await query('ALTER TABLE server_members ADD COLUMN is_booster BOOLEAN DEFAULT FALSE');
+            logger.log('✅ Added is_booster column');
+        }
+
+        if (!existingColumns.includes('booster_since')) {
+            logger.log('🔧 Adding booster_since column to server_members table...');
+            await query('ALTER TABLE server_members ADD COLUMN booster_since TIMESTAMP NULL');
+            logger.log('✅ Added booster_since column');
+        }
+
+        const serverDisplayNameCheck = await query(
+            `SELECT COLUMN_NAME FROM information_schema.COLUMNS 
+             WHERE TABLE_SCHEMA = ? AND TABLE_NAME = 'server_members' AND COLUMN_NAME = 'server_display_name'`,
+            [connectionConfig.database]
+        );
+
+        if (!serverDisplayNameCheck || serverDisplayNameCheck.length === 0) {
+            logger.log('🔧 Adding server_display_name column to server_members table...');
+            await query('ALTER TABLE server_members ADD COLUMN server_display_name TEXT');
+            logger.log('✅ Added server_display_name column');
+        }
+    } catch (err) {
+        logger.log(`⚠️  Error checking/adding columns: ${err.message}`);
     }
 
     logger.log('✅ All database tables verified');
@@ -463,8 +500,8 @@ export async function syncCategories(serverId, categories) {
                 const idsToDelete = categoriesToDelete.map(cat => cat.id);
                 const placeholders = idsToDelete.map(() => '?').join(',');
                 await query(
-                    `DELETE FROM server_categories WHERE id IN (${placeholders})`,
-                    idsToDelete
+                    `DELETE FROM server_categories WHERE server_id = ? AND id IN (${placeholders})`,
+                    [serverId, ...idsToDelete]
                 );
                 console.log(`🧹 Removed ${idsToDelete.length} deleted category(ies) from database`);
             }
@@ -526,8 +563,8 @@ export async function syncChannels(serverId, channels, categoryMap = null) {
                 const categoryIds = existingCategoryChannels.map(ch => ch.id);
                 const placeholders = categoryIds.map(() => '?').join(',');
                 await query(
-                    `DELETE FROM server_channels WHERE id IN (${placeholders})`,
-                    categoryIds
+                    `DELETE FROM server_channels WHERE server_id = ? AND id IN (${placeholders})`,
+                    [serverId, ...categoryIds]
                 );
                 console.log(`🧹 Removed ${categoryIds.length} category(ies) from server_channels table`);
             }
@@ -566,8 +603,8 @@ export async function syncChannels(serverId, channels, categoryMap = null) {
                 const idsToDelete = channelsToDelete.map(ch => ch.id);
                 const placeholders = idsToDelete.map(() => '?').join(',');
                 await query(
-                    `DELETE FROM server_channels WHERE id IN (${placeholders})`,
-                    idsToDelete
+                    `DELETE FROM server_channels WHERE server_id = ? AND id IN (${placeholders})`,
+                    [serverId, ...idsToDelete]
                 );
                 console.log(`🧹 Removed ${idsToDelete.length} deleted channel(s) from database`);
             }
@@ -655,8 +692,8 @@ export async function syncRoles(serverId, roles) {
                 const idsToDelete = rolesToDelete.map(role => role.id);
                 const placeholders = idsToDelete.map(() => '?').join(',');
                 await query(
-                    `DELETE FROM server_roles WHERE id IN (${placeholders})`,
-                    idsToDelete
+                    `DELETE FROM server_roles WHERE server_id = ? AND id IN (${placeholders})`,
+                    [serverId, ...idsToDelete]
                 );
                 console.log(`🧹 Removed ${idsToDelete.length} deleted role(s) from database`);
             }
@@ -675,23 +712,29 @@ export async function upsertMember(serverId, memberData) {
         const avatarUrl = user?.displayAvatarURL ? user.displayAvatarURL({ dynamic: true }) : null;
         const username = user?.username || null;
         const displayName = user?.globalName || user?.displayName || null;
+        const serverDisplayName = memberData.nickname || null;
         const profileCreatedAt = user?.createdAt ? toMySQLDateTime(user.createdAt) : null;
         const memberSince = memberData.joinedAt ? toMySQLDateTime(memberData.joinedAt) : null;
+        const isBooster = memberData.premiumSince !== null && memberData.premiumSince !== undefined;
+        const boosterSince = memberData.premiumSince ? toMySQLDateTime(memberData.premiumSince) : null;
 
         await query(
             `INSERT INTO server_members (
-                server_id, discord_member_id, username, display_name, avatar, profile_created_at, member_since, updated_at
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                server_id, discord_member_id, username, display_name, server_display_name, avatar, profile_created_at, member_since, is_booster, booster_since, updated_at
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             ON DUPLICATE KEY UPDATE
                 username = VALUES(username),
                 display_name = VALUES(display_name),
+                server_display_name = VALUES(server_display_name),
                 avatar = VALUES(avatar),
                 profile_created_at = VALUES(profile_created_at),
                 member_since = VALUES(member_since),
+                is_booster = VALUES(is_booster),
+                booster_since = VALUES(booster_since),
                 updated_at = VALUES(updated_at)`,
             [
-                serverId, user?.id || memberData.id, username, displayName,
-                avatarUrl, profileCreatedAt, memberSince, toMySQLDateTime()
+                serverId, user?.id || memberData.id, username, displayName, serverDisplayName,
+                avatarUrl, profileCreatedAt, memberSince, isBooster, boosterSince, toMySQLDateTime()
             ]
         );
 
@@ -706,10 +749,24 @@ export async function upsertMember(serverId, memberData) {
     }
 }
 
+export async function getMemberByDiscordId(serverId, discordMemberId) {
+    await initializeDatabase();
+    const result = await query(
+        'SELECT * FROM server_members WHERE server_id = ? AND discord_member_id = ? LIMIT 1',
+        [serverId, discordMemberId]
+    );
+    return result[0] || null;
+}
+
 export async function syncMemberRoles(memberId, discordRoleIds, serverId) {
     try {
         if (!discordRoleIds || discordRoleIds.length === 0) {
-            await query('DELETE FROM server_member_roles WHERE member_id = ?', [memberId]);
+            await query(
+                `DELETE smr FROM server_member_roles smr
+                 INNER JOIN server_members sm ON smr.member_id = sm.id
+                 WHERE smr.member_id = ? AND sm.server_id = ?`,
+                [memberId, serverId]
+            );
             return true;
         }
 
@@ -733,8 +790,11 @@ export async function syncMemberRoles(memberId, discordRoleIds, serverId) {
         }
 
         const existingRoles = await query(
-            'SELECT role_id FROM server_member_roles WHERE member_id = ?',
-            [memberId]
+            `SELECT smr.role_id 
+             FROM server_member_roles smr
+             INNER JOIN server_members sm ON smr.member_id = sm.id
+             WHERE smr.member_id = ? AND sm.server_id = ?`,
+            [memberId, serverId]
         );
         const existingRoleIds = new Set(existingRoles.map(r => r.role_id));
 
@@ -753,8 +813,10 @@ export async function syncMemberRoles(memberId, discordRoleIds, serverId) {
         if (rolesToRemove.length > 0) {
             const placeholders = rolesToRemove.map(() => '?').join(', ');
             await query(
-                `DELETE FROM server_member_roles WHERE member_id = ? AND role_id IN (${placeholders})`,
-                [memberId, ...rolesToRemove]
+                `DELETE smr FROM server_member_roles smr
+                 INNER JOIN server_members sm ON smr.member_id = sm.id
+                 WHERE smr.member_id = ? AND sm.server_id = ? AND smr.role_id IN (${placeholders})`,
+                [memberId, serverId, ...rolesToRemove]
             );
         }
 
@@ -786,8 +848,9 @@ export async function memberHasAnyRole(discordMemberId, discordRoleIds, serverId
             `SELECT sr.id 
              FROM server_roles sr
              INNER JOIN server_member_roles smr ON sr.id = smr.role_id
-             WHERE smr.member_id = ? AND sr.discord_role_id IN (${placeholders})`,
-            [memberId, ...discordRoleIds]
+             INNER JOIN server_members sm ON smr.member_id = sm.id
+             WHERE smr.member_id = ? AND sm.server_id = ? AND sr.discord_role_id IN (${placeholders})`,
+            [memberId, serverId, ...discordRoleIds]
         );
 
         return roleResult && roleResult.length > 0;
@@ -869,10 +932,11 @@ export async function memberHasCustomSupporterRole(discordMemberId, serverId) {
             `SELECT sr.id, sr.discord_role_id, sr.name, sr.position, sr.color
              FROM server_roles sr
              INNER JOIN server_member_roles smr ON sr.id = smr.role_id
-             WHERE smr.member_id = ? AND smr.is_custom = TRUE
+             INNER JOIN server_members sm ON smr.member_id = sm.id
+             WHERE smr.member_id = ? AND sm.server_id = ? AND smr.is_custom = TRUE
              ORDER BY sr.position DESC
              LIMIT 1`,
-            [memberId]
+            [memberId, serverId]
         );
 
         if (roleResult && roleResult.length > 0) {
@@ -897,8 +961,8 @@ export async function syncMembers(serverId, members) {
                 const idsToDelete = dbMembers.map(m => m.id);
                 const placeholders = idsToDelete.map(() => '?').join(',');
                 await query(
-                    `DELETE FROM server_members WHERE id IN (${placeholders})`,
-                    idsToDelete
+                    `DELETE FROM server_members WHERE server_id = ? AND id IN (${placeholders})`,
+                    [serverId, ...idsToDelete]
                 );
                 console.log(`🧹 Removed ${idsToDelete.length} deleted member(s) from database`);
             }
@@ -941,8 +1005,8 @@ export async function syncMembers(serverId, members) {
                 const idsToDelete = membersToDelete.map(member => member.id);
                 const placeholders = idsToDelete.map(() => '?').join(',');
                 await query(
-                    `DELETE FROM server_members WHERE id IN (${placeholders})`,
-                    idsToDelete
+                    `DELETE FROM server_members WHERE server_id = ? AND id IN (${placeholders})`,
+                    [serverId, ...idsToDelete]
                 );
                 console.log(`🧹 Removed ${idsToDelete.length} deleted member(s) from database`);
             }
@@ -1100,6 +1164,76 @@ async function getCategoriesForServer(serverId) {
     return result;
 }
 
+export async function getAFKStatus(serverId, discordMemberId) {
+    await initializeDatabase();
+    const result = await query(
+        `SELECT sma.*, sm.server_display_name
+         FROM server_members_afk sma
+         INNER JOIN server_members sm ON sma.member_id = sm.id
+         WHERE sm.server_id = ? AND sm.discord_member_id = ?`,
+        [serverId, discordMemberId]
+    );
+    if (!result || result.length === 0) {
+        return null;
+    }
+    const afkData = result[0];
+    return {
+        message: afkData.message || 'Away',
+        timestamp: new Date(afkData.created_at).getTime(),
+        serverDisplayName: afkData.server_display_name
+    };
+}
+
+export async function setAFKStatus(serverId, discordMemberId, afkData) {
+    await initializeDatabase();
+    try {
+        const memberResult = await query(
+            'SELECT id FROM server_members WHERE server_id = ? AND discord_member_id = ?',
+            [serverId, discordMemberId]
+        );
+        
+        if (!memberResult || memberResult.length === 0) {
+            return null;
+        }
+        
+        const memberId = memberResult[0].id;
+        
+        await query(
+            `INSERT INTO server_members_afk (
+                member_id, message
+            ) VALUES (?, ?)
+            ON DUPLICATE KEY UPDATE
+                message = VALUES(message),
+                updated_at = VALUES(updated_at)`,
+            [
+                memberId,
+                afkData.message || 'Away'
+            ]
+        );
+        
+        return await getAFKStatus(serverId, discordMemberId);
+    } catch (error) {
+        console.error('Error setting AFK status:', error);
+        throw error;
+    }
+}
+
+export async function removeAFKStatus(serverId, discordMemberId) {
+    await initializeDatabase();
+    try {
+        const result = await query(
+            `DELETE sma FROM server_members_afk sma
+             INNER JOIN server_members sm ON sma.member_id = sm.id
+             WHERE sm.server_id = ? AND sm.discord_member_id = ?`,
+            [serverId, discordMemberId]
+        );
+        return true;
+    } catch (error) {
+        console.error('Error removing AFK status:', error);
+        return false;
+    }
+}
+
 export async function serversNeedSync(botId) {
     await initializeDatabase();
 
@@ -1156,6 +1290,7 @@ export default {
     upsertRole,
     syncRoles,
     upsertMember,
+    getMemberByDiscordId,
     syncMembers,
     syncMemberRoles,
     memberHasAnyRole,
@@ -1170,5 +1305,8 @@ export default {
     upsertServerSettings,
     getChannelsForServer,
     getCategoriesForServer,
-    serversNeedSync
+    serversNeedSync,
+    getAFKStatus,
+    setAFKStatus,
+    removeAFKStatus
 };

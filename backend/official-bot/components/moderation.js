@@ -1,6 +1,7 @@
 import { EmbedBuilder } from "discord.js";
-import { getMainChannel, getEmbedConfig } from "../../config.js";
+import { getMainChannel, getEmbedConfig, getBotConfig } from "../../config.js";
 import logger from "../../logger.js";
+import db from "../../../database/database.js";
 
 async function sendModerationLog(client, embedData, guildId = null) {
     const mainChannel = await getMainChannel(guildId);
@@ -57,25 +58,49 @@ function init(client) {
     client.on("guildBanAdd", async (ban) => {
         try {
             const { guild, user } = ban;
-            const auditEntry = await getAuditLogEntry(guild, 22, user.id);
+            const botConfig = getBotConfig();
+            if (!botConfig || !botConfig.id) {
+                return;
+            }
 
+            const serverData = await db.getServerByDiscordId(botConfig.id, guild.id);
+            if (!serverData) {
+                return;
+            }
+
+            const memberData = await db.getMemberByDiscordId(serverData.id, user.id);
+            if (!memberData) {
+                return;
+            }
+
+            const memberName = memberData.display_name || memberData.username || `User ${user.id}`;
+            const memberAvatar = memberData.avatar || null;
+
+            const auditEntry = await getAuditLogEntry(guild, 22, user.id);
             const moderator = auditEntry?.executor || null;
+
+            let moderatorName = "Unknown";
+            if (moderator) {
+                const moderatorData = await db.getMemberByDiscordId(serverData.id, moderator.id);
+                moderatorName = moderatorData ? (moderatorData.display_name || moderatorData.username) : `User ${moderator.id}`;
+            }
+
             const reason = ban.reason || auditEntry?.reason || "No reason provided";
 
             await sendModerationLog(client, {
                 title: "🔨 Member Banned",
                 description: `<@${user.id}> has been banned from the server.`,
-                thumbnail: user.displayAvatarURL({ dynamic: true, size: 256 }),
-                userTag: user.tag,
+                thumbnail: memberAvatar,
+                userTag: memberName,
                 fields: [
                     {
                         name: "👤 User",
-                        value: user.tag,
+                        value: memberName,
                         inline: true
                     },
                     {
                         name: "🛡️ Moderator",
-                        value: moderator ? moderator.tag : "Unknown",
+                        value: moderatorName,
                         inline: true
                     },
                     {
@@ -93,24 +118,47 @@ function init(client) {
     client.on("guildBanRemove", async (ban) => {
         try {
             const { guild, user } = ban;
-            const auditEntry = await getAuditLogEntry(guild, 23, user.id);
+            const botConfig = getBotConfig();
+            if (!botConfig || !botConfig.id) {
+                return;
+            }
 
+            const serverData = await db.getServerByDiscordId(botConfig.id, guild.id);
+            if (!serverData) {
+                return;
+            }
+
+            const memberData = await db.getMemberByDiscordId(serverData.id, user.id);
+            if (!memberData) {
+                return;
+            }
+
+            const memberName = memberData.display_name || memberData.username || `User ${user.id}`;
+            const memberAvatar = memberData.avatar || null;
+
+            const auditEntry = await getAuditLogEntry(guild, 23, user.id);
             const moderator = auditEntry?.executor || null;
+
+            let moderatorName = "Unknown";
+            if (moderator) {
+                const moderatorData = await db.getMemberByDiscordId(serverData.id, moderator.id);
+                moderatorName = moderatorData ? (moderatorData.display_name || moderatorData.username) : `User ${moderator.id}`;
+            }
 
             await sendModerationLog(client, {
                 title: "✅ Member Unbanned",
                 description: `<@${user.id}> has been unbanned from the server.`,
-                thumbnail: user.displayAvatarURL({ dynamic: true, size: 256 }),
-                userTag: user.tag,
+                thumbnail: memberAvatar,
+                userTag: memberName,
                 fields: [
                     {
                         name: "👤 User",
-                        value: user.tag,
+                        value: memberName,
                         inline: true
                     },
                     {
                         name: "🛡️ Moderator",
-                        value: moderator ? moderator.tag : "Unknown",
+                        value: moderatorName,
                         inline: true
                     }
                 ]
@@ -122,6 +170,23 @@ function init(client) {
 
     client.on("guildMemberRemove", async (member) => {
         try {
+            const botConfig = getBotConfig();
+            if (!botConfig || !botConfig.id) {
+                return;
+            }
+
+            const serverData = await db.getServerByDiscordId(botConfig.id, member.guild.id);
+            if (!serverData) {
+                return;
+            }
+
+            const memberData = await db.getMemberByDiscordId(serverData.id, member.user.id);
+            if (!memberData) {
+                return;
+            }
+
+            const memberName = memberData.display_name || memberData.username || `User ${member.user.id}`;
+            const memberAvatar = memberData.avatar || null;
 
             const banEntry = await getAuditLogEntry(member.guild, 22, member.user.id);
 
@@ -131,28 +196,35 @@ function init(client) {
 
             const kickEntry = await getAuditLogEntry(member.guild, 20, member.user.id);
 
-
             if (!kickEntry) {
                 return;
             }
 
             const moderator = kickEntry.executor || null;
+            let moderatorName = "Unknown";
+            if (moderator) {
+                const moderatorData = await db.getMemberByDiscordId(serverData.id, moderator.id);
+                moderatorName = moderatorData ? (moderatorData.display_name || moderatorData.username) : `User ${moderator.id}`;
+            }
+
             const reason = kickEntry.reason || "No reason provided";
+            const memberSince = memberData.member_since ? new Date(memberData.member_since) : null;
+            const memberSinceTimestamp = memberSince ? Math.floor(memberSince.getTime() / 1000) : null;
 
             await sendModerationLog(client, {
                 title: "👢 Member Kicked",
                 description: `<@${member.user.id}> has been kicked from the server.`,
-                thumbnail: member.user.displayAvatarURL({ dynamic: true, size: 256 }),
-                userTag: member.user.tag,
+                thumbnail: memberAvatar,
+                userTag: memberName,
                 fields: [
                     {
                         name: "👤 User",
-                        value: member.user.tag,
+                        value: memberName,
                         inline: true
                     },
                     {
                         name: "🛡️ Moderator",
-                        value: moderator ? moderator.tag : "Unknown",
+                        value: moderatorName,
                         inline: true
                     },
                     {
@@ -162,7 +234,7 @@ function init(client) {
                     },
                     {
                         name: "📅 Member Since",
-                        value: member.joinedAt ? `<t:${Math.floor(member.joinedAt.getTime() / 1000)}:R>` : "Unknown",
+                        value: memberSinceTimestamp ? `<t:${memberSinceTimestamp}:R>` : "Unknown",
                         inline: false
                     }
                 ]
