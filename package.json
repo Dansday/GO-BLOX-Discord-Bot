@@ -1,6 +1,6 @@
 {
   "name": "go-blox-bot-system",
-  "version": "7.1.0",
+  "version": "7.2.0",
   "description": "GO BLOX Bot System - Self-bot and Official Bot",
   "main": "main.js",
   "type": "module",
