@@ -21,31 +21,26 @@ export async function handleHelpButton(interaction) {
             {
                 name: "📤 Send Message",
                 value: "Send custom embed messages to any channel.\n**Permission:** Staff+",
-                inline: true
+                inline: false
             },
             {
                 name: "💎 Custom Supporter Role",
                 value: "Create, edit, or delete your custom role.\n**Permission:** Supporter+",
-                inline: true
+                inline: false
             },
             {
                 name: "📈 Leveling",
                 value: "View your stats and leaderboard.\n**XP:** +10 per message (15s cooldown), +30/min voice, +5/min AFK\n**Permission:** Member+",
-                inline: true
+                inline: false
             },
             {
                 name: "⏸️ AFK",
                 value: "Set AFK status with optional message.\n**Permission:** Member+",
-                inline: true
+                inline: false
             },
             {
                 name: "💬 Feedback",
                 value: "Submit feedback to staff.\n**Permission:** Member+",
-                inline: true
-            },
-            {
-                name: "🔐 Permissions",
-                value: "**Admin:** Full access\n**Staff:** All features\n**Supporter:** Custom role + Member\n**Member:** Leveling, AFK, Help, Feedback",
                 inline: false
             }
         ])
