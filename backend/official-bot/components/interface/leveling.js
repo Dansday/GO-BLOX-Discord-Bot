@@ -94,11 +94,11 @@ async function buildLevelingEmbeds(server, memberLevelData, sortType = 'xp', gui
     const xpIntoLevel = Math.max(0, currentXP - currentLevelRequirement);
     const progressRatio = xpRange > 0 ? Math.max(0, Math.min(1, xpIntoLevel / xpRange)) : 0;
     const progressBar = buildProgressBar(progressRatio);
-    const xpProgressText = `${formatNumber(currentXP)} / ${formatNumber(nextLevelRequirement)} XP`;
+    const xpProgressText = `${formatNumber(Math.round(currentXP))} / ${formatNumber(Math.round(nextLevelRequirement))} XP`;
 
     const profileLines = [];
     profileLines.push(`• **Level:** ${currentLevel}`);
-    profileLines.push(`• **Experience:** ${formatNumber(currentXP)} XP`);
+    profileLines.push(`• **Experience:** ${formatNumber(Math.round(currentXP))} XP`);
     profileLines.push(`• **Progress:** ${progressBar} (${xpProgressText})`);
     profileLines.push(`• **Chat Total:** ${formatNumber(memberLevelData?.chat_total ?? 0)}`);
     const voiceTotal = memberLevelData?.voice_minutes_total ?? 0;
@@ -170,19 +170,19 @@ async function buildLevelingEmbeds(server, memberLevelData, sortType = 'xp', gui
 
             switch (sortType) {
                 case 'xp':
-                    value = `${medal} **${name}**\n${formatNumber(xp)} XP • Level ${calculatedLevel}`;
+                    value = `${medal} **${name}**\n${formatNumber(Math.round(xp))} XP • Level ${calculatedLevel}`;
                     break;
                 case 'voice':
                     const totalMinutes = entry.voice_minutes_total || 0;
                     const activeMinutes = entry.voice_minutes_active || 0;
                     const afkMinutes = entry.voice_minutes_afk || 0;
-                    value = `${medal} **${name}**\n${formatNumber(totalMinutes)} min (Active ${formatNumber(activeMinutes)} • AFK ${formatNumber(afkMinutes)}) • ${formatNumber(xp)} XP`;
+                    value = `${medal} **${name}**\n${formatNumber(totalMinutes)} min (Active ${formatNumber(activeMinutes)} • AFK ${formatNumber(afkMinutes)}) • ${formatNumber(Math.round(xp))} XP`;
                     break;
                 case 'chat':
-                    value = `${medal} **${name}**\n${formatNumber(entry.chat_total || 0)} messages • ${formatNumber(xp)} XP`;
+                    value = `${medal} **${name}**\n${formatNumber(entry.chat_total || 0)} messages • ${formatNumber(Math.round(xp))} XP`;
                     break;
                 default:
-                    value = `${medal} **${name}**\n${formatNumber(xp)} XP • Level ${calculatedLevel}`;
+                    value = `${medal} **${name}**\n${formatNumber(Math.round(xp))} XP • Level ${calculatedLevel}`;
                     break;
             }
 

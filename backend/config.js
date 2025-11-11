@@ -213,7 +213,7 @@ export const LEVELING = {
     },
     REQUIREMENTS: {
         BASE_XP: 100,
-        MULTIPLIER: 1.3
+        MULTIPLIER: 1.5
     }
 };
 

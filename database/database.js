@@ -939,15 +939,6 @@ export async function updateMemberLevelStats(memberId, updates = {}) {
         }
     }
 
-    if (updates.voiceAfkRewardedAt !== undefined) {
-        if (updates.voiceAfkRewardedAt === null) {
-            clauses.push('voice_afk_rewarded_at = NULL');
-        } else {
-            clauses.push('voice_afk_rewarded_at = ?');
-            values.push(toMySQLDateTime(updates.voiceAfkRewardedAt));
-        }
-    }
-
     if (clauses.length === 0) {
         return await getMemberLevel(memberId);
     }

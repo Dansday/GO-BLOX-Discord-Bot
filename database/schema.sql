@@ -123,7 +123,6 @@ CREATE TABLE IF NOT EXISTS server_member_levels (
     rank INT DEFAULT NULL,
     chat_rewarded_at TIMESTAMP NULL,
     voice_rewarded_at TIMESTAMP NULL,
-    voice_afk_rewarded_at TIMESTAMP NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     UNIQUE KEY unique_member_level (member_id),
