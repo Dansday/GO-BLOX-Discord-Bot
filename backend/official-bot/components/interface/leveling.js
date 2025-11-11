@@ -3,7 +3,7 @@ import { getEmbedConfig, getBotConfig } from "../../../config.js";
 import { hasPermission } from "../permissions.js";
 import db from "../../../../database/database.js";
 import logger from "../../../logger.js";
-import { getLevelRequirement, determineLevel } from "../leveling.js";
+import { getLevelRequirement, determineLevel, calculateExperienceFromTotals } from "../leveling.js";
 
 const PROGRESS_BAR_SLOTS = 10;
 
@@ -18,6 +18,57 @@ function formatNumber(value) {
         return "0";
     }
     return value.toLocaleString();
+}
+
+async function refreshMemberLevelData(serverId, discordMemberId) {
+    if (!serverId || !discordMemberId) {
+        return null;
+    }
+
+    const levelData = await db.getMemberLevelByDiscordId(serverId, discordMemberId);
+    if (!levelData) {
+        return null;
+    }
+
+    const recalculatedExperience = calculateExperienceFromTotals({
+        chatTotal: levelData.chat_total ?? 0,
+        voiceMinutesActive: levelData.voice_minutes_active ?? 0,
+        voiceMinutesAfk: levelData.voice_minutes_afk ?? 0
+    });
+
+    const currentExperience = levelData.experience ?? 0;
+    const updates = {};
+
+    if (recalculatedExperience !== currentExperience) {
+        updates.experienceIncrement = recalculatedExperience - currentExperience;
+    }
+
+    const recalculatedLevel = determineLevel(recalculatedExperience);
+    if ((levelData.level ?? 1) !== recalculatedLevel) {
+        updates.level = recalculatedLevel;
+    }
+
+    if (Object.keys(updates).length > 0) {
+        const updatedStats = await db.updateMemberLevelStats(levelData.member_id, updates);
+        if (updatedStats) {
+            return {
+                ...levelData,
+                ...updatedStats,
+                experience: recalculatedExperience,
+                level: recalculatedLevel
+            };
+        }
+    }
+
+    if ((levelData.experience ?? 0) !== recalculatedExperience || (levelData.level ?? 1) !== recalculatedLevel) {
+        return {
+            ...levelData,
+            experience: recalculatedExperience,
+            level: recalculatedLevel
+        };
+    }
+
+    return levelData;
 }
 
 async function getServerForInteraction(interaction) {
@@ -49,8 +100,13 @@ async function buildLevelingEmbeds(server, memberLevelData, sortType = 'xp', gui
     profileLines.push(`• **Level:** ${currentLevel}`);
     profileLines.push(`• **Experience:** ${formatNumber(currentXP)} XP`);
     profileLines.push(`• **Progress:** ${progressBar} (${xpProgressText})`);
-    profileLines.push(`• **Chat Count:** ${formatNumber(memberLevelData?.chat_count ?? 0)}`);
-    profileLines.push(`• **Voice Minutes:** ${formatNumber(memberLevelData?.voice_minutes ?? 0)}`);
+    profileLines.push(`• **Chat Total:** ${formatNumber(memberLevelData?.chat_total ?? 0)}`);
+    const voiceTotal = memberLevelData?.voice_minutes_total ?? 0;
+    const voiceActive = memberLevelData?.voice_minutes_active ?? 0;
+    const voiceAfk = memberLevelData?.voice_minutes_afk ?? 0;
+    profileLines.push(`• **Voice Minutes (Total):** ${formatNumber(voiceTotal)}`);
+    profileLines.push(`• ├ Active: ${formatNumber(voiceActive)}`);
+    profileLines.push(`• └ AFK: ${formatNumber(voiceAfk)}`);
     profileLines.push(`• **Rank:** ${memberLevelData?.rank ? `#${memberLevelData.rank}` : "Unranked"}`);
 
     const profileEmbed = new EmbedBuilder()
@@ -117,10 +173,13 @@ async function buildLevelingEmbeds(server, memberLevelData, sortType = 'xp', gui
                     value = `${medal} **${name}**\n${formatNumber(xp)} XP • Level ${calculatedLevel}`;
                     break;
                 case 'voice':
-                    value = `${medal} **${name}**\n${formatNumber(entry.voice_minutes || 0)} min • ${formatNumber(xp)} XP`;
+                    const totalMinutes = entry.voice_minutes_total || 0;
+                    const activeMinutes = entry.voice_minutes_active || 0;
+                    const afkMinutes = entry.voice_minutes_afk || 0;
+                    value = `${medal} **${name}**\n${formatNumber(totalMinutes)} min (Active ${formatNumber(activeMinutes)} • AFK ${formatNumber(afkMinutes)}) • ${formatNumber(xp)} XP`;
                     break;
                 case 'chat':
-                    value = `${medal} **${name}**\n${formatNumber(entry.chat_count || 0)} messages • ${formatNumber(xp)} XP`;
+                    value = `${medal} **${name}**\n${formatNumber(entry.chat_total || 0)} messages • ${formatNumber(xp)} XP`;
                     break;
                 default:
                     value = `${medal} **${name}**\n${formatNumber(xp)} XP • Level ${calculatedLevel}`;
@@ -198,21 +257,9 @@ export async function handleLevelingButton(interaction) {
 
         await db.ensureMemberLevel(dbMember.id);
 
+        let memberLevelData = await refreshMemberLevelData(server.id, interaction.user.id);
         await db.recalculateServerMemberRanks(server.id);
-
-        const memberLevelData = await db.getMemberLevelByDiscordId(server.id, interaction.user.id);
-
-        if (memberLevelData && memberLevelData.id) {
-            const calculatedLevel = determineLevel(memberLevelData.experience ?? 0);
-            const storedLevel = memberLevelData.level ?? 1;
-            if (calculatedLevel !== storedLevel) {
-                await db.updateMemberLevelStats(memberLevelData.id, { level: calculatedLevel });
-                const updatedData = await db.getMemberLevelByDiscordId(server.id, interaction.user.id);
-                if (updatedData) {
-                    Object.assign(memberLevelData, updatedData);
-                }
-            }
-        }
+        memberLevelData = await db.getMemberLevelByDiscordId(server.id, interaction.user.id);
 
         const sortType = 'xp';
         const { profileEmbed, leaderboardEmbed } = await buildLevelingEmbeds(server, memberLevelData, sortType, interaction.guild.id);
@@ -260,6 +307,9 @@ export async function handleLeaderboardButton(interaction) {
         }
 
         const sortType = interaction.customId.replace('leaderboard_', '');
+
+        await refreshMemberLevelData(server.id, interaction.user.id);
+        await db.recalculateServerMemberRanks(server.id);
 
         const memberLevelData = await db.getMemberLevelByDiscordId(server.id, interaction.user.id);
         const { profileEmbed, leaderboardEmbed } = await buildLevelingEmbeds(server, memberLevelData, sortType, interaction.guild.id);

@@ -210,6 +210,10 @@ export const LEVELING = {
         XP_PER_MINUTE: 30,
         AFK_XP_PER_MINUTE: 5,
         MINIMUM_SESSION_MINUTES: 1
+    },
+    REQUIREMENTS: {
+        BASE_XP: 100,
+        MULTIPLIER: 1.3
     }
 };
 

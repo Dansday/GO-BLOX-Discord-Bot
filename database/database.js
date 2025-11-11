@@ -891,13 +891,23 @@ export async function updateMemberLevelStats(memberId, updates = {}) {
     const values = [];
 
     if (typeof updates.chatIncrement === 'number' && updates.chatIncrement !== 0) {
-        clauses.push('chat_count = chat_count + ?');
+        clauses.push('chat_total = chat_total + ?');
         values.push(updates.chatIncrement);
     }
 
-    if (typeof updates.voiceMinutesIncrement === 'number' && updates.voiceMinutesIncrement !== 0) {
-        clauses.push('voice_minutes = voice_minutes + ?');
-        values.push(updates.voiceMinutesIncrement);
+    if (typeof updates.voiceMinutesTotalIncrement === 'number' && updates.voiceMinutesTotalIncrement !== 0) {
+        clauses.push('voice_minutes_total = voice_minutes_total + ?');
+        values.push(updates.voiceMinutesTotalIncrement);
+    }
+
+    if (typeof updates.voiceMinutesActiveIncrement === 'number' && updates.voiceMinutesActiveIncrement !== 0) {
+        clauses.push('voice_minutes_active = voice_minutes_active + ?');
+        values.push(updates.voiceMinutesActiveIncrement);
+    }
+
+    if (typeof updates.voiceMinutesAfkIncrement === 'number' && updates.voiceMinutesAfkIncrement !== 0) {
+        clauses.push('voice_minutes_afk = voice_minutes_afk + ?');
+        values.push(updates.voiceMinutesAfkIncrement);
     }
 
     if (typeof updates.experienceIncrement === 'number' && updates.experienceIncrement !== 0) {
@@ -915,17 +925,26 @@ export async function updateMemberLevelStats(memberId, updates = {}) {
         values.push(updates.rank);
     }
 
-    if (updates.lastMessageAt) {
-        clauses.push('last_message_at = ?');
-        values.push(toMySQLDateTime(updates.lastMessageAt));
+    if (updates.chatRewardedAt) {
+        clauses.push('chat_rewarded_at = ?');
+        values.push(toMySQLDateTime(updates.chatRewardedAt));
     }
 
-    if (updates.voiceSessionStartedAt !== undefined) {
-        if (updates.voiceSessionStartedAt === null) {
-            clauses.push('voice_session_started_at = NULL');
+    if (updates.voiceRewardedAt !== undefined) {
+        if (updates.voiceRewardedAt === null) {
+            clauses.push('voice_rewarded_at = NULL');
         } else {
-            clauses.push('voice_session_started_at = ?');
-            values.push(toMySQLDateTime(updates.voiceSessionStartedAt));
+            clauses.push('voice_rewarded_at = ?');
+            values.push(toMySQLDateTime(updates.voiceRewardedAt));
+        }
+    }
+
+    if (updates.voiceAfkRewardedAt !== undefined) {
+        if (updates.voiceAfkRewardedAt === null) {
+            clauses.push('voice_afk_rewarded_at = NULL');
+        } else {
+            clauses.push('voice_afk_rewarded_at = ?');
+            values.push(toMySQLDateTime(updates.voiceAfkRewardedAt));
         }
     }
 
@@ -1008,10 +1027,10 @@ export async function getServerLeaderboard(serverId, limit = 3, sortType = 'xp')
             orderBy = 'sml.experience DESC, sml.level DESC, sml.created_at ASC';
             break;
         case 'voice':
-            orderBy = 'sml.voice_minutes DESC, sml.experience DESC, sml.created_at ASC';
+            orderBy = 'sml.voice_minutes_total DESC, sml.experience DESC, sml.created_at ASC';
             break;
         case 'chat':
-            orderBy = 'sml.chat_count DESC, sml.experience DESC, sml.created_at ASC';
+            orderBy = 'sml.chat_total DESC, sml.experience DESC, sml.created_at ASC';
             break;
         default:
             orderBy = 'sml.experience DESC, sml.level DESC, sml.created_at ASC';
@@ -1020,7 +1039,8 @@ export async function getServerLeaderboard(serverId, limit = 3, sortType = 'xp')
     
     const result = await query(
         `SELECT sm.discord_member_id, sm.username, sm.display_name, sm.server_display_name, sm.avatar,
-                sml.experience, sml.level, sml.chat_count, sml.voice_minutes, sml.rank
+                sml.experience, sml.level, sml.chat_total,
+                sml.voice_minutes_total, sml.voice_minutes_active, sml.voice_minutes_afk, sml.rank
          FROM server_member_levels sml
          INNER JOIN server_members sm ON sml.member_id = sm.id
          WHERE sm.server_id = ?
