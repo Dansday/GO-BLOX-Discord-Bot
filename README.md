@@ -40,6 +40,9 @@ A comprehensive Discord bot management system with a web-based control panel. Fe
   - View bot status, uptime, and process information
   - Manage server configurations per bot
   - Configure forwarder, welcomer, booster, permissions, and more
+  - View bot logs in real-time terminal interface
+  - Server list pagination (10 servers per page)
+  - Enhanced member list with icons and mobile-responsive design
 
 ## Project Structure
 
@@ -122,6 +125,10 @@ GOBLOX/
 - **Real-time Status**: Live bot status, uptime, and process information
 - **Remote Control**: Start/stop/restart bots from anywhere
 - **Session Authentication**: Secure password-protected control panel
+- **Bot Logs Terminal**: Real-time terminal view for each bot's logs with auto-refresh
+- **Log Retention**: Automatic 7-day log retention policy
+- **Server List Pagination**: View servers in paginated lists (10 per page)
+- **Enhanced Member List**: Beautiful member cards with Font Awesome icons, mobile-responsive design, and advanced sorting options
 
 ## Setup
 
@@ -281,6 +288,10 @@ Access the control panel at `http://localhost:8080` (or your configured port).
 - **Server Configuration**: Configure settings per Discord server
 - **Start/Stop/Restart**: Control bots remotely
 - **Real-time Status**: Live updates every 2 seconds
+- **Bot Logs Terminal**: View real-time logs for each bot with auto-scroll and manual refresh
+- **Server List**: Paginated server list (10 servers per page) with search and filter
+- **Member List**: Enhanced member view with icons, responsive design, and sorting (default: Rank High to Low)
+- **Server Overview**: Comprehensive server statistics including stage and voice channels, separated announcement channels
 
 ### Discord Commands
 
@@ -414,9 +425,9 @@ Configuration is managed through:
 #### Main Configuration
 - Production channel (for moderation logs)
 - Test channel (for testing mode)
-- Logger channel (for bot logs)
 - Embed color (hex format)
 - Embed footer (with placeholders: `{server}`, `{year}`, `{date}`, `{time}`)
+- Note: Bot logs are now stored in database (`bot_logs` table) and viewable in control panel terminal
 
 #### Feedback Configuration
 - Feedback channel ID (where submissions are posted)
@@ -476,13 +487,20 @@ Each feature is organized as a component for easy maintenance:
   - Voice session resume after bot restarts
   - AFK status checking (AFK users earn reduced XP: 5 XP/min vs 30 XP/min)
 - **Sync Component**: Event-driven sync system - syncs on bot startup and when configs are accessed/updated (30-minute cooldown)
+  - Syncs text, voice, stage, and announcement channels
+  - Tracks role positions for accurate member ranking
+  - Excludes unsupported channel types (forums, media channels)
 
 ### Self-Bot Components
 - **Forwarder Component**: Handles message monitoring and filtering
 - **Sync Component**: Syncs server data to database
 
 ### Utility Components
-- **Logger Component**: Centralized logging system with Discord channel integration
+- **Logger Component**: Centralized database-based logging system
+  - All logs stored in `bot_logs` table per bot
+  - Database-first approach with console fallback on failure
+  - Automatic 7-day retention policy with periodic cleanup
+  - Real-time log viewing in control panel terminal
 
 ## Database Schema
 
@@ -491,10 +509,11 @@ The system uses MySQL/MariaDB with the following main tables:
 - **panel**: Panel administrator credentials
 - **panel_logs**: Login attempt logs
 - **bots**: Bot configurations (tokens, ports, status, etc.)
+- **bot_logs**: Bot activity logs with 7-day retention policy
 - **servers**: Discord server information per bot
 - **server_categories**: Discord category information (type 4 channels)
-- **server_channels**: Discord channel information
-- **server_roles**: Discord role information
+- **server_channels**: Discord channel information (text, voice, stage, announcement)
+- **server_roles**: Discord role information with position tracking
 - **server_members**: Discord member information per server
 - **server_member_levels**: Leveling stats (XP, level, rank, chat count, voice minutes)
 - **server_member_roles**: Member role assignments
@@ -601,7 +620,7 @@ Akbar Yudhanto
 
 ## Version
 
-7.2.0
+7.3.0
 
 ---
 
