@@ -1073,7 +1073,7 @@ export async function getServerMembersList(serverId) {
             sma.message as afk_message,
             sma.created_at as afk_since,
             GROUP_CONCAT(
-                DISTINCT CONCAT(sr.discord_role_id, ':', sr.name, ':', sr.color)
+                DISTINCT CONCAT(sr.discord_role_id, ':', sr.name, ':', sr.color, ':', sr.position)
                 ORDER BY sr.position DESC
                 SEPARATOR ','
             ) as roles
@@ -1094,9 +1094,14 @@ export async function getServerMembersList(serverId) {
     return result.map(member => ({
         ...member,
         roles: member.roles ? member.roles.split(',').map(role => {
-            const [roleId, roleName, roleColor] = role.split(':');
-            return { id: roleId, name: roleName, color: roleColor || null };
-        }) : [],
+            const [roleId, roleName, roleColor, position] = role.split(':');
+            return { 
+                id: roleId, 
+                name: roleName, 
+                color: roleColor || null,
+                position: position ? parseInt(position, 10) : 0
+            };
+        }).sort((a, b) => (b.position || 0) - (a.position || 0)) : [],
         is_afk: !!member.afk_message
     }));
 }

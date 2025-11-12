@@ -108,7 +108,7 @@
             <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-4 sm:mb-6">
                 <div class="min-w-0">
                     <h2 class="text-xl sm:text-2xl font-bold text-white mb-1">
-                        <i class="fas fa-robot mr-2 text-red-500"></i>Your Bots
+                        <i class="fas fa-robot mr-2 text-red-500"></i>Bots List
                     </h2>
                     <p class="text-gray-400 text-xs sm:text-sm" id="botCount">Loading bots...</p>
                 </div>
@@ -277,7 +277,8 @@
                     </div>
                 </div>
                 <div class="bg-gray-900 border border-gray-700 rounded-xl overflow-hidden">
-                    <div id="botLogTerminal" class="h-64 overflow-y-auto bg-black bg-opacity-60 p-3 sm:p-4 font-mono text-xs sm:text-sm text-gray-200 tracking-tight">
+                    <div id="botLogTerminal"
+                        class="h-64 overflow-y-auto bg-black bg-opacity-60 p-3 sm:p-4 font-mono text-xs sm:text-sm text-gray-200 tracking-tight">
                         <p class="text-gray-500">Loading logs...</p>
                     </div>
                 </div>
@@ -330,14 +331,16 @@
             </div>
 
             <!-- Member View Navigation (All/Members/Supporter/Staff/Admin switcher) -->
-            <div class="bg-gray-800 rounded-xl border border-gray-700 p-4 sm:p-6 mb-4 sm:mb-6 hidden" id="memberViewNavContainer">
+            <div class="bg-gray-800 rounded-xl border border-gray-700 p-4 sm:p-6 mb-4 sm:mb-6 hidden"
+                id="memberViewNavContainer">
                 <div class="flex flex-wrap gap-2 sm:gap-3" id="memberViewNav">
                     <!-- Member view buttons will be rendered here -->
                 </div>
             </div>
 
             <!-- Component Navigation -->
-            <div class="bg-gray-800 rounded-xl border border-gray-700 p-4 sm:p-6 mb-4 sm:mb-6" id="componentNavContainer">
+            <div class="bg-gray-800 rounded-xl border border-gray-700 p-4 sm:p-6 mb-4 sm:mb-6"
+                id="componentNavContainer">
                 <div class="flex flex-wrap gap-2 sm:gap-3" id="componentNav">
                     <!-- Component buttons will be rendered here -->
                 </div>
@@ -1436,7 +1439,7 @@
         let botLogsAutoScroll = true;
         let botLogsLastUpdated = null;
         let botLogTerminalInitialized = false;
-        
+
         // Server List Pagination
         const SERVERS_PER_PAGE = 10;
         let allServers = [];
@@ -2736,9 +2739,9 @@
                 return `
                     <button onclick="setMemberView('${view.id}')"
                         class="px-3 sm:px-4 py-2 sm:py-3 rounded-lg transition-all duration-200 transform hover:scale-105 active:scale-95 flex items-center gap-2 text-xs sm:text-sm font-medium ${isActive
-                            ? 'bg-red-600 text-white'
-                            : 'bg-gray-700 text-gray-300 hover:bg-gray-600 hover:text-white'
-                        }">
+                        ? 'bg-red-600 text-white'
+                        : 'bg-gray-700 text-gray-300 hover:bg-gray-600 hover:text-white'
+                    }">
                         <i class="fas ${view.icon}"></i>
                         <span class="sm:inline">${view.name}</span>
                     </button>
@@ -2791,39 +2794,39 @@
             if (currentMemberSearch && currentMemberSearch.trim()) {
                 const searchTerm = currentMemberSearch.toLowerCase().trim();
                 filtered = filtered.filter(member => {
-                    const displayName = (member.server_display_name && String(member.server_display_name).trim()) 
+                    const displayName = (member.server_display_name && String(member.server_display_name).trim())
                         || (member.display_name && String(member.display_name).trim())
                         || (member.username && String(member.username).trim())
                         || '';
                     return displayName.toLowerCase().includes(searchTerm) ||
-                           (member.discord_member_id && String(member.discord_member_id).includes(searchTerm));
+                        (member.discord_member_id && String(member.discord_member_id).includes(searchTerm));
                 });
             }
 
             // Apply sort
             const sortSelect = document.getElementById('memberSortSelect');
-        if (sortSelect) {
-            currentMemberSort = sortSelect.value || 'rank_high';
+            if (sortSelect) {
+                currentMemberSort = sortSelect.value || 'rank_high';
             }
             const sortValue = currentMemberSort;
             filtered.sort((a, b) => {
                 switch (sortValue) {
                     case 'name_asc':
-                        const nameA = ((a.server_display_name && String(a.server_display_name).trim()) 
+                        const nameA = ((a.server_display_name && String(a.server_display_name).trim())
                             || (a.display_name && String(a.display_name).trim())
                             || (a.username && String(a.username).trim())
                             || '').toLowerCase();
-                        const nameB = ((b.server_display_name && String(b.server_display_name).trim()) 
+                        const nameB = ((b.server_display_name && String(b.server_display_name).trim())
                             || (b.display_name && String(b.display_name).trim())
                             || (b.username && String(b.username).trim())
                             || '').toLowerCase();
                         return nameA.localeCompare(nameB);
                     case 'name_desc':
-                        const nameA2 = ((a.server_display_name && String(a.server_display_name).trim()) 
+                        const nameA2 = ((a.server_display_name && String(a.server_display_name).trim())
                             || (a.display_name && String(a.display_name).trim())
                             || (a.username && String(a.username).trim())
                             || '').toLowerCase();
-                        const nameB2 = ((b.server_display_name && String(b.server_display_name).trim()) 
+                        const nameB2 = ((b.server_display_name && String(b.server_display_name).trim())
                             || (b.display_name && String(b.display_name).trim())
                             || (b.username && String(b.username).trim())
                             || '').toLowerCase();
@@ -2836,9 +2839,9 @@
                         return (b.experience || 0) - (a.experience || 0);
                     case 'xp_asc':
                         return (a.experience || 0) - (b.experience || 0);
-                case 'rank_high':
+                    case 'rank_high':
                         return (a.rank || 9999) - (b.rank || 9999);
-                case 'rank_low':
+                    case 'rank_low':
                         return (b.rank || 9999) - (a.rank || 9999);
                     default:
                         return 0;
@@ -3002,54 +3005,107 @@
                 const roles = member.roles || [];
 
                 return `
-                    <div class="bg-gray-700 rounded-lg p-4 border border-gray-600 hover:border-gray-500 transition-all">
-                        <div class="flex items-start gap-4">
-                            <img src="${avatar}" alt="${displayName}" class="w-12 h-12 rounded-full flex-shrink-0" onerror="this.src='https://cdn.discordapp.com/embed/avatars/0.png'">
-                            <div class="flex-1 min-w-0">
-                                <div class="flex items-center gap-2 mb-2">
-                                    <h4 class="font-semibold text-white text-sm sm:text-base truncate">${escapeHtml(displayName)}</h4>
-                                    ${isAfk ? '<span class="px-2 py-0.5 bg-yellow-900 text-yellow-200 text-xs rounded">AFK</span>' : ''}
+                    <div class="bg-gray-700 rounded-xl p-4 sm:p-5 border border-gray-600 hover:border-gray-500 transition-all shadow-lg hover:shadow-xl">
+                        <div class="flex flex-col sm:flex-row items-center sm:items-start gap-4">
+                            <div class="relative flex-shrink-0">
+                                <img src="${avatar}" alt="${displayName}" class="w-20 h-20 sm:w-20 sm:h-20 rounded-full border-2 border-gray-600" onerror="this.src='https://cdn.discordapp.com/embed/avatars/0.png'">
+                                ${isAfk ? '<div class="absolute -bottom-1 -right-1 w-5 h-5 bg-yellow-500 rounded-full border-2 border-gray-700 flex items-center justify-center"><i class="fas fa-moon text-xs text-gray-900"></i></div>' : ''}
+                            </div>
+                            <div class="flex-1 min-w-0 w-full">
+                                <div class="flex flex-col sm:flex-row sm:items-center gap-2 mb-3 text-center sm:text-left">
+                                    <h4 class="font-bold text-white text-base sm:text-lg truncate w-full sm:w-auto">${escapeHtml(displayName)}</h4>
+                                    ${isAfk ? '<span class="px-2 py-1 bg-yellow-900 text-yellow-200 text-xs font-medium rounded-full flex items-center justify-center gap-1 self-center sm:self-auto"><i class="fas fa-moon text-xs"></i> AFK</span>' : ''}
                                 </div>
-                                <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3 text-xs sm:text-sm">
-                                    <div>
-                                        <span class="text-gray-400">Level:</span>
-                                        <span class="text-white font-medium ml-1">${level}</span>
+                                
+                                <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 mb-3">
+                                    <div class="flex items-center gap-2 bg-gray-800 rounded-lg p-2 sm:p-2.5 border border-gray-600">
+                                        <div class="w-9 h-9 sm:w-8 sm:h-8 rounded-lg bg-purple-600 flex items-center justify-center flex-shrink-0">
+                                            <i class="fas fa-medal text-white text-xs"></i>
+                                        </div>
+                                        <div class="min-w-0">
+                                            <div class="text-[0.65rem] sm:text-xs text-gray-400 uppercase tracking-wide">Rank</div>
+                                            <div class="text-sm sm:text-base font-bold text-white">${rank}</div>
+                                        </div>
                                     </div>
-                                    <div>
-                                        <span class="text-gray-400">XP:</span>
-                                        <span class="text-white font-medium ml-1">${formatNumber(experience)}</span>
+
+                                    <div class="flex items-center gap-2 bg-gray-800 rounded-lg p-2 sm:p-2.5 border border-gray-600">
+                                        <div class="w-9 h-9 sm:w-8 sm:h-8 rounded-lg bg-red-600 flex items-center justify-center flex-shrink-0">
+                                            <i class="fas fa-trophy text-white text-xs"></i>
+                                        </div>
+                                        <div class="min-w-0">
+                                            <div class="text-[0.65rem] sm:text-xs text-gray-400 uppercase tracking-wide">Level</div>
+                                            <div class="text-sm sm:text-base font-bold text-white">${level}</div>
+                                        </div>
                                     </div>
-                                    <div>
-                                        <span class="text-gray-400">Rank:</span>
-                                        <span class="text-white font-medium ml-1">${rank}</span>
+                                    
+                                    <div class="flex items-center gap-2 bg-gray-800 rounded-lg p-2 sm:p-2.5 border border-gray-600">
+                                        <div class="w-9 h-9 sm:w-8 sm:h-8 rounded-lg bg-blue-600 flex items-center justify-center flex-shrink-0">
+                                            <i class="fas fa-star text-white text-xs"></i>
+                                        </div>
+                                        <div class="min-w-0">
+                                            <div class="text-[0.65rem] sm:text-xs text-gray-400 uppercase tracking-wide">XP</div>
+                                            <div class="text-sm sm:text-base font-bold text-white">${formatNumber(experience)}</div>
+                                        </div>
                                     </div>
-                                    <div>
-                                        <span class="text-gray-400">Chat:</span>
-                                        <span class="text-white font-medium ml-1">${formatNumber(chatTotal)}</span>
+                                    
+                                    <div class="flex items-center gap-2 bg-gray-800 rounded-lg p-2 sm:p-2.5 border border-gray-600">
+                                        <div class="w-9 h-9 sm:w-8 sm:h-8 rounded-lg bg-green-600 flex items-center justify-center flex-shrink-0">
+                                            <i class="fas fa-comment text-white text-xs"></i>
+                                        </div>
+                                        <div class="min-w-0">
+                                            <div class="text-[0.65rem] sm:text-xs text-gray-400 uppercase tracking-wide">Chat</div>
+                                            <div class="text-sm sm:text-base font-bold text-white">${formatNumber(chatTotal)}</div>
+                                        </div>
                                     </div>
-                                    <div>
-                                        <span class="text-gray-400">Voice Active:</span>
-                                        <span class="text-white font-medium ml-1">${formatNumber(voiceActive)}m</span>
+                                    
+                                    <div class="flex items-center gap-2 bg-gray-800 rounded-lg p-2 sm:p-2.5 border border-gray-600">
+                                        <div class="w-9 h-9 sm:w-8 sm:h-8 rounded-lg bg-cyan-600 flex items-center justify-center flex-shrink-0">
+                                            <i class="fas fa-microphone text-white text-xs"></i>
+                                        </div>
+                                        <div class="min-w-0">
+                                            <div class="text-[0.65rem] sm:text-xs text-gray-400 uppercase tracking-wide">Voice Active</div>
+                                            <div class="text-sm sm:text-base font-bold text-white">${formatNumber(voiceActive)}m</div>
+                                        </div>
                                     </div>
-                                    <div>
-                                        <span class="text-gray-400">Voice AFK:</span>
-                                        <span class="text-white font-medium ml-1">${formatNumber(voiceAfk)}m</span>
+                                    
+                                    <div class="flex items-center gap-2 bg-gray-800 rounded-lg p-2 sm:p-2.5 border border-gray-600">
+                                        <div class="w-9 h-9 sm:w-8 sm:h-8 rounded-lg bg-orange-600 flex items-center justify-center flex-shrink-0">
+                                            <i class="fas fa-moon text-white text-xs"></i>
+                                        </div>
+                                        <div class="min-w-0">
+                                            <div class="text-[0.65rem] sm:text-xs text-gray-400 uppercase tracking-wide">Voice AFK</div>
+                                            <div class="text-sm sm:text-base font-bold text-white">${formatNumber(voiceAfk)}m</div>
+                                        </div>
                                     </div>
-                                    <div>
-                                        <span class="text-gray-400">Member Since:</span>
-                                        <span class="text-white font-medium ml-1">${memberSince}</span>
+                                    
+                                    <div class="flex items-center gap-2 bg-gray-800 rounded-lg p-2 sm:p-2.5 border border-gray-600">
+                                        <div class="w-9 h-9 sm:w-8 sm:h-8 rounded-lg bg-indigo-600 flex items-center justify-center flex-shrink-0">
+                                            <i class="fas fa-calendar-alt text-white text-xs"></i>
+                                        </div>
+                                        <div class="min-w-0">
+                                            <div class="text-[0.65rem] sm:text-xs text-gray-400 uppercase tracking-wide">Member Since</div>
+                                            <div class="text-sm sm:text-base font-bold text-white">${memberSince}</div>
+                                        </div>
                                     </div>
                                 </div>
+                                
                                 ${roles.length > 0 ? `
-                                <div class="mt-3 flex flex-wrap gap-1.5">
-                                    ${roles.map(role => {
+                                <div class="mt-3 pt-3 border-t border-gray-600">
+                                    <div class="flex items-center gap-2 mb-2">
+                                        <i class="fas fa-user-tag text-gray-400 text-xs"></i>
+                                        <span class="text-xs text-gray-400 uppercase tracking-wide">Roles</span>
+                                    </div>
+                                    <div class="flex flex-wrap gap-1.5">
+                                        ${roles.map(role => {
                     const roleColor = formatRoleColor(role.color);
                     return `
-                                        <span class="px-2 py-0.5 rounded text-xs font-medium" style="background-color: ${roleColor}20; color: ${roleColor}; border: 1px solid ${roleColor}40;">
-                                            ${role.name || 'Unknown Role'}
+                                        <span class="px-2.5 py-1 rounded-lg text-xs font-medium flex items-center gap-1.5" style="background-color: ${roleColor}20; color: ${roleColor}; border: 1px solid ${roleColor}40;">
+                                            <i class="fas fa-circle text-[0.5rem]" style="color: ${roleColor};"></i>
+                                            ${escapeHtml(role.name || 'Unknown Role')}
                                         </span>
                                     `;
                 }).join('')}
+                                    </div>
                                 </div>
                                 ` : ''}
                             </div>
@@ -3131,29 +3187,29 @@
         function renderServerViewNav(activeView) {
             const navContainer = document.getElementById('serverViewNav');
             const serverName = document.getElementById('serverConfigTitle').textContent;
-            
+
             navContainer.innerHTML = `
                 <button onclick="viewServerOverview('${currentServerId}', '${serverName.replace(/'/g, "\\'")}')"
                     class="px-3 sm:px-4 py-2 sm:py-3 rounded-lg transition-all duration-200 transform hover:scale-105 active:scale-95 flex items-center gap-2 text-xs sm:text-sm font-medium ${activeView === 'overview'
-                        ? 'bg-red-600 text-white'
-                        : 'bg-gray-700 text-gray-300 hover:bg-gray-600 hover:text-white'
-                    }">
+                    ? 'bg-red-600 text-white'
+                    : 'bg-gray-700 text-gray-300 hover:bg-gray-600 hover:text-white'
+                }">
                     <i class="fas fa-server"></i>
                     <span class="sm:inline">Overview</span>
                 </button>
                 <button onclick="viewServerMembers('${currentServerId}', '${serverName.replace(/'/g, "\\'")}')"
                     class="px-3 sm:px-4 py-2 sm:py-3 rounded-lg transition-all duration-200 transform hover:scale-105 active:scale-95 flex items-center gap-2 text-xs sm:text-sm font-medium ${activeView === 'members'
-                        ? 'bg-red-600 text-white'
-                        : 'bg-gray-700 text-gray-300 hover:bg-gray-600 hover:text-white'
-                    }">
+                    ? 'bg-red-600 text-white'
+                    : 'bg-gray-700 text-gray-300 hover:bg-gray-600 hover:text-white'
+                }">
                     <i class="fas fa-users"></i>
                     <span class="sm:inline">Members</span>
                 </button>
                 <button onclick="viewServerConfig('${currentServerId}', '${serverName.replace(/'/g, "\\'")}')"
                     class="px-3 sm:px-4 py-2 sm:py-3 rounded-lg transition-all duration-200 transform hover:scale-105 active:scale-95 flex items-center gap-2 text-xs sm:text-sm font-medium ${activeView === 'configuration'
-                        ? 'bg-red-600 text-white'
-                        : 'bg-gray-700 text-gray-300 hover:bg-gray-600 hover:text-white'
-                    }">
+                    ? 'bg-red-600 text-white'
+                    : 'bg-gray-700 text-gray-300 hover:bg-gray-600 hover:text-white'
+                }">
                     <i class="fas fa-cog"></i>
                     <span class="sm:inline">Configuration</span>
                 </button>
@@ -3180,12 +3236,12 @@
         function renderComponentNav() {
             const navContainer = document.getElementById('componentNav');
             const componentNavContainer = document.getElementById('componentNavContainer');
-            
+
             // Show component navigation container only in configuration view
             if (componentNavContainer) {
                 componentNavContainer.classList.remove('hidden');
             }
-            
+
             // Render component buttons
             navContainer.innerHTML = components.map(comp => {
                 const isActive = comp.id === currentComponent;
