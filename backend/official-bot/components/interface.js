@@ -43,7 +43,9 @@ export async function handleButtonInteraction(interaction, client) {
             await handleRemoveAFKButton(interaction);
             break;
         case 'leaderboard_xp':
-        case 'leaderboard_voice':
+        case 'leaderboard_voice_total':
+        case 'leaderboard_voice_active':
+        case 'leaderboard_voice_afk':
         case 'leaderboard_chat':
             await handleLeaderboardButton(interaction);
             break;

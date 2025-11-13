@@ -3,7 +3,7 @@ import { getEmbedConfig, getBotConfig } from "../../../config.js";
 import { hasPermission } from "../permissions.js";
 import db from "../../../../database/database.js";
 import logger from "../../../logger.js";
-import { getLevelRequirement, determineLevel, calculateExperienceFromTotals } from "../leveling.js";
+import { getLevelRequirement, determineLevel, calculateExperienceFromTotals, sendLevelChangeDM } from "../leveling.js";
 
 const PROGRESS_BAR_SLOTS = 10;
 
@@ -30,13 +30,17 @@ async function refreshMemberLevelData(serverId, discordMemberId) {
         return null;
     }
 
+    const previousLevel = levelData.level ?? 1;
+
     const botConfig = getBotConfig();
     let guildId = null;
+    let serverName = null;
     if (botConfig && botConfig.id) {
-        const server = await db.getServersForBot(botConfig.id);
-        const foundServer = server.find(s => s.id === serverId);
+        const servers = await db.getServersForBot(botConfig.id);
+        const foundServer = servers.find(s => s.id === serverId);
         if (foundServer) {
             guildId = foundServer.discord_server_id;
+            serverName = foundServer.name || null;
         }
     }
 
@@ -75,6 +79,9 @@ async function refreshMemberLevelData(serverId, discordMemberId) {
     if (Object.keys(updates).length > 0) {
         const updatedStats = await db.updateMemberLevelStats(levelData.member_id, updates);
         if (updatedStats) {
+            if (recalculatedLevel > previousLevel && levelData.discord_member_id) {
+                await sendLevelChangeDM(guildId, levelData.discord_member_id, serverName, recalculatedLevel);
+            }
             return {
                 ...levelData,
                 ...updatedStats,
@@ -85,6 +92,9 @@ async function refreshMemberLevelData(serverId, discordMemberId) {
     }
 
     if ((levelData.experience ?? 0) !== recalculatedExperience || (levelData.level ?? 1) !== recalculatedLevel) {
+        if (recalculatedLevel > previousLevel && levelData.discord_member_id) {
+            await sendLevelChangeDM(guildId, levelData.discord_member_id, serverName, recalculatedLevel);
+        }
         return {
             ...levelData,
             experience: recalculatedExperience,
@@ -152,15 +162,19 @@ async function buildLevelingEmbeds(server, memberLevelData, sortType = 'xp', gui
 
     let leaderboardTitle;
     switch (sortType) {
-        case 'xp':
-            leaderboardTitle = "⭐ Top XP (Top 3)";
+        case 'voice_total':
+            leaderboardTitle = "🎤 Top Voice (Total • Top 3)";
             break;
-        case 'voice':
-            leaderboardTitle = "🎤 Top Voice (Top 3)";
+        case 'voice_active':
+            leaderboardTitle = "🎤 Top Voice (Active • Top 3)";
+            break;
+        case 'voice_afk':
+            leaderboardTitle = "🎤 Top Voice (AFK • Top 3)";
             break;
         case 'chat':
             leaderboardTitle = "💬 Top Chat (Top 3)";
             break;
+        case 'xp':
         default:
             leaderboardTitle = "⭐ Top XP (Top 3)";
             break;
@@ -194,26 +208,36 @@ async function buildLevelingEmbeds(server, memberLevelData, sortType = 'xp', gui
             }
 
             switch (sortType) {
-                case 'xp':
-                    value = `${medal} **${name}**\n${formatNumber(Math.round(xp))} XP • Level ${calculatedLevel}`;
-                    break;
-                case 'voice':
+                case 'voice_total': {
                     const totalMinutes = entry.voice_minutes_total || 0;
                     const activeMinutes = entry.voice_minutes_active || 0;
                     const afkMinutes = entry.voice_minutes_afk || 0;
-                    value = `${medal} **${name}**\n${formatNumber(totalMinutes)} min (Active ${formatNumber(activeMinutes)} • AFK ${formatNumber(afkMinutes)}) • ${formatNumber(Math.round(xp))} XP`;
+                    value = `${medal} **${name}**\n${formatNumber(totalMinutes)} min total (Active ${formatNumber(activeMinutes)} • AFK ${formatNumber(afkMinutes)})`;
                     break;
+                }
+                case 'voice_active': {
+                    const activeMinutes = entry.voice_minutes_active || 0;
+                    value = `${medal} **${name}**\n${formatNumber(activeMinutes)} min active • Level ${calculatedLevel}`;
+                    break;
+                }
+                case 'voice_afk': {
+                    const afkMinutes = entry.voice_minutes_afk || 0;
+                    value = `${medal} **${name}**\n${formatNumber(afkMinutes)} min AFK • Level ${calculatedLevel}`;
+                    break;
+                }
                 case 'chat':
-                    value = `${medal} **${name}**\n${formatNumber(entry.chat_total || 0)} messages • ${formatNumber(Math.round(xp))} XP`;
+                    value = `${medal} **${name}**\n${formatNumber(entry.chat_total || 0)} messages`;
                     break;
+                case 'xp':
                 default:
                     value = `${medal} **${name}**\n${formatNumber(Math.round(xp))} XP • Level ${calculatedLevel}`;
                     break;
             }
 
+            const fieldName = medal || '•';
             leaderboardEmbed.addFields({
-                name: `#${position}`,
-                value: value,
+                name: fieldName,
+                value,
                 inline: false
             });
         }
@@ -225,22 +249,30 @@ async function buildLevelingEmbeds(server, memberLevelData, sortType = 'xp', gui
 }
 
 function createLeaderboardButtons(selectedType = 'xp') {
-    const xpButton = new ButtonBuilder()
-        .setCustomId('leaderboard_xp')
-        .setLabel('⭐ Top XP')
-        .setStyle(selectedType === 'xp' ? ButtonStyle.Primary : ButtonStyle.Secondary);
+    const buttons = [
+        new ButtonBuilder()
+            .setCustomId('leaderboard_xp')
+            .setLabel('⭐ Top XP')
+            .setStyle(selectedType === 'xp' ? ButtonStyle.Primary : ButtonStyle.Secondary),
+        new ButtonBuilder()
+            .setCustomId('leaderboard_voice_total')
+            .setLabel('🎤 Voice Total')
+            .setStyle(selectedType === 'voice_total' ? ButtonStyle.Primary : ButtonStyle.Secondary),
+        new ButtonBuilder()
+            .setCustomId('leaderboard_voice_active')
+            .setLabel('🎤 Voice Active')
+            .setStyle(selectedType === 'voice_active' ? ButtonStyle.Primary : ButtonStyle.Secondary),
+        new ButtonBuilder()
+            .setCustomId('leaderboard_voice_afk')
+            .setLabel('🎤 Voice AFK')
+            .setStyle(selectedType === 'voice_afk' ? ButtonStyle.Primary : ButtonStyle.Secondary),
+        new ButtonBuilder()
+            .setCustomId('leaderboard_chat')
+            .setLabel('💬 Top Chat')
+            .setStyle(selectedType === 'chat' ? ButtonStyle.Primary : ButtonStyle.Secondary)
+    ];
 
-    const voiceButton = new ButtonBuilder()
-        .setCustomId('leaderboard_voice')
-        .setLabel('🎤 Top Voice')
-        .setStyle(selectedType === 'voice' ? ButtonStyle.Primary : ButtonStyle.Secondary);
-
-    const chatButton = new ButtonBuilder()
-        .setCustomId('leaderboard_chat')
-        .setLabel('💬 Top Chat')
-        .setStyle(selectedType === 'chat' ? ButtonStyle.Primary : ButtonStyle.Secondary);
-
-    return new ActionRowBuilder().addComponents(xpButton, voiceButton, chatButton);
+    return new ActionRowBuilder().addComponents(...buttons);
 }
 
 export async function handleLevelingButton(interaction) {

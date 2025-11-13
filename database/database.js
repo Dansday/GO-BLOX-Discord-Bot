@@ -1018,17 +1018,21 @@ export async function getServerLeaderboard(serverId, limit = 3, sortType = 'xp')
 
     let orderBy;
     switch (sortType) {
-        case 'xp':
-            orderBy = 'sml.experience DESC, sml.level DESC, sml.created_at ASC';
+        case 'voice_total':
+            orderBy = 'sml.voice_minutes_total DESC, sml.updated_at ASC, sml.created_at ASC';
             break;
-        case 'voice':
-            orderBy = 'sml.voice_minutes_total DESC, sml.experience DESC, sml.created_at ASC';
+        case 'voice_active':
+            orderBy = 'sml.voice_minutes_active DESC, sml.updated_at ASC, sml.created_at ASC';
+            break;
+        case 'voice_afk':
+            orderBy = 'sml.voice_minutes_afk DESC, sml.updated_at ASC, sml.created_at ASC';
             break;
         case 'chat':
-            orderBy = 'sml.chat_total DESC, sml.experience DESC, sml.created_at ASC';
+            orderBy = 'sml.chat_total DESC, sml.updated_at ASC, sml.created_at ASC';
             break;
+        case 'xp':
         default:
-            orderBy = 'sml.experience DESC, sml.level DESC, sml.created_at ASC';
+            orderBy = 'sml.experience DESC, sml.updated_at ASC, sml.created_at ASC';
             break;
     }
 
