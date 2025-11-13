@@ -176,8 +176,6 @@ async function buildLevelingEmbeds(server, memberLevelData, sortType = 'xp', gui
             const avatar = entry.avatar || null;
 
             let medal = "";
-            let value = "";
-
             if (position === 1) {
                 medal = "🥇";
                 if (avatar) leaderboardEmbed.setThumbnail(avatar);
@@ -186,6 +184,8 @@ async function buildLevelingEmbeds(server, memberLevelData, sortType = 'xp', gui
             } else if (position === 3) {
                 medal = "🥉";
             }
+
+            let value = "";
 
             switch (sortType) {
                 case 'voice_total': {
@@ -197,12 +197,12 @@ async function buildLevelingEmbeds(server, memberLevelData, sortType = 'xp', gui
                 }
                 case 'voice_active': {
                     const activeMinutes = entry.voice_minutes_active || 0;
-                    value = `${medal} **${name}**\n${formatNumber(activeMinutes)} min active • Level ${calculatedLevel}`;
+                    value = `${medal} **${name}**\n${formatNumber(activeMinutes)} min active`;
                     break;
                 }
                 case 'voice_afk': {
                     const afkMinutes = entry.voice_minutes_afk || 0;
-                    value = `${medal} **${name}**\n${formatNumber(afkMinutes)} min AFK • Level ${calculatedLevel}`;
+                    value = `${medal} **${name}**\n${formatNumber(afkMinutes)} min AFK`;
                     break;
                 }
                 case 'chat':
@@ -210,13 +210,12 @@ async function buildLevelingEmbeds(server, memberLevelData, sortType = 'xp', gui
                     break;
                 case 'xp':
                 default:
-                    value = `${medal} **${name}**\n${formatNumber(Math.round(xp))} XP • Level ${calculatedLevel}`;
+                    value = `${medal} **${name}**\n${formatNumber(Math.round(xp))} XP`;
                     break;
             }
 
-            const fieldName = medal || '•';
             leaderboardEmbed.addFields({
-                name: fieldName,
+                name: '\u200b',
                 value,
                 inline: false
             });
