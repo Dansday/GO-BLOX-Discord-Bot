@@ -391,7 +391,8 @@ async function startVoiceSession(state, resumed = false) {
         }
 
         await db.ensureMemberLevel(dbMember.id);
-        const levelData = await db.getMemberLevel(dbMember.id);
+        let levelData = await db.getMemberLevel(dbMember.id);
+        const wasMarkedInVoice = !!(levelData && levelData.is_in_voice);
 
         const sessionKey = `${state.guild.id}:${guildMember.id}`;
         const existingSession = voiceSessions.get(sessionKey);
@@ -401,11 +402,32 @@ async function startVoiceSession(state, resumed = false) {
 
         const now = Date.now();
         let lastRewardedAtMs = levelData?.voice_rewarded_at ? new Date(levelData.voice_rewarded_at).getTime() : null;
-        const wasInVoice = !!lastRewardedAtMs;
-        const resumeCatchupAllowed = resumed && wasInVoice;
+        const resumeCatchupAllowed = resumed && wasMarkedInVoice;
+        let snapshotLevel = levelData?.level ?? null;
+        let snapshotExperience = levelData?.experience ?? null;
 
         const guildId = state.guild.id;
         const voiceCooldownMs = await getVoiceCooldownMs(guildId);
+
+        let stats = levelData;
+
+        if (lastRewardedAtMs === null) {
+            const updatedStats = await db.updateMemberLevelStats(dbMember.id, {
+                isInVoice: true,
+                voiceRewardedAt: new Date(now)
+            });
+            if (updatedStats) {
+                stats = updatedStats;
+                levelData = updatedStats;
+                lastRewardedAtMs = updatedStats.voice_rewarded_at ? new Date(updatedStats.voice_rewarded_at).getTime() : now;
+                snapshotLevel = stats?.level ?? null;
+                snapshotExperience = stats?.experience ?? null;
+            } else {
+                lastRewardedAtMs = now;
+            }
+        } else {
+            await db.updateMemberLevelStats(dbMember.id, { isInVoice: true });
+        }
 
         let catchupAwarded = false;
         if (resumeCatchupAllowed && lastRewardedAtMs !== null) {
@@ -416,17 +438,23 @@ async function startVoiceSession(state, resumed = false) {
                 const xpGained = await getExperienceForVoiceMinutes(minutesSinceReward, isAFK, guildId);
                 const updates = {
                     experienceIncrement: xpGained,
-                    voiceRewardedAt: new Date(now)
+                    voiceRewardedAt: new Date(now),
+                    isInVoice: true
                 };
                 if (isAFK) {
                     updates.voiceMinutesAfkIncrement = minutesSinceReward;
                 } else {
                     updates.voiceMinutesActiveIncrement = minutesSinceReward;
                 }
-                let stats = await db.updateMemberLevelStats(dbMember.id, updates);
+                let updatedStats = await db.updateMemberLevelStats(dbMember.id, updates);
                 const reconciledStats = await reconcileMemberExperience(dbMember.id, guildId);
                 if (reconciledStats) {
-                    stats = reconciledStats;
+                    updatedStats = reconciledStats;
+                }
+
+                if (updatedStats) {
+                    stats = updatedStats;
+                    levelData = updatedStats;
                 }
 
                 lastRewardedAtMs = now;
@@ -437,48 +465,69 @@ async function startVoiceSession(state, resumed = false) {
                 await logger.log(`🎤 ${xpType} XP: ${memberName} (${guildMember.id}) gained +${xpGained} XP from ${minutesSinceReward} minute(s) [resume catch-up] | Total: ${stats.experience || 0} XP | Level: ${currentLevel}`);
 
                 stats = await handleLevelEvaluation(server, dbMember, stats, state.guild.id, {
-                    previousLevel: levelData?.level ?? null,
-                    previousExperience: levelData?.experience ?? null,
+                    previousLevel: snapshotLevel,
+                    previousExperience: snapshotExperience,
                     reason: resumed ? "voice-resume-catchup" : "voice-start-catchup"
                 });
+                snapshotLevel = stats?.level ?? null;
+                snapshotExperience = stats?.experience ?? null;
             }
         }
 
-        if (!catchupAwarded && (!lastRewardedAtMs || (now - lastRewardedAtMs) >= voiceCooldownMs)) {
-            const afkStatus = await db.getAFKStatus(server.id, dbMember.discord_member_id);
-            const isAFK = !!afkStatus;
-            const xpGained = await getExperienceForVoiceMinutes(1, isAFK, guildId);
-            const updates = {
-                experienceIncrement: xpGained,
-                voiceRewardedAt: new Date(now)
-            };
-            if (isAFK) {
-                updates.voiceMinutesAfkIncrement = 1;
+        if (!catchupAwarded) {
+            if (lastRewardedAtMs !== null) {
+                if ((now - lastRewardedAtMs) >= voiceCooldownMs) {
+                    const afkStatus = await db.getAFKStatus(server.id, dbMember.discord_member_id);
+                    const isAFK = !!afkStatus;
+                    const xpGained = await getExperienceForVoiceMinutes(1, isAFK, guildId);
+                    const updates = {
+                        experienceIncrement: xpGained,
+                        voiceRewardedAt: new Date(now),
+                        isInVoice: true
+                    };
+                    if (isAFK) {
+                        updates.voiceMinutesAfkIncrement = 1;
+                    } else {
+                        updates.voiceMinutesActiveIncrement = 1;
+                    }
+                    let updatedStats = await db.updateMemberLevelStats(dbMember.id, updates);
+                    const reconciledStats = await reconcileMemberExperience(dbMember.id, guildId);
+                    if (reconciledStats) {
+                        updatedStats = reconciledStats;
+                    }
+
+                    if (updatedStats) {
+                        stats = updatedStats;
+                        levelData = updatedStats;
+                    }
+
+                    lastRewardedAtMs = now;
+                    const memberName = dbMember.server_display_name || dbMember.display_name || dbMember.username || guildMember.displayName || guildMember.user.username;
+                    const currentLevel = await determineLevel(stats.experience || 0, guildId);
+                    const xpType = isAFK ? "AFK Voice" : "Voice";
+                    const logMessage = resumed && wasMarkedInVoice
+                        ? `🎤 ${xpType} XP: ${memberName} (${guildMember.id}) gained +${xpGained} XP [resume] | Total: ${stats.experience || 0} XP | Level: ${currentLevel}`
+                        : `🎤 ${xpType} XP: ${memberName} (${guildMember.id}) gained +${xpGained} XP [join] | Total: ${stats.experience || 0} XP | Level: ${currentLevel}`;
+                    await logger.log(logMessage);
+
+                    stats = await handleLevelEvaluation(server, dbMember, stats, state.guild.id, {
+                        previousLevel: snapshotLevel,
+                        previousExperience: snapshotExperience,
+                        reason: resumed ? "voice-resume-interval" : "voice-start-interval"
+                    });
+                    snapshotLevel = stats?.level ?? null;
+                    snapshotExperience = stats?.experience ?? null;
+                }
             } else {
-                updates.voiceMinutesActiveIncrement = 1;
+                await db.updateMemberLevelStats(dbMember.id, {
+                    voiceRewardedAt: new Date(now),
+                    isInVoice: true
+                });
+                lastRewardedAtMs = now;
             }
-            let stats = await db.updateMemberLevelStats(dbMember.id, updates);
-            const reconciledStats = await reconcileMemberExperience(dbMember.id, guildId);
-            if (reconciledStats) {
-                stats = reconciledStats;
-            }
+        }
 
-            lastRewardedAtMs = now;
-            const memberName = dbMember.server_display_name || dbMember.display_name || dbMember.username || guildMember.displayName || guildMember.user.username;
-            const currentLevel = await determineLevel(stats.experience || 0, guildId);
-            const xpType = isAFK ? "AFK Voice" : "Voice";
-            const logMessage = resumed && wasInVoice
-                ? `🎤 ${xpType} XP: ${memberName} (${guildMember.id}) gained +${xpGained} XP [resume] | Total: ${stats.experience || 0} XP | Level: ${currentLevel}`
-                : `🎤 ${xpType} XP: ${memberName} (${guildMember.id}) gained +${xpGained} XP [join] | Total: ${stats.experience || 0} XP | Level: ${currentLevel}`;
-            await logger.log(logMessage);
-
-            stats = await handleLevelEvaluation(server, dbMember, stats, state.guild.id, {
-                previousLevel: levelData?.level ?? null,
-                previousExperience: levelData?.experience ?? null,
-                reason: resumed ? "voice-resume-interval" : "voice-start-interval"
-            });
-        } else if (!lastRewardedAtMs) {
-            await db.updateMemberLevelStats(dbMember.id, { voiceRewardedAt: new Date(now) });
+        if (lastRewardedAtMs === null) {
             lastRewardedAtMs = now;
         }
 
@@ -533,7 +582,7 @@ async function endVoiceSession(state) {
             return;
         }
         await db.updateMemberLevelStats(dbMember.id, {
-            voiceRewardedAt: null
+            isInVoice: false
         });
     } catch (error) {
         await logger.log(`❌ Leveling voice session end error: ${error.message}`);
@@ -578,7 +627,8 @@ async function handleVoiceTick(sessionKey) {
         const nowDate = new Date();
         const updatePayload = {
             experienceIncrement: xpGained,
-            voiceRewardedAt: nowDate
+            voiceRewardedAt: nowDate,
+            isInVoice: true
         };
         if (isAFK) {
             updatePayload.voiceMinutesAfkIncrement = 1;
@@ -611,16 +661,43 @@ async function handleVoiceTick(sessionKey) {
 
 async function resumeVoiceSessions(client) {
     try {
+        const botConfig = getBotConfig();
+        if (!botConfig || !botConfig.id) {
+            return;
+        }
+
         for (const guild of client.guilds.cache.values()) {
             let resumedCount = 0;
+            const activeVoiceMemberIds = new Set();
+
             for (const [, voiceState] of guild.voiceStates.cache) {
                 if (voiceState.channelId && voiceState.member) {
+                    activeVoiceMemberIds.add(voiceState.member.id);
                     try {
                         await startVoiceSession(voiceState, true);
                         resumedCount++;
                     } catch (err) {
                         await logger.log(`❌ Leveling: failed to resume voice session for ${voiceState.id}: ${err.message}`);
                     }
+                }
+            }
+
+            const server = await db.getServerByDiscordId(botConfig.id, guild.id);
+            if (server) {
+                const membersWithFlag = await db.getMembersWithInVoiceFlag(server.id);
+                let cleanedCount = 0;
+                for (const memberRecord of membersWithFlag) {
+                    const discordMemberId = memberRecord.discord_member_id;
+                    if (!activeVoiceMemberIds.has(discordMemberId)) {
+                        const dbMember = await db.getMemberByDiscordId(server.id, discordMemberId);
+                        if (dbMember) {
+                            await db.updateMemberLevelStats(dbMember.id, { isInVoice: false });
+                            cleanedCount++;
+                        }
+                    }
+                }
+                if (cleanedCount > 0) {
+                    await logger.log(`🧹 Leveling: Cleaned up ${cleanedCount} stale is_in_voice flag(s) for guild ${guild.name}`);
                 }
             }
 

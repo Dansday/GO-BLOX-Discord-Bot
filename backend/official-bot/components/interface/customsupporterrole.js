@@ -342,7 +342,6 @@ export async function handleDeleteCustomSupporterRole(interaction) {
         await interaction.deferReply({ flags: 64 });
 
         const member = interaction.member;
-        const guild = interaction.guild;
 
         if (!hasPermission(member, 'custom_supporter_role')) {
             await interaction.editReply({

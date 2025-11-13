@@ -941,6 +941,11 @@ export async function updateMemberLevelStats(memberId, updates = {}) {
         values.push(updates.rank);
     }
 
+    if (typeof updates.isInVoice === 'boolean') {
+        clauses.push('is_in_voice = ?');
+        values.push(updates.isInVoice ? 1 : 0);
+    }
+
     if (updates.chatRewardedAt) {
         clauses.push('chat_rewarded_at = ?');
         values.push(toMySQLDateTime(updates.chatRewardedAt));
@@ -1035,6 +1040,21 @@ export async function getMemberLevelByDiscordId(serverId, discordMemberId) {
         [serverId, discordMemberId]
     );
     return result[0] || null;
+}
+
+export async function getMembersWithInVoiceFlag(serverId) {
+    await initializeDatabase();
+    if (!serverId) {
+        throw new Error('serverId is required to fetch members with in-voice flag');
+    }
+    const result = await query(
+        `SELECT sml.member_id, sm.discord_member_id
+         FROM server_member_levels sml
+         INNER JOIN server_members sm ON sml.member_id = sm.id
+         WHERE sm.server_id = ? AND sml.is_in_voice = TRUE`,
+        [serverId]
+    );
+    return result;
 }
 
 export async function getServerLeaderboard(serverId, limit = 3, sortType = 'xp') {
@@ -1842,6 +1862,7 @@ export default {
     setMemberLevelDMPreference,
     recalculateServerMemberRanks,
     getMemberLevelByDiscordId,
+    getMembersWithInVoiceFlag,
     getServerLeaderboard,
     getServerMembersList,
     getServerOverview,

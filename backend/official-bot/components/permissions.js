@@ -41,7 +41,6 @@ export async function hasPermission(member, action) {
         return true;
     }
 
-
     if (await isStaff(member)) {
         return action !== 'setup';
     }
