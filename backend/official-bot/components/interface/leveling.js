@@ -266,10 +266,6 @@ function createDmToggleRow(dmEnabled = true) {
 export async function handleLevelingButton(interaction) {
     try {
         if (!(await hasPermission(interaction.member, "leveling"))) {
-            await interaction.reply({
-                content: "❌ You don't have permission to view leveling information.",
-                flags: 64
-            });
             return;
         }
 
@@ -328,14 +324,6 @@ export async function handleLevelingButton(interaction) {
 export async function handleLeaderboardButton(interaction) {
     try {
         if (!(await hasPermission(interaction.member, "leveling"))) {
-            await interaction.update({
-                content: "❌ You don't have permission to view leveling information.",
-                components: [],
-                flags: 64
-            }).catch(() => interaction.reply({
-                content: "❌ You don't have permission to view leveling information.",
-                flags: 64
-            }));
             return;
         }
 
@@ -379,10 +367,6 @@ export async function handleLeaderboardButton(interaction) {
 export async function handleDmToggleButton(interaction) {
     try {
         if (!(await hasPermission(interaction.member, "leveling"))) {
-            await interaction.reply({
-                content: "❌ You don't have permission to update leveling notifications.",
-                flags: 64
-            }).catch(() => null);
             return;
         }
 

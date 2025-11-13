@@ -1,12 +1,92 @@
 import { getEmbedConfig, getServerForCurrentBot } from "../../config.js";
-import { ActionRowBuilder, ButtonBuilder, ButtonStyle } from 'discord.js';
+import { ActionRowBuilder, ButtonBuilder, ButtonStyle, EmbedBuilder } from 'discord.js';
 import logger from "../../logger.js";
-import { handleHelpButton } from './interface/help.js';
+import { hasPermission } from './permissions.js';
 import { handleSendMessageButton, handleSendMessageModal, handleChannelSelection, handleRoleSelection, handleCompleteSetup } from './interface/sendmessage.js';
 import { handleCustomSupporterRoleButton, handleCustomSupporterRoleModal, handleEditCustomSupporterRole, handleDeleteCustomSupporterRole } from './interface/customsupporterrole.js';
 import { handleFeedbackButton, handleFeedbackModal } from './interface/feedback.js';
 import { handleAFKButton, handleAFKModal, handleRemoveAFKButton } from './interface/afk.js';
 import { handleLevelingButton, handleLeaderboardButton, handleDmToggleButton } from './interface/leveling.js';
+
+async function handleMenuButton(interaction) {
+    const member = interaction.member || await interaction.guild.members.fetch(interaction.user.id).catch(() => null);
+    if (!member) {
+        await interaction.reply({
+            content: '❌ Failed to fetch member information.',
+            flags: 64
+        });
+        return;
+    }
+
+    // Menu requires member+ permission
+    if (!(await hasPermission(member, 'leveling'))) {
+        return;
+    }
+
+    const buttons = [];
+
+    if (await hasPermission(member, 'send_message')) {
+        buttons.push(new ButtonBuilder()
+            .setCustomId('bot_send_message')
+            .setLabel('📤 Send Message')
+            .setStyle(ButtonStyle.Success));
+    }
+
+    if (await hasPermission(member, 'custom_supporter_role')) {
+        buttons.push(new ButtonBuilder()
+            .setCustomId('bot_custom_supporter_role')
+            .setLabel('💎 Custom Supporter Role')
+            .setStyle(ButtonStyle.Success));
+    }
+
+    if (await hasPermission(member, 'leveling')) {
+        buttons.push(new ButtonBuilder()
+            .setCustomId('bot_leveling')
+            .setLabel('📈 Leveling')
+            .setStyle(ButtonStyle.Success));
+    }
+
+    if (await hasPermission(member, 'afk')) {
+        buttons.push(new ButtonBuilder()
+            .setCustomId('bot_afk')
+            .setLabel('⏸️ AFK')
+            .setStyle(ButtonStyle.Success));
+    }
+
+    if (await hasPermission(member, 'feedback')) {
+        buttons.push(new ButtonBuilder()
+            .setCustomId('bot_feedback')
+            .setLabel('💬 Feedback')
+            .setStyle(ButtonStyle.Success));
+    }
+
+    if (buttons.length === 0) {
+        await interaction.reply({
+            content: '❌ You don\'t have access to any features.',
+            flags: 64
+        });
+        return;
+    }
+
+    const embedConfig = await getEmbedConfig(interaction.guild.id);
+    const menuEmbed = new EmbedBuilder()
+        .setColor(embedConfig.COLOR)
+        .setTitle("📋 GO BLOX Bot Menu")
+        .setDescription("Select a feature from the buttons below:")
+        .setFooter({ text: embedConfig.FOOTER })
+        .setTimestamp();
+
+    const rows = [];
+    for (let i = 0; i < buttons.length; i += 5) {
+        rows.push(new ActionRowBuilder().addComponents(...buttons.slice(i, i + 5)));
+    }
+
+    await interaction.reply({
+        embeds: [menuEmbed],
+        components: rows,
+        flags: 64
+    });
+}
 
 export async function handleButtonInteraction(interaction, client) {
     const { customId } = interaction;
@@ -15,8 +95,8 @@ export async function handleButtonInteraction(interaction, client) {
     await logger.log(`🔘 Button clicked: "${customId}" by ${user.tag} (${user.id}) in ${interaction.guild?.name || 'DM'}`);
 
     switch (customId) {
-        case 'bot_help':
-            await handleHelpButton(interaction);
+        case 'bot_menu':
+            await handleMenuButton(interaction);
             break;
         case 'bot_send_message':
             await handleSendMessageButton(interaction);
@@ -70,12 +150,12 @@ export async function createInterfaceEmbed(client, guildId) {
     if (!guildId) {
         throw new Error('Guild ID is required to create interface embed');
     }
-    
+
     const embedConfig = await getEmbedConfig(guildId);
     const interfaceEmbed = {
         color: embedConfig.COLOR,
         title: "GO BLOX Bot Panel",
-        description: "Use the buttons below to interact with the bot",
+        description: "Click **Menu** to access bot features based on your role permissions.",
         thumbnail: {
             url: client.user.displayAvatarURL()
         },
@@ -89,43 +169,15 @@ export async function createInterfaceEmbed(client, guildId) {
 }
 
 export function createInterfaceButtons() {
-    const helpButton = new ButtonBuilder()
-        .setCustomId('bot_help')
-        .setLabel('❓ Help')
-        .setStyle(ButtonStyle.Secondary);
+    const menuButton = new ButtonBuilder()
+        .setCustomId('bot_menu')
+        .setLabel('📋 Menu')
+        .setStyle(ButtonStyle.Primary);
 
-    const feedbackButton = new ButtonBuilder()
-        .setCustomId('bot_feedback')
-        .setLabel('💬 Feedback')
-        .setStyle(ButtonStyle.Success);
+    const buttonRow = new ActionRowBuilder()
+        .addComponents(menuButton);
 
-    const sendMessageButton = new ButtonBuilder()
-        .setCustomId('bot_send_message')
-        .setLabel('📤 Send Message')
-        .setStyle(ButtonStyle.Success);
-
-    const customSupporterRoleButton = new ButtonBuilder()
-        .setCustomId('bot_custom_supporter_role')
-        .setLabel('💎 Custom Supporter Role')
-        .setStyle(ButtonStyle.Success);
-
-    const levelingButton = new ButtonBuilder()
-        .setCustomId('bot_leveling')
-        .setLabel('📈 Leveling')
-        .setStyle(ButtonStyle.Success);
-
-    const afkButton = new ButtonBuilder()
-        .setCustomId('bot_afk')
-        .setLabel('⏸️ AFK')
-        .setStyle(ButtonStyle.Success);
-
-    const buttonRow1 = new ActionRowBuilder()
-        .addComponents(sendMessageButton, customSupporterRoleButton, levelingButton, afkButton, feedbackButton);
-
-    const buttonRow2 = new ActionRowBuilder()
-        .addComponents(helpButton);
-
-    return [buttonRow1, buttonRow2];
+    return [buttonRow];
 }
 
 export async function sendInterfaceToChannel(targetChannel, interaction, client) {

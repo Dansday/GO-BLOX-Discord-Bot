@@ -177,10 +177,6 @@ export async function handleAFKButton(interaction) {
         const member = interaction.member;
 
         if (!(await hasPermission(member, 'afk'))) {
-            await interaction.reply({
-                content: '❌ You don\'t have permission to use AFK.',
-                flags: 64
-            });
             return;
         }
 
@@ -273,9 +269,6 @@ export async function handleAFKModal(interaction) {
         const member = interaction.member;
 
         if (!hasPermission(member, 'afk')) {
-            await interaction.editReply({
-                content: '❌ You don\'t have permission to use AFK.'
-            });
             return;
         }
 
@@ -322,10 +315,6 @@ export async function handleRemoveAFKButton(interaction) {
         const member = interaction.member;
 
         if (!hasPermission(member, 'afk')) {
-            await interaction.reply({
-                content: '❌ You don\'t have permission to use AFK.',
-                flags: 64
-            });
             return;
         }
 

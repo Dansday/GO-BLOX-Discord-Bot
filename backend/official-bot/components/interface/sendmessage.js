@@ -50,10 +50,6 @@ export async function handleSendMessageButton(interaction) {
     try {
 
         if (!(await hasPermission(interaction.member, 'send_message'))) {
-            await interaction.reply({
-                content: '❌ You don\'t have permission to send messages. Admin or Staff role required.',
-                flags: 64
-            });
             return;
         }
 
@@ -84,10 +80,6 @@ export async function handleChannelSelection(interaction) {
     try {
 
         if (!hasPermission(interaction.member, 'send_message')) {
-            await interaction.update({
-                content: '❌ You don\'t have permission to send messages.',
-                components: []
-            });
             return;
         }
 
@@ -133,10 +125,6 @@ export async function handleRoleSelection(interaction) {
     try {
 
         if (!hasPermission(interaction.member, 'send_message')) {
-            await interaction.update({
-                content: '❌ You don\'t have permission to send messages.',
-                components: []
-            });
             return;
         }
 
@@ -215,10 +203,6 @@ export async function handleCompleteSetup(interaction) {
     try {
 
         if (!hasPermission(interaction.member, 'send_message')) {
-            await interaction.update({
-                content: '❌ You don\'t have permission to send messages.',
-                components: []
-            });
             return;
         }
 
@@ -296,10 +280,6 @@ export async function handleSendMessageModal(interaction) {
     try {
 
         if (!hasPermission(interaction.member, 'send_message')) {
-            await interaction.reply({
-                content: '❌ You don\'t have permission to send messages.',
-                flags: 64
-            });
             return;
         }
 

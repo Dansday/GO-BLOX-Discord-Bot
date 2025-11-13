@@ -166,10 +166,6 @@ export async function handleCustomSupporterRoleButton(interaction) {
         const member = interaction.member;
 
         if (!(await hasPermission(member, 'custom_supporter_role'))) {
-            await interaction.reply({
-                content: '❌ You don\'t have permission to create a custom role. Supporter, Staff, or Admin role required.',
-                flags: 64
-            });
             return;
         }
 
@@ -260,10 +256,6 @@ export async function handleEditCustomSupporterRole(interaction) {
         const member = interaction.member;
 
         if (!hasPermission(member, 'custom_supporter_role')) {
-            await interaction.reply({
-                content: '❌ You don\'t have permission to edit a custom role.',
-                flags: 64
-            });
             return;
         }
 
@@ -344,9 +336,6 @@ export async function handleDeleteCustomSupporterRole(interaction) {
         const member = interaction.member;
 
         if (!hasPermission(member, 'custom_supporter_role')) {
-            await interaction.editReply({
-                content: '❌ You don\'t have permission to delete a custom role.'
-            });
             return;
         }
 
@@ -398,9 +387,6 @@ export async function handleCustomSupporterRoleModal(interaction) {
         const guild = interaction.guild;
 
         if (!hasPermission(member, 'custom_supporter_role')) {
-            await interaction.editReply({
-                content: '❌ You don\'t have permission to create a custom role. Supporter, Staff, or Admin role required.'
-            });
             return;
         }
 

@@ -49,11 +49,15 @@ export async function hasPermission(member, action) {
         return action !== 'setup';
     }
 
+    if (action === 'send_message') {
+        return isStaffMember || isAdminMember;
+    }
+
     if (action === 'custom_supporter_role') {
         return isSupporterMember || isStaffMember || isAdminMember;
     }
 
-    if (action === 'help' || action === 'feedback' || action === 'afk' || action === 'leveling') {
+    if (action === 'feedback' || action === 'afk' || action === 'leveling') {
         return isMemberRole || isSupporterMember || isStaffMember || isAdminMember;
     }
 
