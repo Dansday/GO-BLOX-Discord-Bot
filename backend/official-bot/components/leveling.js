@@ -4,26 +4,7 @@ import logger from "../../logger.js";
 
 const recentMessages = new Map();
 const voiceSessions = new Map();
-const permissionCache = new Map();
-const levelingSettingsCache = new Map();
-const LEVELING_CACHE_TTL_MS = 5 * 60 * 1000;
 let clientInstance = null;
-
-async function getCachedLevelingSettings(guildId) {
-    if (!guildId) {
-        throw new Error('guildId is required for leveling settings');
-    }
-
-    const cached = levelingSettingsCache.get(guildId);
-    const now = Date.now();
-    if (cached && (now - cached.timestamp) < LEVELING_CACHE_TTL_MS) {
-        return cached.settings;
-    }
-
-    const settings = await getLevelingSettings(guildId);
-    levelingSettingsCache.set(guildId, { timestamp: now, settings });
-    return settings;
-}
 
 export async function getLevelRequirement(level, guildId) {
     if (!guildId) {
@@ -31,7 +12,7 @@ export async function getLevelRequirement(level, guildId) {
     }
     if (level <= 1) return 0;
 
-    const settings = await getCachedLevelingSettings(guildId);
+    const settings = await getLevelingSettings(guildId);
     const baseXP = settings.REQUIREMENTS.BASE_XP;
     const multiplier = settings.REQUIREMENTS.MULTIPLIER;
 
@@ -47,7 +28,7 @@ export async function calculateExperienceFromTotals({
         throw new Error('guildId is required for experience calculation');
     }
 
-    const settings = await getCachedLevelingSettings(guildId);
+    const settings = await getLevelingSettings(guildId);
     const messageXP = settings.MESSAGE.XP;
     const voiceXPPerMin = settings.VOICE.XP_PER_MINUTE;
     const afkXPPerMin = settings.VOICE.AFK_XP_PER_MINUTE;
@@ -62,7 +43,7 @@ async function getExperienceForMessage(guildId) {
     if (!guildId) {
         throw new Error('guildId is required for message XP');
     }
-    const settings = await getCachedLevelingSettings(guildId);
+    const settings = await getLevelingSettings(guildId);
     return settings.MESSAGE.XP;
 }
 
@@ -72,7 +53,7 @@ async function getExperienceForVoiceMinutes(minutes, isAFK = false, guildId) {
     }
     if (!minutes || minutes <= 0) return 0;
 
-    const settings = await getCachedLevelingSettings(guildId);
+    const settings = await getLevelingSettings(guildId);
     const afkXPPerMin = settings.VOICE.AFK_XP_PER_MINUTE;
     const voiceXPPerMin = settings.VOICE.XP_PER_MINUTE;
 
@@ -86,7 +67,7 @@ async function getMessageCooldownMs(guildId) {
     if (!guildId) {
         throw new Error('guildId is required for message cooldown');
     }
-    const settings = await getCachedLevelingSettings(guildId);
+    const settings = await getLevelingSettings(guildId);
     return settings.MESSAGE.COOLDOWN_SECONDS * 1000;
 }
 
@@ -94,7 +75,7 @@ async function getVoiceCooldownMs(guildId) {
     if (!guildId) {
         throw new Error('guildId is required for voice cooldown');
     }
-    const settings = await getCachedLevelingSettings(guildId);
+    const settings = await getLevelingSettings(guildId);
     return settings.VOICE.COOLDOWN_SECONDS * 1000;
 }
 
@@ -218,22 +199,12 @@ async function resolveServerAndMember(guild, memberLike) {
     }
 }
 
-const PERMISSION_CACHE_TTL_MS = 5 * 60 * 1000;
-
 async function getMemberRoleIds(guildId) {
-    const cached = permissionCache.get(guildId);
-    const now = Date.now();
-    if (cached && (now - cached.timestamp) < PERMISSION_CACHE_TTL_MS) {
-        return cached.roles;
-    }
-
     try {
         const permissions = await PERMISSIONS.getPermissions(guildId);
         const roles = permissions?.MEMBER_ROLES || [];
-        permissionCache.set(guildId, { timestamp: now, roles });
         return roles;
     } catch (error) {
-        permissionCache.set(guildId, { timestamp: now, roles: [] });
         return [];
     }
 }
@@ -381,7 +352,6 @@ async function startVoiceSession(state, resumed = false) {
                 const isAFK = !!afkStatus;
                 const xpGained = await getExperienceForVoiceMinutes(minutesSinceReward, isAFK, guildId);
                 const updates = {
-                    voiceMinutesTotalIncrement: minutesSinceReward,
                     experienceIncrement: xpGained,
                     voiceRewardedAt: new Date(now)
                 };
@@ -412,7 +382,6 @@ async function startVoiceSession(state, resumed = false) {
             const isAFK = !!afkStatus;
             const xpGained = await getExperienceForVoiceMinutes(1, isAFK, guildId);
             const updates = {
-                voiceMinutesTotalIncrement: 1,
                 experienceIncrement: xpGained,
                 voiceRewardedAt: new Date(now)
             };
@@ -536,7 +505,6 @@ async function handleVoiceTick(sessionKey) {
         const xpGained = await getExperienceForVoiceMinutes(1, isAFK, guildId);
         const nowDate = new Date();
         const updatePayload = {
-            voiceMinutesTotalIncrement: 1,
             experienceIncrement: xpGained,
             voiceRewardedAt: nowDate
         };

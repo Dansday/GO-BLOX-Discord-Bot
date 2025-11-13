@@ -53,6 +53,16 @@ async function refreshMemberLevelData(serverId, discordMemberId) {
     const currentExperience = levelData.experience ?? 0;
     const updates = {};
 
+    const voiceActive = levelData.voice_minutes_active ?? 0;
+    const voiceAfk = levelData.voice_minutes_afk ?? 0;
+    const expectedVoiceTotal = voiceActive + voiceAfk;
+    const currentVoiceTotal = levelData.voice_minutes_total ?? 0;
+    
+    if (expectedVoiceTotal !== currentVoiceTotal) {
+        updates.voiceMinutesActiveIncrement = 0;
+        updates.voiceMinutesAfkIncrement = 0;
+    }
+
     if (recalculatedExperience !== currentExperience) {
         updates.experienceIncrement = recalculatedExperience - currentExperience;
     }

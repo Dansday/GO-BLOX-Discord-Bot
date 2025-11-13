@@ -1255,7 +1255,7 @@
         let botLogsAutoScroll = true;
         let botLogsLastUpdated = null;
         let botLogTerminalInitialized = false;
-        const SERVERS_PER_PAGE = 10;
+        const SERVERS_PER_PAGE = 9;
         let allServers = [];
         let currentServerPage = 1;
         function formatNumber(num) {
@@ -2086,30 +2086,42 @@
             const stats = (data && data.stats) ? data.stats : {};
             const sync = (data && data.sync) ? data.sync : {};
             const settings = Array.isArray(data?.settings) ? data.settings : [];
-            const rawServerName = data?.name || 'Unnamed Server';
-            const displayServerName = escapeHtml(rawServerName);
+            const displayServerName = escapeHtml(data?.name || 'Unnamed Server');
             const discordServerId = escapeHtml(data?.discord_server_id || 'Unknown ID');
             const boostLevel = data?.boost_level ?? 0;
-            const botIdDisplay = data?.bot_id ? escapeHtml(String(data.bot_id)) : 'N/A';
             const serverIcon = data?.server_icon || '';
             const iconHTML = serverIcon
                 ? `<img src="${serverIcon}" alt="${displayServerName}" class="w-full h-full object-cover" onerror="this.src='https://cdn.discordapp.com/embed/avatars/0.png'">`
                 : `<i class="fas fa-server text-white text-2xl"></i>`;
-            const membersSynced = formatNumber(stats.members_total ?? 0);
-            const membersSnapshot = formatNumber(data?.total_members ?? stats.members_total ?? 0);
-            const boostersSynced = formatNumber(stats.members_boosters ?? 0);
-            const boostersSnapshot = formatNumber(data?.total_boosters ?? stats.members_boosters ?? 0);
+            const membersTotal = formatNumber(stats.members_total ?? 0);
+            const membersTotalRaw = stats.members_total ?? 0;
+            const boostersTotal = formatNumber(stats.members_boosters ?? 0);
+            const uniqueBoosters = formatNumber(stats.members_unique_boosters ?? 0);
             const membersWithLevels = formatNumber(stats.members_with_levels ?? 0);
+            const membersWithLevelsRaw = stats.members_with_levels ?? 0;
+            const membersWithoutLevels = formatNumber(Math.max(0, membersTotalRaw - membersWithLevelsRaw));
             const membersAfk = formatNumber(stats.members_afk ?? 0);
-            const channelsSynced = formatNumber(stats.channels_total ?? 0);
-            const channelsSnapshot = formatNumber(data?.total_channels ?? stats.channels_total ?? 0);
+            const membersWithCustomRoles = formatNumber(stats.members_with_custom_roles ?? 0);
+            const channelsTotal = formatNumber(stats.channels_total ?? 0);
+            const categoriesTotal = formatNumber(stats.categories_total ?? 0);
+            const totalRoles = formatNumber(stats.roles_total ?? 0);
             const textChannels = formatNumber(stats.channels_text ?? 0);
             const announcementChannels = formatNumber(stats.channels_announcement ?? 0);
             const voiceChannels = formatNumber(stats.channels_voice ?? 0);
             const stageChannels = formatNumber(stats.channels_stage ?? 0);
-            const categoriesTotal = formatNumber(stats.categories_total ?? 0);
-            const rolesTotal = formatNumber(stats.roles_total ?? 0);
-            const settingsLastUpdated = formatDateTime(sync.settings_last_updated);
+            const totalExperience = formatNumber(stats.leveling_total_experience ?? 0);
+            const totalExperienceRaw = stats.leveling_total_experience ?? 0;
+            const avgXP = membersWithLevelsRaw > 0 ? formatNumber(Math.round(totalExperienceRaw / membersWithLevelsRaw)) : '0';
+            const avgLevel = (stats.leveling_avg_level ?? 0).toFixed(2);
+            const maxLevel = formatNumber(stats.leveling_max_level ?? 0);
+            const totalChat = formatNumber(stats.leveling_total_chat ?? 0);
+            const totalVoiceMinutes = formatNumber(stats.leveling_total_voice_minutes ?? 0);
+            const totalVoiceMinutesRaw = stats.leveling_total_voice_minutes ?? 0;
+            const avgVoiceMinutes = membersWithLevelsRaw > 0 ? formatNumber(Math.round(totalVoiceMinutesRaw / membersWithLevelsRaw)) : '0';
+            const totalVoiceActive = formatNumber(stats.leveling_total_voice_active ?? 0);
+            const totalVoiceActiveRaw = stats.leveling_total_voice_active ?? 0;
+            const avgVoiceActive = membersWithLevelsRaw > 0 ? formatNumber(Math.round(totalVoiceActiveRaw / membersWithLevelsRaw)) : '0';
+            const totalVoiceAfk = formatNumber(stats.leveling_total_voice_afk ?? 0);
             const settingsHtml = settings.length > 0
                 ? `<div class="mt-3 flex flex-wrap gap-2">
                         ${settings.map(setting => `
@@ -2136,147 +2148,291 @@
                                             <i class="fas fa-id-badge text-gray-400"></i>
                                             ${discordServerId}
                                         </span>
-                                        <span class="px-2 py-1 bg-gray-800 border border-gray-600 rounded-lg flex items-center gap-2">
-                                            <i class="fas fa-rocket text-gray-400"></i>
-                                            Boost Level ${boostLevel}
-                                        </span>
-                                        <span class="px-2 py-1 bg-gray-800 border border-gray-600 rounded-lg flex items-center gap-2">
-                                            <i class="fas fa-clock text-gray-400"></i>
-                                            Updated ${formatDateTime(data?.updated_at)}
-                                        </span>
                                     </div>
                                 </div>
-                                <p class="text-gray-300 text-sm sm:text-base mt-2">
-                                    Managed by bot ID ${botIdDisplay} • Record created ${formatDateTime(data?.created_at)}
-                                </p>
                             </div>
                         </div>
                     </div>
-                    <div class="grid grid-cols-1 xl:grid-cols-2 gap-4 sm:gap-6">
-                        <div class="bg-gray-700 rounded-xl border border-gray-600 p-4 sm:p-6">
-                            <h3 class="text-white font-semibold text-sm sm:text-base flex items-center gap-2">
-                                <i class="fas fa-users text-red-500"></i>
-                                Member Stats
-                            </h3>
-                            <dl class="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
-                                <div>
-                                    <dt class="text-gray-400 text-xs uppercase tracking-wide flex items-center gap-1">
-                                        Members (Synced)
-                                        <i class="fas fa-info-circle text-gray-500 cursor-help" title="Current count from database records"></i>
-                                    </dt>
-                                    <dd class="text-white text-lg font-semibold">${membersSynced}</dd>
+                    <div class="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-4 sm:gap-6">
+                        <div class="bg-gray-700 rounded-xl border border-gray-600 p-5 sm:p-6 hover:border-gray-500 transition-all cursor-pointer shadow-lg hover:shadow-xl">
+                            <div class="flex items-center gap-3 mb-4">
+                                <div class="w-10 h-10 rounded-lg bg-red-500/20 flex items-center justify-center">
+                                    <i class="fas fa-users text-red-500 text-lg"></i>
                                 </div>
-                                <div>
-                                    <dt class="text-gray-400 text-xs uppercase tracking-wide flex items-center gap-1">
-                                        Members (Snapshot)
-                                        <i class="fas fa-info-circle text-gray-500 cursor-help" title="Count stored in server record when first synced (may be outdated)"></i>
-                                    </dt>
-                                    <dd class="text-white text-lg font-semibold">${membersSnapshot}</dd>
+                                <h3 class="text-white font-bold text-base">Members</h3>
                                 </div>
-                                <div>
-                                    <dt class="text-gray-400 text-xs uppercase tracking-wide flex items-center gap-1">
-                                        Boosters (Synced)
-                                        <i class="fas fa-info-circle text-gray-500 cursor-help" title="Current count from database records"></i>
-                                    </dt>
-                                    <dd class="text-white text-lg font-semibold">${boostersSynced}</dd>
+                            <div class="space-y-3">
+                                <div class="flex items-center justify-between p-2 bg-gray-800/50 rounded-lg">
+                                    <span class="text-gray-300 text-sm flex items-center gap-2">
+                                        <i class="fas fa-user-friends text-gray-400 text-xs"></i>
+                                        Total
+                                    </span>
+                                    <span class="text-white font-bold text-lg">${membersTotal}</span>
                                 </div>
-                                <div>
-                                    <dt class="text-gray-400 text-xs uppercase tracking-wide flex items-center gap-1">
-                                        Boosters (Snapshot)
-                                        <i class="fas fa-info-circle text-gray-500 cursor-help" title="Count stored in server record when first synced (may be outdated)"></i>
-                                    </dt>
-                                    <dd class="text-white text-lg font-semibold">${boostersSnapshot}</dd>
+                                <div class="flex items-center justify-between p-2 bg-gray-800/50 rounded-lg">
+                                    <span class="text-gray-300 text-sm flex items-center gap-2">
+                                        <i class="fas fa-chart-line text-gray-400 text-xs"></i>
+                                        With Levels
+                                    </span>
+                                    <span class="text-white font-bold text-lg">${membersWithLevels}</span>
                                 </div>
-                                <div>
-                                    <dt class="text-gray-400 text-xs uppercase tracking-wide">Members with Level Data</dt>
-                                    <dd class="text-white text-lg font-semibold">${membersWithLevels}</dd>
+                                <div class="flex items-center justify-between p-2 bg-gray-800/50 rounded-lg">
+                                    <span class="text-gray-300 text-sm flex items-center gap-2">
+                                        <i class="fas fa-gift text-gray-400 text-xs"></i>
+                                        Boosting
+                                    </span>
+                                    <span class="text-white font-bold text-lg">${uniqueBoosters}</span>
                                 </div>
-                                <div>
-                                    <dt class="text-gray-400 text-xs uppercase tracking-wide">Active AFK Records</dt>
-                                    <dd class="text-white text-lg font-semibold">${membersAfk}</dd>
+                                <div class="flex items-center justify-between p-2 bg-gray-800/50 rounded-lg">
+                                    <span class="text-gray-300 text-sm flex items-center gap-2">
+                                        <i class="fas fa-moon text-gray-400 text-xs"></i>
+                                        Active AFK
+                                    </span>
+                                    <span class="text-white font-bold text-lg">${membersAfk}</span>
                                 </div>
-                            </dl>
+                                <div class="flex items-center justify-between p-2 bg-gray-800/50 rounded-lg">
+                                    <span class="text-gray-300 text-sm flex items-center gap-2">
+                                        <i class="fas fa-user-slash text-gray-400 text-xs"></i>
+                                        Without Levels
+                                    </span>
+                                    <span class="text-white font-bold text-lg">${membersWithoutLevels}</span>
+                                </div>
+                            </div>
                         </div>
-                        <div class="bg-gray-700 rounded-xl border border-gray-600 p-4 sm:p-6">
-                            <h3 class="text-white font-semibold text-sm sm:text-base flex items-center gap-2">
-                                <i class="fas fa-hashtag text-red-500"></i>
-                                Channels & Roles
-                            </h3>
-                            <dl class="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
-                                <div>
-                                    <dt class="text-gray-400 text-xs uppercase tracking-wide flex items-center gap-1">
-                                        Channels (Synced)
-                                        <i class="fas fa-info-circle text-gray-500 cursor-help" title="Current count from database records"></i>
-                                    </dt>
-                                    <dd class="text-white text-lg font-semibold">${channelsSynced}</dd>
+                        <div class="bg-gray-700 rounded-xl border border-gray-600 p-5 sm:p-6 hover:border-gray-500 transition-all cursor-pointer shadow-lg hover:shadow-xl">
+                            <div class="flex items-center gap-3 mb-4">
+                                <div class="w-10 h-10 rounded-lg bg-blue-500/20 flex items-center justify-center">
+                                    <i class="fas fa-hashtag text-blue-500 text-lg"></i>
                                 </div>
-                                <div>
-                                    <dt class="text-gray-400 text-xs uppercase tracking-wide flex items-center gap-1">
-                                        Channels (Snapshot)
-                                        <i class="fas fa-info-circle text-gray-500 cursor-help" title="Count stored in server record when first synced (may be outdated)"></i>
-                                    </dt>
-                                    <dd class="text-white text-lg font-semibold">${channelsSnapshot}</dd>
+                                <h3 class="text-white font-bold text-base">Channels</h3>
                                 </div>
-                                <div>
-                                    <dt class="text-gray-400 text-xs uppercase tracking-wide">Text Channels</dt>
-                                    <dd class="text-white text-lg font-semibold">${textChannels}</dd>
+                            <div class="space-y-3">
+                                <div class="flex items-center justify-between p-2 bg-gray-800/50 rounded-lg">
+                                    <span class="text-gray-300 text-sm flex items-center gap-2">
+                                        <i class="fas fa-list text-gray-400 text-xs"></i>
+                                        Total
+                                    </span>
+                                    <span class="text-white font-bold text-lg">${channelsTotal}</span>
                                 </div>
-                                <div>
-                                    <dt class="text-gray-400 text-xs uppercase tracking-wide">Announcement Channels</dt>
-                                    <dd class="text-white text-lg font-semibold">${announcementChannels}</dd>
+                                <div class="flex items-center justify-between p-2 bg-gray-800/50 rounded-lg">
+                                    <span class="text-gray-300 text-sm flex items-center gap-2">
+                                        <i class="fas fa-comment text-gray-400 text-xs"></i>
+                                        Text
+                                    </span>
+                                    <span class="text-white font-bold text-lg">${textChannels}</span>
                                 </div>
-                                <div>
-                                    <dt class="text-gray-400 text-xs uppercase tracking-wide">Voice Channels</dt>
-                                    <dd class="text-white text-lg font-semibold">${voiceChannels}</dd>
+                                <div class="flex items-center justify-between p-2 bg-gray-800/50 rounded-lg">
+                                    <span class="text-gray-300 text-sm flex items-center gap-2">
+                                        <i class="fas fa-microphone text-gray-400 text-xs"></i>
+                                        Voice
+                                    </span>
+                                    <span class="text-white font-bold text-lg">${voiceChannels}</span>
                                 </div>
-                                <div>
-                                    <dt class="text-gray-400 text-xs uppercase tracking-wide">Stage Channels</dt>
-                                    <dd class="text-white text-lg font-semibold">${stageChannels}</dd>
+                                <div class="flex items-center justify-between p-2 bg-gray-800/50 rounded-lg">
+                                    <span class="text-gray-300 text-sm flex items-center gap-2">
+                                        <i class="fas fa-bullhorn text-gray-400 text-xs"></i>
+                                        Announcement
+                                    </span>
+                                    <span class="text-white font-bold text-lg">${announcementChannels}</span>
                                 </div>
-                                <div>
-                                    <dt class="text-gray-400 text-xs uppercase tracking-wide">Categories</dt>
-                                    <dd class="text-white text-lg font-semibold">${categoriesTotal}</dd>
+                                <div class="flex items-center justify-between p-2 bg-gray-800/50 rounded-lg">
+                                    <span class="text-gray-300 text-sm flex items-center gap-2">
+                                        <i class="fas fa-video text-gray-400 text-xs"></i>
+                                        Stage
+                                    </span>
+                                    <span class="text-white font-bold text-lg">${stageChannels}</span>
                                 </div>
-                                <div>
-                                    <dt class="text-gray-400 text-xs uppercase tracking-wide">Roles</dt>
-                                    <dd class="text-white text-lg font-semibold">${rolesTotal}</dd>
+                            </div>
+                        </div>
+                        <div class="bg-gray-700 rounded-xl border border-gray-600 p-5 sm:p-6 hover:border-gray-500 transition-all cursor-pointer shadow-lg hover:shadow-xl">
+                            <div class="flex items-center gap-3 mb-4">
+                                <div class="w-10 h-10 rounded-lg bg-purple-500/20 flex items-center justify-center">
+                                    <i class="fas fa-trophy text-purple-500 text-lg"></i>
+                            </div>
+                                <h3 class="text-white font-bold text-base">Leveling</h3>
+                            </div>
+                            <div class="space-y-3">
+                                <div class="flex items-center justify-between p-2 bg-gray-800/50 rounded-lg">
+                                    <span class="text-gray-300 text-sm flex items-center gap-2">
+                                        <i class="fas fa-star text-gray-400 text-xs"></i>
+                                        Total XP
+                                    </span>
+                                    <span class="text-white font-bold text-lg">${totalExperience}</span>
                                 </div>
-                            </dl>
+                                <div class="flex items-center justify-between p-2 bg-gray-800/50 rounded-lg">
+                                    <span class="text-gray-300 text-sm flex items-center gap-2">
+                                        <i class="fas fa-chart-bar text-gray-400 text-xs"></i>
+                                        Avg Level
+                                    </span>
+                                    <span class="text-white font-bold text-lg">${avgLevel}</span>
+                                </div>
+                                <div class="flex items-center justify-between p-2 bg-gray-800/50 rounded-lg">
+                                    <span class="text-gray-300 text-sm flex items-center gap-2">
+                                        <i class="fas fa-crown text-gray-400 text-xs"></i>
+                                        Max Level
+                                    </span>
+                                    <span class="text-white font-bold text-lg">${maxLevel}</span>
+                                </div>
+                                <div class="flex items-center justify-between p-2 bg-gray-800/50 rounded-lg">
+                                    <span class="text-gray-300 text-sm flex items-center gap-2">
+                                        <i class="fas fa-chart-line text-gray-400 text-xs"></i>
+                                        Avg XP
+                                    </span>
+                                    <span class="text-white font-bold text-lg">${avgXP}</span>
+                                </div>
+                                <div class="flex items-center justify-between p-2 bg-gray-800/50 rounded-lg">
+                                    <span class="text-gray-300 text-sm flex items-center gap-2">
+                                        <i class="fas fa-comments text-gray-400 text-xs"></i>
+                                        Total Chat
+                                    </span>
+                                    <span class="text-white font-bold text-lg">${totalChat}</span>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="bg-gray-700 rounded-xl border border-gray-600 p-5 sm:p-6 hover:border-gray-500 transition-all cursor-pointer shadow-lg hover:shadow-xl">
+                            <div class="flex items-center gap-3 mb-4">
+                                <div class="w-10 h-10 rounded-lg bg-green-500/20 flex items-center justify-center">
+                                    <i class="fas fa-user-tag text-green-500 text-lg"></i>
+                                </div>
+                                <h3 class="text-white font-bold text-base">Roles & Structure</h3>
+                            </div>
+                            <div class="space-y-3">
+                                <div class="flex items-center justify-between p-2 bg-gray-800/50 rounded-lg">
+                                    <span class="text-gray-300 text-sm flex items-center gap-2">
+                                        <i class="fas fa-shield-alt text-gray-400 text-xs"></i>
+                                        Total Roles
+                                    </span>
+                                    <span class="text-white font-bold text-lg">${totalRoles}</span>
+                                </div>
+                                <div class="flex items-center justify-between p-2 bg-gray-800/50 rounded-lg">
+                                    <span class="text-gray-300 text-sm flex items-center gap-2">
+                                        <i class="fas fa-rocket text-gray-400 text-xs"></i>
+                                        Boost Level
+                                    </span>
+                                    <span class="text-white font-bold text-lg">${boostLevel}</span>
+                                </div>
+                                <div class="flex items-center justify-between p-2 bg-gray-800/50 rounded-lg">
+                                    <span class="text-gray-300 text-sm flex items-center gap-2">
+                                        <i class="fas fa-gift text-gray-400 text-xs"></i>
+                                        Total Boosts
+                                    </span>
+                                    <span class="text-white font-bold text-lg">${boostersTotal}</span>
+                                </div>
+                                <div class="flex items-center justify-between p-2 bg-gray-800/50 rounded-lg">
+                                    <span class="text-gray-300 text-sm flex items-center gap-2">
+                                        <i class="fas fa-folder text-gray-400 text-xs"></i>
+                                        Categories
+                                    </span>
+                                    <span class="text-white font-bold text-lg">${categoriesTotal}</span>
+                                </div>
+                                <div class="flex items-center justify-between p-2 bg-gray-800/50 rounded-lg">
+                                    <span class="text-gray-300 text-sm flex items-center gap-2">
+                                        <i class="fas fa-user-cog text-gray-400 text-xs"></i>
+                                        Custom Roles
+                                    </span>
+                                    <span class="text-white font-bold text-lg">${membersWithCustomRoles}</span>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="bg-gray-700 rounded-xl border border-gray-600 p-5 sm:p-6 hover:border-gray-500 transition-all cursor-pointer shadow-lg hover:shadow-xl">
+                            <div class="flex items-center gap-3 mb-4">
+                                <div class="w-10 h-10 rounded-lg bg-yellow-500/20 flex items-center justify-center">
+                                    <i class="fas fa-microphone-alt text-yellow-500 text-lg"></i>
+                                </div>
+                                <h3 class="text-white font-bold text-base">Voice Activity</h3>
+                            </div>
+                            <div class="space-y-3">
+                                <div class="flex items-center justify-between p-2 bg-gray-800/50 rounded-lg">
+                                    <span class="text-gray-300 text-sm flex items-center gap-2">
+                                        <i class="fas fa-clock text-gray-400 text-xs"></i>
+                                        Total Minutes
+                                    </span>
+                                    <span class="text-white font-bold text-lg">${totalVoiceMinutes}</span>
+                                </div>
+                                <div class="flex items-center justify-between p-2 bg-gray-800/50 rounded-lg">
+                                    <span class="text-gray-300 text-sm flex items-center gap-2">
+                                        <i class="fas fa-check-circle text-gray-400 text-xs"></i>
+                                        Active
+                                    </span>
+                                    <span class="text-white font-bold text-lg">${totalVoiceActive}</span>
+                                </div>
+                                <div class="flex items-center justify-between p-2 bg-gray-800/50 rounded-lg">
+                                    <span class="text-gray-300 text-sm flex items-center gap-2">
+                                        <i class="fas fa-chart-line text-gray-400 text-xs"></i>
+                                        Avg Minutes
+                                    </span>
+                                    <span class="text-white font-bold text-lg">${avgVoiceMinutes}</span>
+                                </div>
+                                <div class="flex items-center justify-between p-2 bg-gray-800/50 rounded-lg">
+                                    <span class="text-gray-300 text-sm flex items-center gap-2">
+                                        <i class="fas fa-chart-bar text-gray-400 text-xs"></i>
+                                        Avg Active
+                                    </span>
+                                    <span class="text-white font-bold text-lg">${avgVoiceActive}</span>
+                                </div>
+                                <div class="flex items-center justify-between p-2 bg-gray-800/50 rounded-lg">
+                                    <span class="text-gray-300 text-sm flex items-center gap-2">
+                                        <i class="fas fa-pause-circle text-gray-400 text-xs"></i>
+                                        AFK
+                                    </span>
+                                    <span class="text-white font-bold text-lg">${totalVoiceAfk}</span>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="bg-gray-700 rounded-xl border border-gray-600 p-5 sm:p-6 hover:border-gray-500 transition-all cursor-pointer shadow-lg hover:shadow-xl">
+                            <div class="flex items-center gap-3 mb-4">
+                                <div class="w-10 h-10 rounded-lg bg-indigo-500/20 flex items-center justify-center">
+                                    <i class="fas fa-database text-indigo-500 text-lg"></i>
+                                </div>
+                                <h3 class="text-white font-bold text-base">Data Sync</h3>
+                            </div>
+                            <div class="space-y-3">
+                                <div class="flex items-center justify-between p-2 bg-gray-800/50 rounded-lg">
+                                    <span class="text-gray-300 text-sm flex items-center gap-2">
+                                        <i class="fas fa-server text-gray-400 text-xs"></i>
+                                        Server
+                                    </span>
+                                    <span class="text-white font-bold text-xs sm:text-sm truncate ml-2 text-right">${formatDateTime(data?.updated_at)}</span>
+                                </div>
+                                <div class="flex items-center justify-between p-2 bg-gray-800/50 rounded-lg">
+                                    <span class="text-gray-300 text-sm flex items-center gap-2">
+                                        <i class="fas fa-users text-gray-400 text-xs"></i>
+                                        Members
+                                    </span>
+                                    <span class="text-white font-bold text-xs sm:text-sm truncate ml-2 text-right">${formatDateTime(sync.members_last_updated)}</span>
+                                </div>
+                                <div class="flex items-center justify-between p-2 bg-gray-800/50 rounded-lg">
+                                    <span class="text-gray-300 text-sm flex items-center gap-2">
+                                        <i class="fas fa-star text-gray-400 text-xs"></i>
+                                        Levels
+                                    </span>
+                                    <span class="text-white font-bold text-xs sm:text-sm truncate ml-2 text-right">${formatDateTime(sync.levels_last_updated)}</span>
+                                </div>
+                                <div class="flex items-center justify-between p-2 bg-gray-800/50 rounded-lg">
+                                    <span class="text-gray-300 text-sm flex items-center gap-2">
+                                        <i class="fas fa-hashtag text-gray-400 text-xs"></i>
+                                        Channels
+                                    </span>
+                                    <span class="text-white font-bold text-xs sm:text-sm truncate ml-2 text-right">${formatDateTime(sync.channels_last_updated)}</span>
+                                </div>
+                                <div class="flex items-center justify-between p-2 bg-gray-800/50 rounded-lg">
+                                    <span class="text-gray-300 text-sm flex items-center gap-2">
+                                        <i class="fas fa-folder text-gray-400 text-xs"></i>
+                                        Categories
+                                    </span>
+                                    <span class="text-white font-bold text-xs sm:text-sm truncate ml-2 text-right">${formatDateTime(sync.categories_last_updated)}</span>
+                                </div>
+                                <div class="flex items-center justify-between p-2 bg-gray-800/50 rounded-lg">
+                                    <span class="text-gray-300 text-sm flex items-center gap-2">
+                                        <i class="fas fa-shield-alt text-gray-400 text-xs"></i>
+                                        Roles
+                                    </span>
+                                    <span class="text-white font-bold text-xs sm:text-sm truncate ml-2 text-right">${formatDateTime(sync.roles_last_updated)}</span>
+                                </div>
+                            </div>
                         </div>
                     </div>
-                    <div class="bg-gray-700 rounded-xl border border-gray-600 p-4 sm:p-6">
-                        <h3 class="text-white font-semibold text-sm sm:text-base flex items-center gap-2">
-                            <i class="fas fa-database text-red-500"></i>
-                            Data Sync Status
-                        </h3>
-                        <dl class="mt-4 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
-                            <div>
-                                <dt class="text-gray-400 text-xs uppercase tracking-wide">Member Records</dt>
-                                <dd class="text-white text-sm sm:text-base">${formatDateTime(sync.members_last_updated)}</dd>
-                            </div>
-                            <div>
-                                <dt class="text-gray-400 text-xs uppercase tracking-wide">Level Records</dt>
-                                <dd class="text-white text-sm sm:text-base">${formatDateTime(sync.levels_last_updated)}</dd>
-                            </div>
-                            <div>
-                                <dt class="text-gray-400 text-xs uppercase tracking-wide">Channel Records</dt>
-                                <dd class="text-white text-sm sm:text-base">${formatDateTime(sync.channels_last_updated)}</dd>
-                            </div>
-                            <div>
-                                <dt class="text-gray-400 text-xs uppercase tracking-wide">Role Records</dt>
-                                <dd class="text-white text-sm sm:text-base">${formatDateTime(sync.roles_last_updated)}</dd>
-                            </div>
-                            <div>
-                                <dt class="text-gray-400 text-xs uppercase tracking-wide">Category Records</dt>
-                                <dd class="text-white text-sm sm:text-base">${formatDateTime(sync.categories_last_updated)}</dd>
-                            </div>
-                            <div>
-                                <dt class="text-gray-400 text-xs uppercase tracking-wide">Settings</dt>
-                                <dd class="text-white text-sm sm:text-base">${settingsLastUpdated}</dd>
-                            </div>
-                        </dl>
-                    </div>
-                    <div class="bg-gray-700 rounded-xl border border-gray-600 p-4 sm:p-6">
+                    <div class="bg-gray-700 rounded-xl border border-gray-600 p-4 sm:p-6 hover:border-gray-500 transition-all cursor-pointer shadow-lg hover:shadow-xl">
                         <h3 class="text-white font-semibold text-sm sm:text-base flex items-center gap-2">
                             <i class="fas fa-sliders-h text-red-500"></i>
                             Configured Components
@@ -3320,17 +3476,6 @@
             await loadRolesForServer();
             return `
                     <form id="permissionsConfigForm" class="space-y-4 sm:space-y-6">
-                        <!-- Info Alert -->
-                        <div class="bg-yellow-900 border border-yellow-700 rounded-lg p-3 sm:p-4">
-                            <div class="flex items-start gap-2 sm:gap-3">
-                                <i class="fas fa-info-circle text-yellow-400 mt-0.5 flex-shrink-0"></i>
-                                <div class="flex-1 min-w-0">
-                                    <p class="text-yellow-200 text-xs sm:text-sm">
-                                        <strong>Note:</strong> The bot needs to be restarted for permission changes to take effect.
-                                    </p>
-                </div>
-                            </div>
-                        </div>
                         <!-- Admin Roles -->
                         <div>
                             <label class="block text-xs sm:text-sm font-medium text-gray-300 mb-2">
@@ -3565,9 +3710,6 @@
         let currentForwarderType = 'production';
         let currentEditingForwarderIndex = null;
         let forwarderSelfbots = [];
-        let forwarderSelfbotServers = {};
-        let forwarderSelfbotServerChannels = {};
-        let forwarderSelfbotServerRoles = {};
         let currentForwarderSelfbotId = null;
         let currentForwarderServerId = null;
         let currentForwarderServerDbId = null;
@@ -3686,17 +3828,6 @@
             }
             return `
                 <form id="levelingConfigForm" class="space-y-4 sm:space-y-6">
-                    <!-- Info Alert -->
-                    <div class="bg-yellow-900 border border-yellow-700 rounded-lg p-3 sm:p-4">
-                        <div class="flex items-start gap-2 sm:gap-3">
-                            <i class="fas fa-info-circle text-yellow-400 mt-0.5 flex-shrink-0"></i>
-                            <div class="flex-1 min-w-0">
-                                <p class="text-yellow-200 text-xs sm:text-sm">
-                                    <strong>Note:</strong> The bot needs to be restarted for leveling changes to take effect.
-                                </p>
-                            </div>
-                        </div>
-                    </div>
                     <!-- Level Requirements -->
                     <div class="bg-gray-700 rounded-lg p-4 sm:p-6">
                         <h3 class="text-base sm:text-lg font-semibold text-white mb-4">
@@ -3823,38 +3954,20 @@
                 console.error('Error loading target channels:', err);
             }
             const uniqueSelfbotIds = [...new Set(forwarders.map(f => f.selfbot_id).filter(Boolean))];
-            await Promise.all(uniqueSelfbotIds.map(async (selfbotId) => {
-                if (!forwarderSelfbotServers[selfbotId]) {
-                    try {
-                        const response = await fetch(`/api/bots/${selfbotId}/servers`, {
-                            credentials: 'include'
-                        });
-                        if (response.ok) {
-                            forwarderSelfbotServers[selfbotId] = await response.json();
-                        }
-                    } catch (err) {
-                        console.error(`Error loading servers for selfbot ${selfbotId}:`, err);
-                        forwarderSelfbotServers[selfbotId] = [];
-                    }
-                }
-            }));
             const forwarderDataPromises = forwarders.map(async (forwarder) => {
                 const channelIds = Array.isArray(forwarder.source_channels)
                     ? forwarder.source_channels.map(ch => ch.channel_id || ch).filter(Boolean)
                     : [];
-                let servers = forwarderSelfbotServers[forwarder.selfbot_id] || [];
-                if (servers.length === 0) {
-                    try {
-                        const response = await fetch(`/api/bots/${forwarder.selfbot_id}/servers`, {
-                            credentials: 'include'
-                        });
-                        if (response.ok) {
-                            servers = await response.json();
-                            forwarderSelfbotServers[forwarder.selfbot_id] = servers;
-                        }
-                    } catch (err) {
-                        console.error(`Error loading servers for selfbot ${forwarder.selfbot_id}:`, err);
+                let servers = [];
+                try {
+                    const response = await fetch(`/api/bots/${forwarder.selfbot_id}/servers`, {
+                        credentials: 'include'
+                    });
+                    if (response.ok) {
+                        servers = await response.json();
                     }
+                } catch (err) {
+                    console.error(`Error loading servers for selfbot ${forwarder.selfbot_id}:`, err);
                 }
                 const forwarderServerIdNum = typeof forwarder.server_id === 'string' ? parseInt(forwarder.server_id) : forwarder.server_id;
                 const selectedServer = servers.find(s => {
@@ -3862,32 +3975,18 @@
                     return serverIdNum === forwarderServerIdNum;
                 });
                 const serverName = selectedServer ? selectedServer.name : '';
-                const cacheKey = `${forwarder.selfbot_id}_${forwarder.server_id}`;
                 let channels = [];
-                if (!forwarderSelfbotServerChannels[cacheKey] || channelIds.some(chId => {
-                    const cached = forwarderSelfbotServerChannels[cacheKey];
-                    if (!cached) return true;
-                    const channel = cached.channels?.find(ch => ch.discord_channel_id === chId);
-                    return !channel || !channel.name;
-                })) {
-                    try {
-                        if (selectedServer) {
-                            const response = await fetch(`/api/bots/${forwarder.selfbot_id}/servers/${forwarder.server_id}/channels?discordServerId=${selectedServer.discord_server_id}`, {
-                                credentials: 'include'
-                            });
-                            if (response.ok) {
-                                channels = await response.json();
-                                forwarderSelfbotServerChannels[cacheKey] = { channels, categories: [] };
-                            }
-                        }
-                    } catch (err) {
-                        console.error('Error loading channels for forwarder:', err);
-                        if (forwarderSelfbotServerChannels[cacheKey]) {
-                            channels = forwarderSelfbotServerChannels[cacheKey].channels || [];
+                try {
+                    if (selectedServer) {
+                        const response = await fetch(`/api/bots/${forwarder.selfbot_id}/servers/${forwarder.server_id}/channels?discordServerId=${selectedServer.discord_server_id}`, {
+                            credentials: 'include'
+                        });
+                        if (response.ok) {
+                            channels = await response.json();
                         }
                     }
-                } else {
-                    channels = forwarderSelfbotServerChannels[cacheKey].channels || [];
+                } catch (err) {
+                    console.error('Error loading channels for forwarder:', err);
                 }
                 const channelMap = {};
                 channelIds.forEach(chId => {
@@ -3988,25 +4087,17 @@
                         serverSelect.value = forwarder.server_id;
                         await onForwarderServerChange();
                         if (currentForwarderSelfbotId && currentForwarderServerDbId && currentForwarderServerId) {
-                            const cacheKey = `${currentForwarderSelfbotId}_${currentForwarderServerDbId}`;
-                            if (!forwarderSelfbotServerChannels[cacheKey]) {
-                                try {
-                                    const [channelsRes, categoriesRes] = await Promise.all([
-                                        fetch(`/api/bots/${currentForwarderSelfbotId}/servers/${currentForwarderServerDbId}/channels?discordServerId=${currentForwarderServerId}`, {
-                                            credentials: 'include'
-                                        }),
-                                        fetch(`/api/servers/${currentForwarderServerDbId}/categories`, {
-                                            credentials: 'include'
-                                        })
-                                    ]);
-                                    if (channelsRes.ok && categoriesRes.ok) {
-                                        const channels = await channelsRes.json();
-                                        const categories = await categoriesRes.json();
-                                        forwarderSelfbotServerChannels[cacheKey] = { channels, categories };
-                                    }
-                                } catch (err) {
-                                    console.error('Error pre-loading channels:', err);
-                                }
+                            try {
+                                await Promise.all([
+                                    fetch(`/api/bots/${currentForwarderSelfbotId}/servers/${currentForwarderServerDbId}/channels?discordServerId=${currentForwarderServerId}`, {
+                                        credentials: 'include'
+                                    }),
+                                    fetch(`/api/servers/${currentForwarderServerDbId}/categories`, {
+                                        credentials: 'include'
+                                    })
+                                ]);
+                            } catch (err) {
+                                console.error('Error pre-loading channels:', err);
                             }
                         }
                         if (forwarder.source_channels) {
@@ -4070,16 +4161,11 @@
             }
             try {
                 let servers = [];
-                if (forwarderSelfbotServers[selfbotId]) {
-                    servers = forwarderSelfbotServers[selfbotId];
-                } else {
-                    const response = await fetch(`/api/bots/${selfbotId}/servers`, {
-                        credentials: 'include'
-                    });
-                    if (response.ok) {
-                        servers = await response.json();
-                        forwarderSelfbotServers[selfbotId] = servers;
-                    }
+                const response = await fetch(`/api/bots/${selfbotId}/servers`, {
+                    credentials: 'include'
+                });
+                if (response.ok) {
+                    servers = await response.json();
                 }
                 servers.forEach(server => {
                     const option = document.createElement('option');
@@ -4103,7 +4189,17 @@
                 fromChannelsBtn.disabled = true;
                 return;
             }
-            const servers = forwarderSelfbotServers[selfbotId] || [];
+            let servers = [];
+            try {
+                const response = await fetch(`/api/bots/${selfbotId}/servers`, {
+                    credentials: 'include'
+                });
+                if (response.ok) {
+                    servers = await response.json();
+                }
+            } catch (err) {
+                console.error('Error loading servers:', err);
+            }
             const serverDbIdNum = typeof serverDbId === 'string' ? parseInt(serverDbId) : serverDbId;
             const selectedServer = servers.find(s => {
                 const serverIdNum = typeof s.id === 'string' ? parseInt(s.id) : s.id;
@@ -4122,7 +4218,6 @@
             try {
                 const hiddenInput = document.getElementById('forwarder_from_channels');
                 selectedChannels = hiddenInput && hiddenInput.value ? hiddenInput.value.split(',').filter(Boolean) : [];
-                const cacheKey = `${currentForwarderSelfbotId}_${currentForwarderServerDbId}`;
                 let channels = [];
                 let categories = [];
                 const [channelsRes, categoriesRes] = await Promise.all([
@@ -4139,7 +4234,6 @@
                 }
                 channels = channelsRes.ok ? await channelsRes.json() : [];
                 categories = categoriesRes.ok ? await categoriesRes.json() : [];
-                forwarderSelfbotServerChannels[cacheKey] = { channels, categories };
                 allChannels = channels;
                 allCategories = categories;
                 document.getElementById('channelSelectorTitle').innerHTML = '<i class="fas fa-hashtag text-red-500"></i> Select From Channels';
@@ -4165,25 +4259,28 @@
             if (displayEl) {
                 displayEl.textContent = `${channelIds.length} channel${channelIds.length > 1 ? 's' : ''} selected`;
             }
-            if (selectedEl && currentForwarderSelfbotId && currentForwarderServerDbId) {
+            if (selectedEl && currentForwarderSelfbotId && currentForwarderServerDbId && currentForwarderServerId) {
                 try {
-                    const cacheKey = `${currentForwarderSelfbotId}_${currentForwarderServerDbId}`;
-                    const cached = forwarderSelfbotServerChannels[cacheKey];
-                    const channels = cached ? cached.channels : [];
-                    const channelMap = {};
-                    channels.forEach(ch => {
-                        if (channelIds.includes(ch.discord_channel_id)) {
-                            channelMap[ch.discord_channel_id] = ch.name || `Channel ${ch.discord_channel_id}`;
-                        }
+                    const response = await fetch(`/api/bots/${currentForwarderSelfbotId}/servers/${currentForwarderServerDbId}/channels?discordServerId=${currentForwarderServerId}`, {
+                        credentials: 'include'
                     });
-                    selectedEl.innerHTML = channelIds.map(chId => `
-                        <span class="inline-flex items-center gap-1.5 px-2.5 py-1.5 bg-red-600 text-white text-xs rounded-lg">
-                            ${channelMap[chId] ? `#${channelMap[chId]}` : `Channel ${chId}`}
-                            <button type="button" onclick="removeForwarderChannel('${chId}')" class="hover:text-red-200 transition-colors">
-                                <i class="fas fa-times"></i>
-                            </button>
-                        </span>
-                    `).join('');
+                    if (response.ok) {
+                        const channels = await response.json();
+                        const channelMap = {};
+                        channels.forEach(ch => {
+                            if (channelIds.includes(ch.discord_channel_id)) {
+                                channelMap[ch.discord_channel_id] = ch.name || `Channel ${ch.discord_channel_id}`;
+                            }
+                        });
+                        selectedEl.innerHTML = channelIds.map(chId => `
+                            <span class="inline-flex items-center gap-1.5 px-2.5 py-1.5 bg-red-600 text-white text-xs rounded-lg">
+                                ${channelMap[chId] ? `#${channelMap[chId]}` : `Channel ${chId}`}
+                                <button type="button" onclick="removeForwarderChannel('${chId}')" class="hover:text-red-200 transition-colors">
+                                    <i class="fas fa-times"></i>
+                                </button>
+                            </span>
+                        `).join('');
+                    }
                 } catch (err) {
                     console.error('Error loading channel names:', err);
                 }

@@ -900,11 +900,6 @@ export async function updateMemberLevelStats(memberId, updates = {}) {
         values.push(updates.chatIncrement);
     }
 
-    if (typeof updates.voiceMinutesTotalIncrement === 'number' && updates.voiceMinutesTotalIncrement !== 0) {
-        clauses.push('voice_minutes_total = voice_minutes_total + ?');
-        values.push(updates.voiceMinutesTotalIncrement);
-    }
-
     if (typeof updates.voiceMinutesActiveIncrement === 'number' && updates.voiceMinutesActiveIncrement !== 0) {
         clauses.push('voice_minutes_active = voice_minutes_active + ?');
         values.push(updates.voiceMinutesActiveIncrement);
@@ -913,6 +908,10 @@ export async function updateMemberLevelStats(memberId, updates = {}) {
     if (typeof updates.voiceMinutesAfkIncrement === 'number' && updates.voiceMinutesAfkIncrement !== 0) {
         clauses.push('voice_minutes_afk = voice_minutes_afk + ?');
         values.push(updates.voiceMinutesAfkIncrement);
+    }
+
+    if (updates.voiceMinutesActiveIncrement !== undefined || updates.voiceMinutesAfkIncrement !== undefined) {
+        clauses.push('voice_minutes_total = voice_minutes_active + voice_minutes_afk');
     }
 
     if (typeof updates.experienceIncrement === 'number' && updates.experienceIncrement !== 0) {
@@ -1142,17 +1141,19 @@ export async function getServerOverview(serverId) {
         channelCounts,
         categoriesCount,
         rolesCount,
+        levelingStats,
+        customRolesCount,
         memberSyncTimes,
         channelSyncTimes,
-        roleSyncTimes,
         categorySyncTimes,
+        roleSyncTimes,
         levelSyncTimes,
         settingsRows
     ] = await Promise.all([
         query(
             `SELECT 
                 COUNT(*) AS total,
-                SUM(CASE WHEN is_booster = 1 THEN 1 ELSE 0 END) AS boosters
+                SUM(CASE WHEN is_booster = 1 THEN 1 ELSE 0 END) AS unique_boosters
              FROM server_members
              WHERE server_id = ?`,
             [serverId]
@@ -1199,6 +1200,27 @@ export async function getServerOverview(serverId) {
             [serverId]
         ),
         query(
+            `SELECT 
+                COALESCE(SUM(experience), 0) AS total_experience,
+                COALESCE(AVG(level), 0) AS avg_level,
+                COALESCE(MAX(level), 0) AS max_level,
+                COALESCE(SUM(chat_total), 0) AS total_chat,
+                COALESCE(SUM(voice_minutes_total), 0) AS total_voice_minutes,
+                COALESCE(SUM(voice_minutes_active), 0) AS total_voice_active,
+                COALESCE(SUM(voice_minutes_afk), 0) AS total_voice_afk
+             FROM server_member_levels sml
+             INNER JOIN server_members sm ON sm.id = sml.member_id
+             WHERE sm.server_id = ?`,
+            [serverId]
+        ),
+        query(
+            `SELECT COUNT(DISTINCT smr.member_id) AS members_with_custom_roles
+             FROM server_member_roles smr
+             INNER JOIN server_members sm ON sm.id = smr.member_id
+             WHERE sm.server_id = ? AND smr.is_custom = 1`,
+            [serverId]
+        ),
+        query(
             `SELECT MAX(updated_at) AS last_updated
              FROM server_members
              WHERE server_id = ?`,
@@ -1212,13 +1234,13 @@ export async function getServerOverview(serverId) {
         ),
         query(
             `SELECT MAX(updated_at) AS last_updated
-             FROM server_roles
+             FROM server_categories
              WHERE server_id = ?`,
             [serverId]
         ),
         query(
             `SELECT MAX(updated_at) AS last_updated
-             FROM server_categories
+             FROM server_roles
              WHERE server_id = ?`,
             [serverId]
         ),
@@ -1252,22 +1274,31 @@ export async function getServerOverview(serverId) {
         ...serverRow,
         stats: {
             members_total: memberCounts[0]?.total || 0,
-            members_boosters: memberCounts[0]?.boosters || 0,
+            members_boosters: serverRow.total_boosters || 0,
+            members_unique_boosters: memberCounts[0]?.unique_boosters || 0,
             members_with_levels: leveledCount[0]?.leveled || 0,
             members_afk: afkCount[0]?.afk || 0,
+            members_with_custom_roles: customRolesCount[0]?.members_with_custom_roles || 0,
             channels_total: channelCounts[0]?.total || 0,
             channels_text: channelCounts[0]?.text_count || 0,
             channels_announcement: channelCounts[0]?.announcement_count || 0,
             channels_voice: channelCounts[0]?.voice_count || 0,
             channels_stage: channelCounts[0]?.stage_count || 0,
             categories_total: categoriesCount[0]?.count || 0,
-            roles_total: rolesCount[0]?.count || 0
+            roles_total: rolesCount[0]?.count || 0,
+            leveling_total_experience: Math.round(levelingStats[0]?.total_experience || 0),
+            leveling_avg_level: Math.round(levelingStats[0]?.avg_level * 100) / 100 || 0,
+            leveling_max_level: levelingStats[0]?.max_level || 0,
+            leveling_total_chat: levelingStats[0]?.total_chat || 0,
+            leveling_total_voice_minutes: levelingStats[0]?.total_voice_minutes || 0,
+            leveling_total_voice_active: levelingStats[0]?.total_voice_active || 0,
+            leveling_total_voice_afk: levelingStats[0]?.total_voice_afk || 0
         },
         sync: {
             members_last_updated: memberSyncTimes[0]?.last_updated || null,
             channels_last_updated: channelSyncTimes[0]?.last_updated || null,
-            roles_last_updated: roleSyncTimes[0]?.last_updated || null,
             categories_last_updated: categorySyncTimes[0]?.last_updated || null,
+            roles_last_updated: roleSyncTimes[0]?.last_updated || null,
             levels_last_updated: levelSyncTimes[0]?.last_updated || null,
             settings_last_updated: settingsLastUpdated
         },

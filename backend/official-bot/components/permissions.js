@@ -1,25 +1,16 @@
 import { PERMISSIONS } from "../../config.js";
 
-const permissionsCache = new Map();
-
 async function getGuildPermissions(guildId) {
-    if (permissionsCache.has(guildId)) {
-        return permissionsCache.get(guildId);
-    }
-
     try {
         const perms = await PERMISSIONS.getPermissions(guildId);
-        permissionsCache.set(guildId, perms);
         return perms;
     } catch (error) {
-
         const emptyPerms = {
             ADMIN_ROLES: [],
             STAFF_ROLES: [],
             SUPPORTER_ROLES: [],
             MEMBER_ROLES: []
         };
-        permissionsCache.set(guildId, emptyPerms);
         return emptyPerms;
     }
 }
