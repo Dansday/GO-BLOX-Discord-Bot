@@ -3247,6 +3247,7 @@
                         <label class="block text-xs sm:text-sm font-medium text-gray-300 mb-2">
                             <i class="fas fa-rocket mr-2"></i>Channel for Production
                         </label>
+                        <p class="text-xs text-gray-400 mb-2">Channel where bot interface and production messages will be sent</p>
                         <button type="button" onclick="openChannelSelector('production_channel')"
                             class="w-full px-3 sm:px-4 py-2.5 sm:py-3 bg-gray-700 border border-gray-600 rounded-lg text-white text-left flex items-center justify-between hover:border-gray-500 transition-all text-sm sm:text-base">
                             <span id="production_channel_display" class="text-gray-300">${config.production_channel && channelNames[config.production_channel] ? `#${channelNames[config.production_channel]}` : config.production_channel ? `Channel ${config.production_channel}` : 'Select channel...'}</span>
@@ -3259,6 +3260,7 @@
                         <label class="block text-xs sm:text-sm font-medium text-gray-300 mb-2">
                             <i class="fas fa-flask mr-2"></i>Channel for Testing
                         </label>
+                        <p class="text-xs text-gray-400 mb-2">Optional channel for testing bot features before deploying to production</p>
                         <button type="button" onclick="openChannelSelector('testing_channel')"
                             class="w-full px-3 sm:px-4 py-2.5 sm:py-3 bg-gray-700 border border-gray-600 rounded-lg text-white text-left flex items-center justify-between hover:border-gray-500 transition-all text-sm sm:text-base">
                             <span id="testing_channel_display" class="text-gray-300">${config.testing_channel && channelNames[config.testing_channel] ? `#${channelNames[config.testing_channel]}` : config.testing_channel ? `Channel ${config.testing_channel}` : 'Select channel...'}</span>
@@ -3271,6 +3273,7 @@
                         <label class="block text-xs sm:text-sm font-medium text-gray-300 mb-2">
                             <i class="fas fa-palette mr-2"></i>Default Embed Color
                         </label>
+                        <p class="text-xs text-gray-400 mb-2">Default color for all bot embeds. Use hex format (e.g., #FF0000 for red)</p>
                         <div class="flex items-center gap-3">
                             <input type="color" id="embed_color" name="embed_color" value="${config.embed_color || '#FF0000'}"
                                 class="w-16 h-10 sm:w-20 sm:h-12 rounded-lg cursor-pointer border border-gray-600 bg-gray-700">
@@ -3278,13 +3281,13 @@
                                 class="flex-1 px-3 sm:px-4 py-2.5 sm:py-3 bg-gray-700 border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent transition-all text-sm sm:text-base"
                                 placeholder="#FF5733" pattern="^#[0-9A-Fa-f]{6}$">
                         </div>
-                        <p class="mt-1.5 text-xs text-gray-500">Hex color format (e.g., #FF0000)</p>
                     </div>
                     <!-- Default Embed Footer -->
                     <div>
                         <label class="block text-xs sm:text-sm font-medium text-gray-300 mb-2">
                             <i class="fas fa-align-left mr-2"></i>Default Embed Footer
                         </label>
+                        <p class="text-xs text-gray-400 mb-2">Footer text displayed at the bottom of all bot embeds. Use placeholders below for dynamic content</p>
                         <input type="text" id="embed_footer" name="embed_footer" value="${(config.embed_footer || '').replace(/"/g, '&quot;')}"
                             class="w-full px-3 sm:px-4 py-2.5 sm:py-3 bg-gray-700 border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent transition-all text-sm sm:text-base"
                             placeholder="Enter footer text...">
@@ -3348,6 +3351,7 @@
                         <label class="block text-xs sm:text-sm font-medium text-gray-300 mb-2">
                             <i class="fas fa-hashtag mr-2"></i>Welcome Channels
                         </label>
+                        <p class="text-xs text-gray-400 mb-2">Channels where welcome messages will be sent when new members join. You can select multiple channels</p>
                         <button type="button" onclick="openChannelSelectorMultiselect('welcomer_channels')"
                             class="w-full px-3 sm:px-4 py-2.5 sm:py-3 bg-gray-700 border border-gray-600 rounded-lg text-white text-left flex items-center justify-between hover:border-gray-500 transition-all text-sm sm:text-base">
                             <span id="welcomer_channels_display" class="text-gray-300">
@@ -3381,6 +3385,7 @@
                                 <span class="sm:inline">Add Message</span>
                             </button>
                         </div>
+                        <p class="text-xs text-gray-400 mb-2">Messages sent randomly when new members join. Supports placeholders like {user}, {server}, etc.</p>
                         <div id="welcomer_messages_list" class="space-y-2">
                             ${config.messages && config.messages.length > 0
                     ? config.messages.map((msg, index) => `
@@ -3448,6 +3453,7 @@
                         <label class="block text-xs sm:text-sm font-medium text-gray-300 mb-2">
                             <i class="fas fa-hashtag mr-2"></i>Booster Channels
                         </label>
+                        <p class="text-xs text-gray-400 mb-2">Channels where booster messages will be sent when members boost the server. You can select multiple channels</p>
                         <button type="button" onclick="openChannelSelectorMultiselect('booster_channels')"
                             class="w-full px-3 sm:px-4 py-2.5 sm:py-3 bg-gray-700 border border-gray-600 rounded-lg text-white text-left flex items-center justify-between hover:border-gray-500 transition-all text-sm sm:text-base">
                             <span id="booster_channels_display" class="text-gray-300">
@@ -3481,6 +3487,7 @@
                                 <span class="sm:inline">Add Message</span>
                             </button>
                         </div>
+                        <p class="text-xs text-gray-400 mb-2">Messages sent randomly when members boost the server. Supports placeholders like {user}, {server}, etc.</p>
                         <div id="booster_messages_list" class="space-y-2">
                             ${config.messages && config.messages.length > 0
                     ? config.messages.map((msg, index) => `
@@ -3539,6 +3546,7 @@
                             <label class="block text-xs sm:text-sm font-medium text-gray-300 mb-2">
                                 <i class="fas fa-shield-alt text-red-500 mr-2"></i>Admin Roles
                             </label>
+                            <p class="text-xs text-gray-400 mb-2">Roles with full access to all bot features and settings</p>
                             <button type="button" onclick="openRoleSelector('admin_roles')"
                                 class="w-full px-3 sm:px-4 py-2.5 sm:py-3 bg-gray-700 hover:bg-gray-600 border border-gray-600 rounded-lg text-left transition-colors flex items-center justify-between group">
                                 <div class="flex items-center gap-2 sm:gap-3 flex-1 min-w-0">
@@ -3561,6 +3569,7 @@
                             <label class="block text-xs sm:text-sm font-medium text-gray-300 mb-2">
                                 <i class="fas fa-user-tie text-red-500 mr-2"></i>Staff Roles
                             </label>
+                            <p class="text-xs text-gray-400 mb-2">Roles with access to most features except setup. Can use send message, custom supporter role, etc.</p>
                             <button type="button" onclick="openRoleSelector('staff_roles')"
                                 class="w-full px-3 sm:px-4 py-2.5 sm:py-3 bg-gray-700 hover:bg-gray-600 border border-gray-600 rounded-lg text-left transition-colors flex items-center justify-between group">
                                 <div class="flex items-center gap-2 sm:gap-3 flex-1 min-w-0">
@@ -3583,6 +3592,7 @@
                             <label class="block text-xs sm:text-sm font-medium text-gray-300 mb-2">
                                 <i class="fas fa-heart text-red-500 mr-2"></i>Supporter Roles
                             </label>
+                            <p class="text-xs text-gray-400 mb-2">Roles with access to custom supporter role feature, leveling, feedback, and AFK</p>
                             <button type="button" onclick="openRoleSelector('supporter_roles')"
                                 class="w-full px-3 sm:px-4 py-2.5 sm:py-3 bg-gray-700 hover:bg-gray-600 border border-gray-600 rounded-lg text-left transition-colors flex items-center justify-between group">
                                 <div class="flex items-center gap-2 sm:gap-3 flex-1 min-w-0">
@@ -3605,6 +3615,7 @@
                             <label class="block text-xs sm:text-sm font-medium text-gray-300 mb-2">
                                 <i class="fas fa-users text-red-500 mr-2"></i>Member Roles
                             </label>
+                            <p class="text-xs text-gray-400 mb-2">Basic member roles with access to leveling, feedback, and AFK features. Required for earning XP</p>
                             <button type="button" onclick="openRoleSelector('member_roles')"
                                 class="w-full px-3 sm:px-4 py-2.5 sm:py-3 bg-gray-700 hover:bg-gray-600 border border-gray-600 rounded-lg text-left transition-colors flex items-center justify-between group">
                                 <div class="flex items-center gap-2 sm:gap-3 flex-1 min-w-0">
@@ -3655,6 +3666,7 @@
                             <label class="block text-xs sm:text-sm font-medium text-gray-300 mb-2">
                                 <i class="fas fa-arrow-up text-red-500 mr-2"></i>Role Start (Top/Highest Position)
                             </label>
+                            <p class="text-xs text-gray-400 mb-2">Highest role position where custom supporter roles will be created. Roles will be placed below this</p>
                             <button type="button" onclick="openRoleSelectorSingle('role_start')"
                                 class="w-full px-3 sm:px-4 py-2.5 sm:py-3 bg-gray-700 hover:bg-gray-600 border border-gray-600 rounded-lg text-left transition-colors flex items-center justify-between group">
                                 <div class="flex items-center gap-2 sm:gap-3 flex-1 min-w-0">
@@ -3677,6 +3689,7 @@
                             <label class="block text-xs sm:text-sm font-medium text-gray-300 mb-2">
                                 <i class="fas fa-arrow-down text-red-500 mr-2"></i>Role End (Bottom/Lowest Position)
                             </label>
+                            <p class="text-xs text-gray-400 mb-2">Lowest role position where custom supporter roles will be created. Roles will be placed above this</p>
                             <button type="button" onclick="openRoleSelectorSingle('role_end')"
                                 class="w-full px-3 sm:px-4 py-2.5 sm:py-3 bg-gray-700 hover:bg-gray-600 border border-gray-600 rounded-lg text-left transition-colors flex items-center justify-between group">
                                 <div class="flex items-center gap-2 sm:gap-3 flex-1 min-w-0">
@@ -3725,6 +3738,7 @@
                             <label class="block text-xs sm:text-sm font-medium text-gray-300 mb-2">
                                 <i class="fas fa-comment-dots text-red-500 mr-2"></i>Feedback Channel
                             </label>
+                            <p class="text-xs text-gray-400 mb-2">Channel where user feedback submissions will be sent. Staff roles will be mentioned automatically</p>
                             <button type="button" onclick="openChannelSelector('feedback_channel')"
                                 class="w-full px-3 sm:px-4 py-2.5 sm:py-3 bg-gray-700 border border-gray-600 rounded-lg text-white text-left flex items-center justify-between hover:border-gray-500 transition-all text-sm sm:text-base">
                                 <span id="feedback_channel_display" class="text-gray-300">${channelId && channelNames[channelId] ? `#${channelNames[channelId]}` : channelId ? `Channel ${channelId}` : 'Select channel...'}</span>
@@ -3803,6 +3817,7 @@
                             <label class="block text-xs sm:text-sm font-medium text-gray-300 mb-2">
                                 <i class="fas fa-tasks text-red-500 mr-2"></i>Forwarder Type
                             </label>
+                            <p class="text-xs text-gray-400 mb-2">Switch between testing and production forwarder configurations. Each type has its own list of forwarders</p>
                             <select id="forwarder_type" onchange="switchForwarderType()"
                                 class="w-full px-3 sm:px-4 py-2.5 sm:py-3 bg-gray-700 border border-gray-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent transition-all text-sm sm:text-base">
                                 <option value="testing">Testing</option>
@@ -3896,6 +3911,7 @@
                                 <label class="block text-xs sm:text-sm font-medium text-gray-300 mb-2">
                                     Base XP
                                 </label>
+                                <p class="text-xs text-gray-400 mb-2">XP required to reach level 2. Higher levels use exponential formula: Base XP × (Multiplier ^ (Level - 2))</p>
                                 <select id="base_xp" name="base_xp" class="w-full px-3 sm:px-4 py-2.5 sm:py-3 bg-gray-800 border border-gray-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent text-sm sm:text-base">
                                     ${baseXPOptions}
                                 </select>
@@ -3904,6 +3920,7 @@
                                 <label class="block text-xs sm:text-sm font-medium text-gray-300 mb-2">
                                     Multiplier
                                 </label>
+                                <p class="text-xs text-gray-400 mb-2">Exponential multiplier for level requirements. Higher values make leveling progressively harder</p>
                                 <select id="multiplier" name="multiplier" class="w-full px-3 sm:px-4 py-2.5 sm:py-3 bg-gray-800 border border-gray-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent text-sm sm:text-base">
                                     ${multiplierOptions}
                                 </select>
@@ -3920,6 +3937,7 @@
                                 <label class="block text-xs sm:text-sm font-medium text-gray-300 mb-2">
                                     XP Per Message
                                 </label>
+                                <p class="text-xs text-gray-400 mb-2">XP awarded for each eligible message (must pass cooldown and have member role)</p>
                                 <select id="message_xp" name="message_xp" class="w-full px-3 sm:px-4 py-2.5 sm:py-3 bg-gray-800 border border-gray-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent text-sm sm:text-base">
                                     ${xpOptions}
                                 </select>
@@ -3928,6 +3946,7 @@
                                 <label class="block text-xs sm:text-sm font-medium text-gray-300 mb-2">
                                     Cooldown (seconds)
                                 </label>
+                                <p class="text-xs text-gray-400 mb-2">Minimum time between messages to earn XP. Messages sent too quickly won't award XP</p>
                                 <select id="message_cooldown" name="message_cooldown" class="w-full px-3 sm:px-4 py-2.5 sm:py-3 bg-gray-800 border border-gray-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent text-sm sm:text-base">
                                     ${cooldownOptions}
                                 </select>
@@ -3942,16 +3961,18 @@
                         <div class="space-y-4">
                             <div>
                                 <label class="block text-xs sm:text-sm font-medium text-gray-300 mb-2">
-                                    XP Per Minute (Active)
+                                    Active Voice XP (per cooldown interval)
                                 </label>
+                                <p class="text-xs text-gray-400 mb-2">XP awarded per cooldown interval when actively in voice</p>
                                 <select id="voice_xp_per_minute" name="voice_xp_per_minute" class="w-full px-3 sm:px-4 py-2.5 sm:py-3 bg-gray-800 border border-gray-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent text-sm sm:text-base">
                                     ${voiceXPOptions}
                                 </select>
                             </div>
                             <div>
                                 <label class="block text-xs sm:text-sm font-medium text-gray-300 mb-2">
-                                    XP Per Minute (AFK)
+                                    AFK Voice XP (per cooldown interval)
                                 </label>
+                                <p class="text-xs text-gray-400 mb-2">XP awarded per cooldown interval when AFK in voice</p>
                                 <select id="voice_afk_xp_per_minute" name="voice_afk_xp_per_minute" class="w-full px-3 sm:px-4 py-2.5 sm:py-3 bg-gray-800 border border-gray-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent text-sm sm:text-base">
                                     ${voiceAfkXPOptions}
                                 </select>
@@ -3960,6 +3981,7 @@
                                 <label class="block text-xs sm:text-sm font-medium text-gray-300 mb-2">
                                     Cooldown (seconds)
                                 </label>
+                                <p class="text-xs text-gray-400 mb-2">How often voice XP is checked and awarded. XP amount above is given each interval</p>
                                 <select id="voice_cooldown" name="voice_cooldown" class="w-full px-3 sm:px-4 py-2.5 sm:py-3 bg-gray-800 border border-gray-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent text-sm sm:text-base">
                                     ${voiceCooldownOptions}
                                 </select>
