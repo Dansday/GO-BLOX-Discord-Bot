@@ -1,7 +1,7 @@
 import { getEmbedConfig, getServerForCurrentBot } from "../../config.js";
 import { ActionRowBuilder, ButtonBuilder, ButtonStyle, EmbedBuilder } from 'discord.js';
 import logger from "../../logger.js";
-import { hasPermission } from './permissions.js';
+import { hasPermission, getPermissionDeniedMessage } from './permissions.js';
 import { handleSendMessageButton, handleSendMessageModal, handleChannelSelection, handleRoleSelection, handleCompleteSetup } from './interface/sendmessage.js';
 import { handleCustomSupporterRoleButton, handleCustomSupporterRoleModal, handleEditCustomSupporterRole, handleDeleteCustomSupporterRole } from './interface/customsupporterrole.js';
 import { handleFeedbackButton, handleFeedbackModal } from './interface/feedback.js';
@@ -20,6 +20,11 @@ async function handleMenuButton(interaction) {
 
     // Menu requires member+ permission
     if (!(await hasPermission(member, 'leveling'))) {
+        const errorMessage = await getPermissionDeniedMessage(interaction.guild, 'menu');
+        await interaction.reply({
+            content: errorMessage,
+            flags: 64
+        }).catch(() => null);
         return;
     }
 

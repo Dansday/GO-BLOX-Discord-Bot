@@ -1,6 +1,6 @@
 import { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } from "discord.js";
 import { getEmbedConfig, getBotConfig } from "../../../config.js";
-import { hasPermission } from "../permissions.js";
+import { hasPermission, getPermissionDeniedMessage } from "../permissions.js";
 import db from "../../../../database/database.js";
 import logger from "../../../logger.js";
 import { getLevelRequirement, determineLevel, sendLevelChangeDM } from "../leveling.js";
@@ -266,6 +266,11 @@ function createDmToggleRow(dmEnabled = true) {
 export async function handleLevelingButton(interaction) {
     try {
         if (!(await hasPermission(interaction.member, "leveling"))) {
+            const errorMessage = await getPermissionDeniedMessage(interaction.guild, 'leveling');
+            await interaction.reply({
+                content: errorMessage,
+                flags: 64
+            }).catch(() => null);
             return;
         }
 
@@ -324,6 +329,16 @@ export async function handleLevelingButton(interaction) {
 export async function handleLeaderboardButton(interaction) {
     try {
         if (!(await hasPermission(interaction.member, "leveling"))) {
+            const errorMessage = await getPermissionDeniedMessage(interaction.guild, 'leveling');
+            await interaction.update({
+                content: errorMessage,
+                components: [],
+                embeds: [],
+                flags: 64
+            }).catch(() => interaction.reply({
+                content: errorMessage,
+                flags: 64
+            }).catch(() => null));
             return;
         }
 
@@ -367,6 +382,16 @@ export async function handleLeaderboardButton(interaction) {
 export async function handleDmToggleButton(interaction) {
     try {
         if (!(await hasPermission(interaction.member, "leveling"))) {
+            const errorMessage = await getPermissionDeniedMessage(interaction.guild, 'leveling');
+            await interaction.update({
+                content: errorMessage,
+                components: [],
+                embeds: [],
+                flags: 64
+            }).catch(() => interaction.reply({
+                content: errorMessage,
+                flags: 64
+            }).catch(() => null));
             return;
         }
 

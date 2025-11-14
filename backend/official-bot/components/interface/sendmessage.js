@@ -1,7 +1,7 @@
 import { ModalBuilder, TextInputBuilder, ActionRowBuilder, EmbedBuilder, ChannelSelectMenuBuilder, RoleSelectMenuBuilder, ButtonBuilder, ButtonStyle, TextInputStyle } from 'discord.js';
 import { getEmbedConfig } from "../../../config.js";
 import logger from "../../../logger.js";
-import { hasPermission } from "../permissions.js";
+import { hasPermission, getPermissionDeniedMessage } from "../permissions.js";
 
 function parseColor(colorInput) {
     if (!colorInput || colorInput.trim() === '') {
@@ -50,6 +50,11 @@ export async function handleSendMessageButton(interaction) {
     try {
 
         if (!(await hasPermission(interaction.member, 'send_message'))) {
+            const errorMessage = await getPermissionDeniedMessage(interaction.guild, 'send_message');
+            await interaction.reply({
+                content: errorMessage,
+                flags: 64
+            }).catch(() => null);
             return;
         }
 
@@ -79,7 +84,16 @@ export async function handleSendMessageButton(interaction) {
 export async function handleChannelSelection(interaction) {
     try {
 
-        if (!hasPermission(interaction.member, 'send_message')) {
+        if (!(await hasPermission(interaction.member, 'send_message'))) {
+            const errorMessage = await getPermissionDeniedMessage(interaction.guild, 'send_message');
+            await interaction.update({
+                content: errorMessage,
+                components: [],
+                flags: 64
+            }).catch(() => interaction.reply({
+                content: errorMessage,
+                flags: 64
+            }).catch(() => null));
             return;
         }
 
@@ -124,7 +138,16 @@ export async function handleChannelSelection(interaction) {
 export async function handleRoleSelection(interaction) {
     try {
 
-        if (!hasPermission(interaction.member, 'send_message')) {
+        if (!(await hasPermission(interaction.member, 'send_message'))) {
+            const errorMessage = await getPermissionDeniedMessage(interaction.guild, 'send_message');
+            await interaction.update({
+                content: errorMessage,
+                components: [],
+                flags: 64
+            }).catch(() => interaction.reply({
+                content: errorMessage,
+                flags: 64
+            }).catch(() => null));
             return;
         }
 
@@ -202,7 +225,16 @@ export async function handleRoleSelection(interaction) {
 export async function handleCompleteSetup(interaction) {
     try {
 
-        if (!hasPermission(interaction.member, 'send_message')) {
+        if (!(await hasPermission(interaction.member, 'send_message'))) {
+            const errorMessage = await getPermissionDeniedMessage(interaction.guild, 'send_message');
+            await interaction.update({
+                content: errorMessage,
+                components: [],
+                flags: 64
+            }).catch(() => interaction.reply({
+                content: errorMessage,
+                flags: 64
+            }).catch(() => null));
             return;
         }
 
@@ -278,8 +310,13 @@ export async function handleCompleteSetup(interaction) {
 
 export async function handleSendMessageModal(interaction) {
     try {
+        await interaction.deferReply({ flags: 64 });
 
-        if (!hasPermission(interaction.member, 'send_message')) {
+        if (!(await hasPermission(interaction.member, 'send_message'))) {
+            const errorMessage = await getPermissionDeniedMessage(interaction.guild, 'send_message');
+            await interaction.editReply({
+                content: errorMessage
+            }).catch(() => null);
             return;
         }
 

@@ -1,7 +1,7 @@
 import { ModalBuilder, TextInputBuilder, ActionRowBuilder, TextInputStyle, EmbedBuilder, ButtonBuilder, ButtonStyle } from 'discord.js';
 import { getEmbedConfig, CUSTOM_SUPPORTER_ROLE, getBotConfig } from '../../../config.js';
 import logger from '../../../logger.js';
-import { hasPermission } from '../permissions.js';
+import { hasPermission, getPermissionDeniedMessage } from '../permissions.js';
 import db from '../../../../database/database.js';
 
 
@@ -166,6 +166,11 @@ export async function handleCustomSupporterRoleButton(interaction) {
         const member = interaction.member;
 
         if (!(await hasPermission(member, 'custom_supporter_role'))) {
+            const errorMessage = await getPermissionDeniedMessage(interaction.guild, 'custom_supporter_role');
+            await interaction.reply({
+                content: errorMessage,
+                flags: 64
+            }).catch(() => null);
             return;
         }
 
@@ -255,7 +260,17 @@ export async function handleEditCustomSupporterRole(interaction) {
     try {
         const member = interaction.member;
 
-        if (!hasPermission(member, 'custom_supporter_role')) {
+        if (!(await hasPermission(member, 'custom_supporter_role'))) {
+            const errorMessage = await getPermissionDeniedMessage(interaction.guild, 'custom_supporter_role');
+            await interaction.update({
+                content: errorMessage,
+                components: [],
+                embeds: [],
+                flags: 64
+            }).catch(() => interaction.reply({
+                content: errorMessage,
+                flags: 64
+            }).catch(() => null));
             return;
         }
 
@@ -335,7 +350,11 @@ export async function handleDeleteCustomSupporterRole(interaction) {
 
         const member = interaction.member;
 
-        if (!hasPermission(member, 'custom_supporter_role')) {
+        if (!(await hasPermission(member, 'custom_supporter_role'))) {
+            const errorMessage = await getPermissionDeniedMessage(interaction.guild, 'custom_supporter_role');
+            await interaction.editReply({
+                content: errorMessage
+            }).catch(() => null);
             return;
         }
 
@@ -386,7 +405,11 @@ export async function handleCustomSupporterRoleModal(interaction) {
         const member = interaction.member;
         const guild = interaction.guild;
 
-        if (!hasPermission(member, 'custom_supporter_role')) {
+        if (!(await hasPermission(member, 'custom_supporter_role'))) {
+            const errorMessage = await getPermissionDeniedMessage(interaction.guild, 'custom_supporter_role');
+            await interaction.editReply({
+                content: errorMessage
+            }).catch(() => null);
             return;
         }
 

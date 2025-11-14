@@ -1,7 +1,7 @@
 import { ModalBuilder, TextInputBuilder, ActionRowBuilder, TextInputStyle, EmbedBuilder, ButtonBuilder, ButtonStyle } from 'discord.js';
 import { getEmbedConfig, getBotConfig } from '../../../config.js';
 import logger from '../../../logger.js';
-import { hasPermission } from '../permissions.js';
+import { hasPermission, getPermissionDeniedMessage } from '../permissions.js';
 import db from '../../../../database/database.js';
 
 function stripAfkPrefix(name) {
@@ -177,6 +177,11 @@ export async function handleAFKButton(interaction) {
         const member = interaction.member;
 
         if (!(await hasPermission(member, 'afk'))) {
+            const errorMessage = await getPermissionDeniedMessage(interaction.guild, 'afk');
+            await interaction.reply({
+                content: errorMessage,
+                flags: 64
+            }).catch(() => null);
             return;
         }
 
@@ -268,7 +273,11 @@ export async function handleAFKModal(interaction) {
 
         const member = interaction.member;
 
-        if (!hasPermission(member, 'afk')) {
+        if (!(await hasPermission(member, 'afk'))) {
+            const errorMessage = await getPermissionDeniedMessage(interaction.guild, 'afk');
+            await interaction.editReply({
+                content: errorMessage
+            }).catch(() => null);
             return;
         }
 
@@ -314,7 +323,17 @@ export async function handleRemoveAFKButton(interaction) {
     try {
         const member = interaction.member;
 
-        if (!hasPermission(member, 'afk')) {
+        if (!(await hasPermission(member, 'afk'))) {
+            const errorMessage = await getPermissionDeniedMessage(interaction.guild, 'afk');
+            await interaction.update({
+                content: errorMessage,
+                components: [],
+                embeds: [],
+                flags: 64
+            }).catch(() => interaction.reply({
+                content: errorMessage,
+                flags: 64
+            }).catch(() => null));
             return;
         }
 

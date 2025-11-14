@@ -1,13 +1,18 @@
 import { ModalBuilder, TextInputBuilder, ActionRowBuilder, TextInputStyle, EmbedBuilder } from 'discord.js';
 import { getEmbedConfig, PERMISSIONS, FEEDBACK } from '../../../config.js';
 import logger from '../../../logger.js';
-import { hasPermission } from '../permissions.js';
+import { hasPermission, getPermissionDeniedMessage } from '../permissions.js';
 
 export async function handleFeedbackButton(interaction) {
     try {
         const member = interaction.member;
 
         if (!(await hasPermission(member, 'feedback'))) {
+            const errorMessage = await getPermissionDeniedMessage(interaction.guild, 'feedback');
+            await interaction.reply({
+                content: errorMessage,
+                flags: 64
+            }).catch(() => null);
             return;
         }
 
@@ -47,6 +52,10 @@ export async function handleFeedbackModal(interaction) {
         const user = interaction.user;
 
         if (!(await hasPermission(member, 'feedback'))) {
+            const errorMessage = await getPermissionDeniedMessage(interaction.guild, 'feedback');
+            await interaction.editReply({
+                content: errorMessage
+            }).catch(() => null);
             return;
         }
 

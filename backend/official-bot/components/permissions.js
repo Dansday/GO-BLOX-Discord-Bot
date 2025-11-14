@@ -63,3 +63,100 @@ export async function hasPermission(member, action) {
 
     return false;
 }
+
+export async function getRequiredRolesForAction(guild, action) {
+    try {
+        const perms = await getGuildPermissions(guild.id);
+        const roleNames = [];
+
+        if (action === 'send_message') {
+            if (perms.STAFF_ROLES && perms.STAFF_ROLES.length > 0) {
+                perms.STAFF_ROLES.forEach(roleId => {
+                    const role = guild.roles.cache.get(roleId);
+                    if (role) roleNames.push(role.name);
+                });
+            }
+            if (perms.ADMIN_ROLES && perms.ADMIN_ROLES.length > 0) {
+                perms.ADMIN_ROLES.forEach(roleId => {
+                    const role = guild.roles.cache.get(roleId);
+                    if (role) roleNames.push(role.name);
+                });
+            }
+            return roleNames.length > 0 ? roleNames : ['Staff or Admin'];
+        }
+
+        if (action === 'custom_supporter_role') {
+            if (perms.SUPPORTER_ROLES && perms.SUPPORTER_ROLES.length > 0) {
+                perms.SUPPORTER_ROLES.forEach(roleId => {
+                    const role = guild.roles.cache.get(roleId);
+                    if (role) roleNames.push(role.name);
+                });
+            }
+            if (perms.STAFF_ROLES && perms.STAFF_ROLES.length > 0) {
+                perms.STAFF_ROLES.forEach(roleId => {
+                    const role = guild.roles.cache.get(roleId);
+                    if (role) roleNames.push(role.name);
+                });
+            }
+            if (perms.ADMIN_ROLES && perms.ADMIN_ROLES.length > 0) {
+                perms.ADMIN_ROLES.forEach(roleId => {
+                    const role = guild.roles.cache.get(roleId);
+                    if (role) roleNames.push(role.name);
+                });
+            }
+            return roleNames.length > 0 ? roleNames : ['Supporter, Staff, or Admin'];
+        }
+
+        if (action === 'feedback' || action === 'afk' || action === 'leveling' || action === 'menu') {
+            if (perms.MEMBER_ROLES && perms.MEMBER_ROLES.length > 0) {
+                perms.MEMBER_ROLES.forEach(roleId => {
+                    const role = guild.roles.cache.get(roleId);
+                    if (role) roleNames.push(role.name);
+                });
+            }
+            if (perms.SUPPORTER_ROLES && perms.SUPPORTER_ROLES.length > 0) {
+                perms.SUPPORTER_ROLES.forEach(roleId => {
+                    const role = guild.roles.cache.get(roleId);
+                    if (role) roleNames.push(role.name);
+                });
+            }
+            if (perms.STAFF_ROLES && perms.STAFF_ROLES.length > 0) {
+                perms.STAFF_ROLES.forEach(roleId => {
+                    const role = guild.roles.cache.get(roleId);
+                    if (role) roleNames.push(role.name);
+                });
+            }
+            if (perms.ADMIN_ROLES && perms.ADMIN_ROLES.length > 0) {
+                perms.ADMIN_ROLES.forEach(roleId => {
+                    const role = guild.roles.cache.get(roleId);
+                    if (role) roleNames.push(role.name);
+                });
+            }
+            return roleNames.length > 0 ? roleNames : ['Member, Supporter, Staff, or Admin'];
+        }
+
+        return ['Unknown'];
+    } catch (error) {
+        return ['Unknown'];
+    }
+}
+
+export async function getPermissionDeniedMessage(guild, action) {
+    const requiredRoles = await getRequiredRolesForAction(guild, action);
+    const roleList = requiredRoles.length > 0 
+        ? requiredRoles.map(role => `**${role}**`).join(', ')
+        : 'the required role';
+
+    const actionNames = {
+        'send_message': 'Send Message',
+        'custom_supporter_role': 'Custom Supporter Role',
+        'feedback': 'Feedback',
+        'afk': 'AFK',
+        'leveling': 'Leveling',
+        'menu': 'Menu'
+    };
+
+    const actionName = actionNames[action] || action;
+
+    return `❌ **Permission Denied**\n\nYou need one of the following roles to use **${actionName}**:\n${roleList}\n\nPlease contact a server administrator if you believe this is an error.`;
+}
