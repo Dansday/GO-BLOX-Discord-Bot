@@ -2,7 +2,6 @@ import { getEmbedConfig, getServerForCurrentBot } from "../../config.js";
 import { ActionRowBuilder, ButtonBuilder, ButtonStyle, EmbedBuilder } from 'discord.js';
 import logger from "../../logger.js";
 import { hasPermission, getPermissionDeniedMessage } from './permissions.js';
-import { handleSendMessageButton, handleSendMessageModal, handleChannelSelection, handleRoleSelection, handleCompleteSetup } from './interface/sendmessage.js';
 import { handleCustomSupporterRoleButton, handleCustomSupporterRoleModal, handleEditCustomSupporterRole, handleDeleteCustomSupporterRole } from './interface/customsupporterrole.js';
 import { handleFeedbackButton, handleFeedbackModal } from './interface/feedback.js';
 import { handleAFKButton, handleAFKModal, handleRemoveAFKButton } from './interface/afk.js';
@@ -29,13 +28,6 @@ async function handleMenuButton(interaction) {
     }
 
     const buttons = [];
-
-    if (await hasPermission(member, 'send_message')) {
-        buttons.push(new ButtonBuilder()
-            .setCustomId('bot_send_message')
-            .setLabel('📤 Send Message')
-            .setStyle(ButtonStyle.Success));
-    }
 
     if (await hasPermission(member, 'custom_supporter_role')) {
         buttons.push(new ButtonBuilder()
@@ -103,9 +95,6 @@ export async function handleButtonInteraction(interaction, client) {
         case 'bot_menu':
             await handleMenuButton(interaction);
             break;
-        case 'bot_send_message':
-            await handleSendMessageButton(interaction);
-            break;
         case 'bot_custom_supporter_role':
             await handleCustomSupporterRoleButton(interaction);
             break;
@@ -138,16 +127,11 @@ export async function handleButtonInteraction(interaction, client) {
             await handleDmToggleButton(interaction);
             break;
         default:
-
-            if (customId.startsWith('send_message_complete_')) {
-                await handleCompleteSetup(interaction);
-            } else {
-                await logger.log(`🔍 Unknown button interaction: ${customId}`);
-                await interaction.reply({
-                    content: '❌ Unknown button interaction.',
-                    flags: 64
-                });
-            }
+            await logger.log(`🔍 Unknown button interaction: ${customId}`);
+            await interaction.reply({
+                content: '❌ Unknown button interaction.',
+                flags: 64
+            });
     }
 }
 
@@ -261,9 +245,7 @@ function init(client) {
                 const customId = interaction.customId;
                 await logger.log(`📝 Modal submitted: "${customId}" by ${user.tag} (${user.id}) in ${interaction.guild?.name || 'DM'}`);
 
-                if (interaction.customId.startsWith('send_message_modal_')) {
-                    await handleSendMessageModal(interaction);
-                } else if (interaction.customId === 'custom_supporter_role_create') {
+                if (interaction.customId === 'custom_supporter_role_create') {
                     await handleCustomSupporterRoleModal(interaction);
                 } else if (interaction.customId === 'feedback_submit') {
                     await handleFeedbackModal(interaction);
@@ -304,11 +286,7 @@ function init(client) {
                 const selectedChannels = interaction.values;
                 await logger.log(`📋 Channel selected: "${customId}" → [${selectedChannels.join(', ')}] by ${user.tag} (${user.id}) in ${interaction.guild?.name || 'DM'}`);
 
-                if (interaction.customId === 'send_message_channel_select') {
-                    await handleChannelSelection(interaction);
-                } else {
-                    await logger.log(`⚠️ Unknown channel select: "${customId}" by ${user.tag} (${user.id})`);
-                }
+                await logger.log(`⚠️ Unknown channel select: "${customId}" by ${user.tag} (${user.id})`);
             } catch (error) {
                 await logger.log(`❌ Channel selection error: ${error.message}`);
 
@@ -341,11 +319,7 @@ function init(client) {
                 const selectedRoles = interaction.values;
                 await logger.log(`👥 Role selected: "${customId}" → [${selectedRoles.join(', ')}] by ${user.tag} (${user.id}) in ${interaction.guild?.name || 'DM'}`);
 
-                if (interaction.customId.startsWith('send_message_role_select_')) {
-                    await handleRoleSelection(interaction);
-                } else {
-                    await logger.log(`⚠️ Unknown role select: "${customId}" by ${user.tag} (${user.id})`);
-                }
+                await logger.log(`⚠️ Unknown role select: "${customId}" by ${user.tag} (${user.id})`);
             } catch (error) {
                 await logger.log(`❌ Role selection error in interface.js: ${error.message}`);
                 await logger.log(`❌ Role selection error stack: ${error.stack}`);

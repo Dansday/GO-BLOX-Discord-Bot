@@ -402,7 +402,7 @@ export async function init() {
     await verifyBotStatuses();
 
     app = express();
-    app.use(express.json());
+    app.use(express.json({ limit: '10mb' }));
 
     if (!process.env.SESSION_SECRET) {
         throw new Error('Missing SESSION_SECRET environment variable');
@@ -915,6 +915,101 @@ export async function init() {
             res.json(roles);
         } catch (error) {
             res.status(500).json({ error: error.message });
+        }
+    });
+
+    app.post('/api/servers/:id/send-embed', requireAuth, async (req, res) => {
+        try {
+            const serverId = parseInt(req.params.id);
+            if (isNaN(serverId)) {
+                return res.status(400).json({ success: false, error: 'Invalid server ID' });
+            }
+
+            const { channel_ids, role_ids, title, description, image_url, color, footer } = req.body;
+
+            if (!channel_ids || !Array.isArray(channel_ids) || channel_ids.length === 0 || !title) {
+                return res.status(400).json({ success: false, error: 'channel_ids (array) and title are required' });
+            }
+
+            // Get server to find bot_id
+            const server = await db.getServer(serverId);
+            if (!server) {
+                return res.status(404).json({ success: false, error: 'Server not found' });
+            }
+
+            // Get bot to find port and secret_key
+            const bot = await db.getBot(server.bot_id);
+            if (!bot) {
+                return res.status(404).json({ success: false, error: 'Bot not found' });
+            }
+
+            if (bot.status !== 'running') {
+                return res.status(400).json({ success: false, error: 'Bot is not running' });
+            }
+
+            if (!bot.port || !bot.secret_key) {
+                return res.status(400).json({ success: false, error: 'Bot webhook not configured' });
+            }
+
+            // Call bot's webhook endpoint
+            const http = await import('http');
+            const payload = JSON.stringify({
+                type: 'send_embed',
+                guild_id: server.discord_server_id,
+                channel_ids: channel_ids || [],
+                role_ids: role_ids || [],
+                title,
+                description: description || null,
+                image_url: image_url || null,
+                color: color || null,
+                footer: footer || null
+            });
+
+            const options = {
+                hostname: 'localhost',
+                port: bot.port,
+                path: '/',
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Content-Length': Buffer.byteLength(payload),
+                    'X-Secret-Key': bot.secret_key
+                }
+            };
+
+            const webhookReq = http.request(options, (webhookRes) => {
+                let data = '';
+                webhookRes.on('data', (chunk) => {
+                    data += chunk;
+                });
+                webhookRes.on('end', () => {
+                    try {
+                        const result = JSON.parse(data);
+                        if (webhookRes.statusCode === 200 && result.success) {
+                            res.json({ success: true, message: 'Embed sent successfully' });
+                        } else {
+                            res.status(webhookRes.statusCode || 500).json({ 
+                                success: false, 
+                                error: result.error || 'Failed to send embed' 
+                            });
+                        }
+                    } catch (parseErr) {
+                        res.status(500).json({ success: false, error: 'Failed to parse bot response' });
+                    }
+                });
+            });
+
+            webhookReq.on('error', (err) => {
+                logger.log(`❌ Error calling bot webhook: ${err.message}`);
+                res.status(500).json({ success: false, error: 'Failed to communicate with bot' });
+            });
+
+            webhookReq.write(payload);
+            webhookReq.end();
+
+        } catch (error) {
+            logger.log(`❌ Error sending embed: ${error.message}`);
+            res.status(500).json({ success: false, error: error.message });
         }
     });
 

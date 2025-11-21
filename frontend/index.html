@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="en" class="h-full">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -14,6 +15,7 @@
         }
     </style>
 </head>
+
 <body class="h-full flex items-center justify-center bg-gray-900 text-white">
     <!-- Message Alert -->
     <div id="messageAlert"
@@ -734,7 +736,8 @@
         class="hidden fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-3 sm:p-4">
         <div class="bg-gray-800 rounded-2xl border border-gray-700 max-w-md w-full p-4 sm:p-6">
             <div class="text-center mb-4 sm:mb-6">
-                <div class="inline-flex items-center justify-center w-12 h-12 sm:w-16 sm:h-16 bg-red-600 rounded-full mb-3 sm:mb-4">
+                <div
+                    class="inline-flex items-center justify-center w-12 h-12 sm:w-16 sm:h-16 bg-red-600 rounded-full mb-3 sm:mb-4">
                     <i class="fas fa-exclamation-triangle text-xl sm:text-2xl text-white"></i>
                 </div>
                 <h3 class="text-lg sm:text-xl font-bold text-white mb-2" id="deleteModalTitle">Delete</h3>
@@ -1999,6 +2002,8 @@
         }
         document.getElementById('botDetailYear').textContent = new Date().getFullYear();
         let currentServerId = null;
+        let embedDefaultColor = '#FF0000';
+        let embedDefaultFooter = '';
         let currentBotIdForServer = null;
         const components = [
             { id: 'main_config', name: 'Main Config', icon: 'fa-cog' },
@@ -2544,6 +2549,25 @@
             renderMemberViewNav();
             filterAndRenderMembers();
         }
+        async function viewServerEmbedBuilder(serverId, serverName) {
+            currentServerId = serverId;
+            currentBotIdForServer = currentBotId;
+            stopBotLogPolling();
+            document.getElementById('botDetailContainer').classList.add('hidden');
+            document.getElementById('serverConfigContainer').classList.remove('hidden');
+            document.getElementById('serverConfigTitle').textContent = `${serverName}`;
+            currentServerView = 'embed_builder';
+            renderServerViewNav('embed_builder');
+            const componentNavContainer = document.getElementById('componentNavContainer');
+            if (componentNavContainer) {
+                componentNavContainer.classList.add('hidden');
+            }
+            const memberViewNavContainer = document.getElementById('memberViewNavContainer');
+            if (memberViewNavContainer) {
+                memberViewNavContainer.classList.add('hidden');
+            }
+            await renderEmbedBuilder();
+        }
         function filterAndRenderMembers() {
             let filtered = [...allMembers];
             if (currentMemberView !== 'all' && memberPermissions) {
@@ -2984,6 +3008,14 @@
                 }">
                     <i class="fas fa-users"></i>
                     <span class="sm:inline">Members</span>
+                </button>
+                <button onclick="viewServerEmbedBuilder('${currentServerId}', '${serverName.replace(/'/g, "\\'")}')"
+                    class="px-3 sm:px-4 py-2 sm:py-3 rounded-lg transition-all duration-200 transform hover:scale-105 active:scale-95 flex items-center gap-2 text-xs sm:text-sm font-medium ${activeView === 'embed_builder'
+                    ? 'bg-red-600 text-white'
+                    : 'bg-gray-700 text-gray-300 hover:bg-gray-600 hover:text-white'
+                }">
+                    <i class="fas fa-code"></i>
+                    <span class="sm:inline">Embed Builder</span>
                 </button>
                 <button onclick="viewServerConfig('${currentServerId}', '${serverName.replace(/'/g, "\\'")}')"
                     class="px-3 sm:px-4 py-2 sm:py-3 rounded-lg transition-all duration-200 transform hover:scale-105 active:scale-95 flex items-center gap-2 text-xs sm:text-sm font-medium ${activeView === 'configuration'
@@ -4998,7 +5030,8 @@
                     'staff_roles': 'Select Staff Roles',
                     'supporter_roles': 'Select Supporter Roles',
                     'member_roles': 'Select Member Roles',
-                    'forwarder_role_pings': 'Select Role Pings'
+                    'forwarder_role_pings': 'Select Role Pings',
+                    'embed_roles': 'Select Roles to Mention'
                 };
                 document.getElementById('roleSelectorTitle').innerHTML = `<i class="fas fa-user-shield text-red-500"></i> ${titles[fieldId] || 'Select Roles'}`;
                 document.getElementById('roleSelectorConfirm').classList.remove('hidden');
@@ -5019,7 +5052,8 @@
                 }
                 const titles = {
                     'role_start': 'Select Role Start (Top/Highest Position)',
-                    'role_end': 'Select Role End (Bottom/Lowest Position)'
+                    'role_end': 'Select Role End (Bottom/Lowest Position)',
+                    'embed_roles': 'Select Roles to Mention'
                 };
                 document.getElementById('roleSelectorTitle').innerHTML = `<i class="fas fa-user-shield text-red-500"></i> ${titles[fieldId] || 'Select Role'}`;
                 document.getElementById('roleSelectorConfirm').classList.add('hidden');
@@ -6022,6 +6056,646 @@
                 loadingIcon.classList.add('hidden');
             }
         });
+        async function renderEmbedBuilder() {
+            const contentContainer = document.getElementById('componentContent');
+            if (!contentContainer) return;
+
+            try {
+                const configRes = await fetch(`/api/servers/${currentServerId}/settings?component=main_config`, {
+                    credentials: 'include'
+                });
+                const configData = configRes.ok ? await configRes.json() : null;
+                const embedConfig = configData?.settings || configData || {};
+                const defaultColor = embedConfig.embed_color || '#FF0000';
+                const defaultFooter = embedConfig.embed_footer || '';
+                embedDefaultColor = defaultColor;
+                embedDefaultFooter = defaultFooter || '';
+
+                contentContainer.innerHTML = `
+                    <div class="mb-4 sm:mb-6">
+                        <h2 class="text-xl sm:text-2xl font-bold text-white mb-2 flex items-center gap-2">
+                            <i class="fas fa-code text-red-500"></i>
+                            Embed Builder
+                        </h2>
+                        <p class="text-gray-400 text-sm sm:text-base">
+                            Create and send custom embeds to channels.
+                        </p>
+                    </div>
+                    <div class="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
+                        <!-- Embed Builder Form -->
+                        <div class="space-y-4 sm:space-y-6">
+                            <div class="bg-gray-700 rounded-lg p-4 sm:p-6">
+                                <h3 class="text-base sm:text-lg font-semibold text-white mb-4">
+                                    <i class="fas fa-code mr-2"></i>Embed Builder
+                                </h3>
+                                <form id="embedBuilderForm" class="space-y-4">
+                                    <!-- Title -->
+                                    <div>
+                                        <div class="flex items-center justify-between mb-2">
+                                            <label class="block text-xs sm:text-sm font-medium text-gray-300">
+                                                <i class="fas fa-heading mr-2"></i>Title <span class="text-red-400">*</span>
+                                            </label>
+                                            <span id="embed_title_counter" class="text-xs text-gray-400">0/256</span>
+                                        </div>
+                                        <p class="text-xs text-gray-400 mb-2">Embed title (required, max 256 characters)</p>
+                                        <input type="text" id="embed_title" name="embed_title" maxlength="256" required
+                                            class="w-full px-3 sm:px-4 py-2.5 sm:py-3 bg-gray-800 border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent text-sm sm:text-base"
+                                            placeholder="Enter embed title...">
+                                    </div>
+                                    
+                                    <!-- Description -->
+                                    <div>
+                                        <div class="flex items-center justify-between mb-2">
+                                            <label class="block text-xs sm:text-sm font-medium text-gray-300">
+                                                <i class="fas fa-align-left mr-2"></i>Description
+                                            </label>
+                                            <span id="embed_description_counter" class="text-xs text-gray-400">0/4096</span>
+                                        </div>
+                                        <p class="text-xs text-gray-400 mb-2">Embed description (optional, max 4096 characters). Total embed size must not exceed 6000 characters</p>
+                                        <textarea id="embed_description" name="embed_description" rows="4" maxlength="4096"
+                                            class="w-full px-3 sm:px-4 py-2.5 sm:py-3 bg-gray-800 border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent text-sm sm:text-base resize-none"
+                                            placeholder="Enter embed description..."></textarea>
+                                    </div>
+                                    
+                                    <!-- Image -->
+                                    <div>
+                                        <label class="block text-xs sm:text-sm font-medium text-gray-300 mb-2">
+                                            <i class="fas fa-image mr-2"></i>Image URL
+                                        </label>
+                                        <p class="text-xs text-gray-400 mb-2">Provide an image URL (optional). Note: Large images may cause errors</p>
+                                        <input type="url" id="embed_image" name="embed_image"
+                                            class="w-full px-3 sm:px-4 py-2.5 sm:py-3 bg-gray-800 border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent text-sm sm:text-base"
+                                            placeholder="https://example.com/image.png">
+                                    </div>
+                                    
+                                    <!-- Color -->
+                                    <div>
+                                        <label class="block text-xs sm:text-sm font-medium text-gray-300 mb-2">
+                                            <i class="fas fa-palette mr-2"></i>Color
+                                        </label>
+                                        <p class="text-xs text-gray-400 mb-2">Embed color (hex, decimal, or color name). Leave empty to use default</p>
+                                        <div class="flex items-center gap-3">
+                                            <input type="color" id="embed_color_picker" value="${defaultColor}"
+                                                class="w-16 h-10 sm:w-20 sm:h-12 rounded-lg cursor-pointer border border-gray-600 bg-gray-700">
+                                            <input type="text" id="embed_color" name="embed_color" value="${defaultColor}"
+                                                class="flex-1 px-3 sm:px-4 py-2.5 sm:py-3 bg-gray-800 border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent text-sm sm:text-base"
+                                                placeholder="#FF0000 or red or 16711680">
+                                        </div>
+                                    </div>
+                                    
+                                    <!-- Footer -->
+                                    <div>
+                                        <div class="flex items-center justify-between mb-2">
+                                            <label class="block text-xs sm:text-sm font-medium text-gray-300">
+                                                <i class="fas fa-align-left mr-2"></i>Footer
+                                            </label>
+                                            <span id="embed_footer_counter" class="text-xs text-gray-400">0/2048</span>
+                                        </div>
+                                        <p class="text-xs text-gray-400 mb-2">Embed footer text. Leave empty to use default footer (max 2048 characters). Total embed size must not exceed 6000 characters</p>
+                                        <input type="text" id="embed_footer" name="embed_footer" maxlength="2048"
+                                            class="w-full px-3 sm:px-4 py-2.5 sm:py-3 bg-gray-800 border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent text-sm sm:text-base"
+                                            placeholder="Enter footer text...">
+                                    </div>
+                                    
+                                    <!-- Channel Selection -->
+                                    <div>
+                                        <label class="block text-xs sm:text-sm font-medium text-gray-300 mb-2">
+                                            <i class="fas fa-hashtag mr-2"></i>Channels <span class="text-red-400">*</span>
+                                        </label>
+                                        <p class="text-xs text-gray-400 mb-2">Select channels where the embed will be sent</p>
+                                        <button type="button" onclick="openChannelSelectorMultiselect('embed_channels')"
+                                            class="w-full px-3 sm:px-4 py-2.5 sm:py-3 bg-gray-700 border border-gray-600 rounded-lg text-white text-left flex items-center justify-between hover:border-gray-500 transition-all text-sm sm:text-base">
+                                            <span id="embed_channels_display" class="text-gray-300">Select channels...</span>
+                                            <i class="fas fa-chevron-down text-gray-400"></i>
+                                        </button>
+                                        <input type="hidden" id="embed_channels" name="embed_channels" value="">
+                                        <div id="embed_channels_selected" class="mt-2 flex flex-wrap gap-2"></div>
+                                    </div>
+                                    
+                                    <!-- Role Mention (Optional) -->
+                                    <div>
+                                        <label class="block text-xs sm:text-sm font-medium text-gray-300 mb-2">
+                                            <i class="fas fa-at mr-2"></i>Role Mentions (Optional)
+                                        </label>
+                                        <p class="text-xs text-gray-400 mb-2">Select roles to mention in the message</p>
+                                        <button type="button" onclick="openRoleSelector('embed_roles')"
+                                            class="w-full px-3 sm:px-4 py-2.5 sm:py-3 bg-gray-700 hover:bg-gray-600 border border-gray-600 rounded-lg text-left transition-colors flex items-center justify-between group">
+                                            <div class="flex items-center gap-2 sm:gap-3 flex-1 min-w-0">
+                                                <i class="fas fa-user-shield text-gray-400 group-hover:text-white transition-colors flex-shrink-0"></i>
+                                                <span id="embed_roles_display" class="text-gray-300 text-sm sm:text-base">Select roles...</span>
+                                            </div>
+                                            <i class="fas fa-chevron-right text-gray-500 group-hover:text-white transition-colors text-xs"></i>
+                                        </button>
+                                        <input type="hidden" id="embed_roles" name="embed_roles" value="">
+                                        <div id="embed_roles_selected" class="mt-2 flex flex-wrap gap-2"></div>
+                                    </div>
+                                    
+                                    <!-- Total Size Counter -->
+                                    <div class="pt-4 border-t border-gray-600">
+                                        <div class="flex items-center justify-between mb-2">
+                                            <span class="text-xs sm:text-sm font-medium text-gray-300">Total Embed Size</span>
+                                            <span id="embed_total_counter" class="text-xs text-gray-400">0/6000</span>
+                                        </div>
+                                        <p class="text-xs text-gray-400 mb-4">Discord limit: 6000 characters (title + description + footer combined)</p>
+                                    </div>
+                                    
+                                    <!-- Send Button -->
+                                    <div>
+                                        <button type="submit" id="sendEmbedBtn"
+                                            class="w-full bg-red-600 hover:bg-red-700 text-white py-2.5 sm:py-3 rounded-lg transition-all duration-200 transform hover:scale-[1.02] active:scale-[0.98] flex items-center justify-center gap-2 text-sm sm:text-base font-medium disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none">
+                                            <i class="fas fa-spinner fa-spin hidden" id="sendEmbedLoading"></i>
+                                            <i class="fas fa-paper-plane"></i>
+                                            <span>Send Embed</span>
+                                        </button>
+                                    </div>
+                                </form>
+                            </div>
+                        </div>
+                        
+                        <!-- Preview -->
+                        <div class="space-y-4 sm:space-y-6">
+                            <div class="bg-gray-700 rounded-lg p-4 sm:p-6">
+                                <h3 class="text-base sm:text-lg font-semibold text-white mb-4">
+                                    <i class="fas fa-eye mr-2"></i>Preview
+                                </h3>
+                                <div id="embedPreview" class="bg-gray-800 rounded-lg p-4 border border-gray-600 overflow-auto">
+                                    <p class="text-gray-400 text-sm">Preview will appear here as you type...</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                `;
+
+                // Setup channel multiselect callback
+                const originalConfirmMultiselectChannels = window.confirmMultiselectChannels;
+                window.confirmMultiselectChannels = async function () {
+                    if (currentChannelField === 'embed_channels') {
+                        document.getElementById('embed_channels').value = selectedChannels.join(',');
+                        const displayEl = document.getElementById('embed_channels_display');
+                        if (displayEl) {
+                            const count = selectedChannels.length;
+                            displayEl.textContent = count > 0
+                                ? `${count} channel${count !== 1 ? 's' : ''} selected`
+                                : 'Select channels...';
+                        }
+                        await updateEmbedChannelsDisplay();
+                        closeChannelSelector();
+                    } else if (originalConfirmMultiselectChannels) {
+                        await originalConfirmMultiselectChannels();
+                    }
+                };
+
+                // Setup role multiselect callback
+                const originalConfirmRoleSelection = window.confirmRoleSelection;
+                window.confirmRoleSelection = function () {
+                    if (currentRoleField === 'embed_roles') {
+                        document.getElementById('embed_roles').value = JSON.stringify(selectedRoles);
+                        const displayEl = document.getElementById('embed_roles_display');
+                        if (displayEl) {
+                            const count = selectedRoles.length;
+                            displayEl.textContent = count > 0
+                                ? `${count} role${count !== 1 ? 's' : ''} selected`
+                                : 'Select roles...';
+                        }
+                        updateEmbedRolesDisplay();
+                        closeRoleSelector();
+                    } else if (originalConfirmRoleSelection) {
+                        originalConfirmRoleSelection();
+                    }
+                };
+
+                async function updateEmbedChannelsDisplay() {
+                    const hiddenInput = document.getElementById('embed_channels');
+                    if (!hiddenInput) return;
+                    const channelIds = hiddenInput.value ? hiddenInput.value.split(',').filter(Boolean) : [];
+                    const displayEl = document.getElementById('embed_channels_selected');
+                    if (channelIds.length === 0) {
+                        if (displayEl) displayEl.innerHTML = '';
+                        return;
+                    }
+                    const channelNames = await loadChannelNames(channelIds);
+                    if (displayEl) {
+                        displayEl.innerHTML = channelIds.map(chId => `
+                            <span class="inline-flex items-center gap-1.5 px-2.5 py-1.5 bg-red-600 text-white text-xs rounded-lg">
+                                ${channelNames[chId] ? `#${channelNames[chId]}` : `Channel ${chId}`}
+                                <button type="button" onclick="removeEmbedChannel('${chId}')" class="hover:text-red-200 transition-colors">
+                                    <i class="fas fa-times"></i>
+                                </button>
+                            </span>
+                        `).join('');
+                    }
+                }
+
+                async function removeEmbedChannel(channelId) {
+                    const hiddenInput = document.getElementById('embed_channels');
+                    if (!hiddenInput) return;
+                    const channelIds = hiddenInput.value ? hiddenInput.value.split(',').filter(Boolean) : [];
+                    const filtered = channelIds.filter(id => id !== channelId);
+                    hiddenInput.value = filtered.join(',');
+                    const displayEl = document.getElementById('embed_channels_display');
+                    if (displayEl) {
+                        const count = filtered.length;
+                        displayEl.textContent = count > 0 ? `${count} channel${count !== 1 ? 's' : ''} selected` : 'Select channels...';
+                    }
+                    await updateEmbedChannelsDisplay();
+                }
+
+                function updateEmbedRolesDisplay() {
+                    const hiddenInput = document.getElementById('embed_roles');
+                    if (!hiddenInput) return;
+                    let roleIds = [];
+                    try {
+                        const value = hiddenInput.value.trim();
+                        if (value) {
+                            roleIds = JSON.parse(value);
+                        }
+                    } catch (err) {
+                        roleIds = [];
+                    }
+                    if (!Array.isArray(roleIds)) {
+                        roleIds = [];
+                    }
+                    const displayEl = document.getElementById('embed_roles_selected');
+                    if (displayEl) {
+                        if (roleIds.length === 0) {
+                            displayEl.innerHTML = '';
+                            return;
+                        }
+                        displayEl.innerHTML = roleIds.map(roleId => {
+                            const role = allRoles.find(r => String(r.discord_role_id) === String(roleId));
+                            if (!role) {
+                                return `
+                                    <span class="inline-flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 bg-gray-700 border border-gray-600 rounded-lg text-xs sm:text-sm text-white">
+                                        <span class="w-3 h-3 rounded-full bg-gray-500"></span>
+                                        ${escapeHtml(`Role ${roleId}`)}
+                                        <button type="button" onclick="removeEmbedRole('${roleId}')"
+                                            class="text-gray-400 hover:text-red-400 transition-colors">
+                                            <i class="fas fa-times text-xs"></i>
+                                        </button>
+                                    </span>
+                                `;
+                            }
+                            return `
+                                <span class="inline-flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 bg-gray-700 border border-gray-600 rounded-lg text-xs sm:text-sm text-white">
+                                    <span class="w-3 h-3 rounded-full" style="background-color: ${role.color || '#7289da'};"></span>
+                                    ${escapeHtml(role.name || 'Unknown Role')}
+                                    <button type="button" onclick="removeEmbedRole('${roleId}')"
+                                        class="text-gray-400 hover:text-red-400 transition-colors">
+                                        <i class="fas fa-times text-xs"></i>
+                                    </button>
+                                </span>
+                            `;
+                        }).filter(Boolean).join('');
+                    }
+                }
+
+                function removeEmbedRole(roleId) {
+                    const hiddenInput = document.getElementById('embed_roles');
+                    if (!hiddenInput) return;
+                    let roleIds = [];
+                    try {
+                        const value = hiddenInput.value.trim();
+                        if (value) {
+                            roleIds = JSON.parse(value);
+                        }
+                    } catch (err) {
+                        roleIds = [];
+                    }
+                    if (!Array.isArray(roleIds)) {
+                        roleIds = [];
+                    }
+                    const filtered = roleIds.filter(id => String(id) !== String(roleId));
+                    hiddenInput.value = JSON.stringify(filtered);
+                    const displayEl = document.getElementById('embed_roles_display');
+                    if (displayEl) {
+                        const count = filtered.length;
+                        displayEl.textContent = count > 0 ? `${count} role${count !== 1 ? 's' : ''} selected` : 'Select roles...';
+                    }
+                    updateEmbedRolesDisplay();
+                }
+
+                window.removeEmbedChannel = removeEmbedChannel;
+                window.removeEmbedRole = removeEmbedRole;
+
+                // Setup color picker sync
+                const colorPicker = document.getElementById('embed_color_picker');
+                const colorInput = document.getElementById('embed_color');
+                if (colorPicker && colorInput) {
+                    colorPicker.addEventListener('input', (e) => {
+                        colorInput.value = e.target.value;
+                        updateEmbedPreview();
+                    });
+                    colorInput.addEventListener('input', (e) => {
+                        if (e.target.value.match(/^#[0-9A-Fa-f]{6}$/)) {
+                            colorPicker.value = e.target.value;
+                        }
+                        updateEmbedPreview();
+                    });
+                }
+
+                // Setup character counters
+                function updateCharacterCounter(fieldId, counterId, maxLength) {
+                    const field = document.getElementById(fieldId);
+                    const counter = document.getElementById(counterId);
+                    if (field && counter) {
+                        const length = field.value.length;
+                        counter.textContent = `${length}/${maxLength}`;
+                        // Check max first, then 90%
+                        if (length >= maxLength) {
+                            counter.classList.add('text-red-400');
+                            counter.classList.remove('text-gray-400', 'text-yellow-400');
+                        } else if (length > maxLength * 0.9) {
+                            counter.classList.add('text-yellow-400');
+                            counter.classList.remove('text-gray-400', 'text-red-400');
+                        } else {
+                            counter.classList.remove('text-yellow-400', 'text-red-400');
+                            counter.classList.add('text-gray-400');
+                        }
+                    }
+                }
+
+                // Update total embed size counter
+                function updateTotalEmbedCounter() {
+                    const titleField = document.getElementById('embed_title');
+                    const descField = document.getElementById('embed_description');
+                    const footerField = document.getElementById('embed_footer');
+                    const totalCounter = document.getElementById('embed_total_counter');
+
+                    if (!totalCounter) return;
+
+                    const titleLength = titleField?.value.length || 0;
+                    const descLength = descField?.value.length || 0;
+                    const footerLength = footerField?.value.length || 0;
+                    const totalLength = titleLength + descLength + footerLength;
+                    const maxTotal = 6000;
+
+                    totalCounter.textContent = `${totalLength}/${maxTotal}`;
+
+                    // Check max first, then 90%
+                    if (totalLength >= maxTotal) {
+                        totalCounter.classList.add('text-red-400');
+                        totalCounter.classList.remove('text-gray-400', 'text-yellow-400');
+                    } else if (totalLength > maxTotal * 0.9) {
+                        totalCounter.classList.add('text-yellow-400');
+                        totalCounter.classList.remove('text-gray-400', 'text-red-400');
+                    } else {
+                        totalCounter.classList.remove('text-yellow-400', 'text-red-400');
+                        totalCounter.classList.add('text-gray-400');
+                    }
+                }
+
+                // Setup preview updates and character counters
+                const titleField = document.getElementById('embed_title');
+                const descField = document.getElementById('embed_description');
+                const footerField = document.getElementById('embed_footer');
+
+                if (titleField) {
+                    titleField.addEventListener('input', () => {
+                        updateCharacterCounter('embed_title', 'embed_title_counter', 256);
+                        updateTotalEmbedCounter();
+                        updateEmbedPreview();
+                    });
+                    updateCharacterCounter('embed_title', 'embed_title_counter', 256);
+                }
+
+                if (descField) {
+                    descField.addEventListener('input', () => {
+                        updateCharacterCounter('embed_description', 'embed_description_counter', 4096);
+                        updateTotalEmbedCounter();
+                        updateEmbedPreview();
+                    });
+                    updateCharacterCounter('embed_description', 'embed_description_counter', 4096);
+                }
+
+                if (footerField) {
+                    footerField.addEventListener('input', () => {
+                        updateCharacterCounter('embed_footer', 'embed_footer_counter', 2048);
+                        updateTotalEmbedCounter();
+                        updateEmbedPreview();
+                    });
+                    updateCharacterCounter('embed_footer', 'embed_footer_counter', 2048);
+                }
+
+                // Initialize total counter
+                updateTotalEmbedCounter();
+
+                // Setup preview updates for other fields
+                ['embed_image', 'embed_color'].forEach(id => {
+                    const el = document.getElementById(id);
+                    if (el) {
+                        el.addEventListener('input', updateEmbedPreview);
+                    }
+                });
+
+                // Setup form submission
+                const form = document.getElementById('embedBuilderForm');
+                if (form) {
+                    form.addEventListener('submit', handleEmbedSubmit);
+                }
+
+                updateEmbedPreview();
+            } catch (error) {
+                console.error('Error rendering embed builder:', error);
+                contentContainer.innerHTML = `
+                    <div class="bg-gray-700 rounded-lg p-4 sm:p-6">
+                        <p class="text-red-400 text-sm sm:text-base">Failed to load embed builder: ${error.message}</p>
+                    </div>
+                `;
+            }
+        }
+
+        function updateEmbedPreview() {
+            const preview = document.getElementById('embedPreview');
+            if (!preview) return;
+
+            const title = document.getElementById('embed_title')?.value || '';
+            const description = document.getElementById('embed_description')?.value || '';
+            const imageUrl = document.getElementById('embed_image')?.value || '';
+            const colorInput = document.getElementById('embed_color')?.value || '';
+            const footerInput = document.getElementById('embed_footer')?.value || '';
+
+            // Get default config
+            const defaultColor = embedDefaultColor || '#FF0000';
+            let embedColor = defaultColor;
+
+            if (colorInput.trim()) {
+                const trimmed = colorInput.trim();
+                if (trimmed.startsWith('#')) {
+                    if (/^#[0-9A-Fa-f]{6}$/.test(trimmed)) {
+                        embedColor = trimmed;
+                    }
+                } else if (/^[0-9A-Fa-f]{6}$/.test(trimmed)) {
+                    embedColor = '#' + trimmed;
+                } else {
+                    const colorNames = {
+                        'red': '#FF0000', 'green': '#00FF00', 'blue': '#0000FF',
+                        'yellow': '#FFFF00', 'orange': '#FFA500', 'purple': '#800080',
+                        'pink': '#FFC0CB', 'cyan': '#00FFFF', 'black': '#000000',
+                        'white': '#FFFFFF', 'gray': '#808080', 'grey': '#808080'
+                    };
+                    if (colorNames[trimmed.toLowerCase()]) {
+                        embedColor = colorNames[trimmed.toLowerCase()];
+                    }
+                }
+            }
+
+            // Show preview if any field has content (except channels/roles which don't affect preview)
+            const hasContent = title.trim() || description.trim() || imageUrl.trim() || footerInput.trim();
+
+            if (!hasContent) {
+                preview.innerHTML = '<p class="text-gray-400 text-sm">Preview will appear here as you type...</p>';
+                return;
+            }
+
+            const borderColor = embedColor;
+            const footerText = footerInput || embedDefaultFooter || '';
+
+            // Truncate text to Discord limits for display (but keep full text for actual sending)
+            const displayTitle = title.length > 256 ? title.substring(0, 253) + '...' : title;
+            const displayDescription = description.length > 4096 ? description.substring(0, 4093) + '...' : description;
+            const displayFooter = footerText.length > 2048 ? footerText.substring(0, 2045) + '...' : footerText;
+
+            preview.innerHTML = `
+                <div class="border-l-4 rounded overflow-hidden bg-gray-800/30" style="border-color: ${borderColor};">
+                    <div class="p-3">
+                        ${displayTitle ? `<div class="font-semibold text-white mb-2 break-words">${escapeHtml(displayTitle)}</div>` : ''}
+                        ${displayDescription ? `<div class="text-gray-300 text-sm mb-2 whitespace-pre-wrap break-words overflow-y-auto">${escapeHtml(displayDescription)}</div>` : ''}
+                        ${imageUrl ? `<div class="mt-2 mb-2"><img src="${escapeHtml(imageUrl)}" alt="Embed image" class="max-w-full rounded max-h-[300px] object-contain" onerror="this.style.display='none'"></div>` : ''}
+                        ${displayFooter ? `<div class="text-gray-400 text-xs mt-2 pt-2 border-t border-gray-700 break-words">${escapeHtml(displayFooter)}</div>` : ''}
+                    </div>
+                </div>
+            `;
+        }
+
+        async function handleEmbedSubmit(e) {
+            e.preventDefault();
+            if (!currentServerId) return;
+
+            const submitBtn = document.getElementById('sendEmbedBtn');
+            const loadingIcon = document.getElementById('sendEmbedLoading');
+            submitBtn.disabled = true;
+            loadingIcon.classList.remove('hidden');
+
+            try {
+                const channelsInput = document.getElementById('embed_channels').value;
+                const channelIds = channelsInput ? channelsInput.split(',').filter(Boolean) : [];
+
+                if (channelIds.length === 0) {
+                    showMessage('Please select at least one channel', 'error');
+                    submitBtn.disabled = false;
+                    loadingIcon.classList.add('hidden');
+                    return;
+                }
+
+                const rolesInput = document.getElementById('embed_roles').value;
+                let roleIds = [];
+                if (rolesInput) {
+                    try {
+                        roleIds = JSON.parse(rolesInput);
+                        if (!Array.isArray(roleIds)) roleIds = [];
+                    } catch (err) {
+                        roleIds = [];
+                    }
+                }
+
+                let imageUrl = document.getElementById('embed_image').value || null;
+
+                // Warn if using data URL (base64) as it can be very large
+                if (imageUrl && imageUrl.startsWith('data:')) {
+                    if (imageUrl.length > 1000000) { // 1MB
+                        showMessage('Image data URL is too large. Please use a regular image URL instead.', 'error');
+                        submitBtn.disabled = false;
+                        loadingIcon.classList.add('hidden');
+                        return;
+                    }
+                }
+
+                // Validate total embed size (Discord limit: 6000 characters)
+                const title = document.getElementById('embed_title').value;
+                const description = document.getElementById('embed_description').value || '';
+                const footer = document.getElementById('embed_footer').value || '';
+                const totalSize = title.length + description.length + footer.length;
+
+                if (totalSize > 6000) {
+                    showMessage(`Total embed size (${totalSize} characters) exceeds Discord's limit of 6000 characters. Please reduce the content.`, 'error');
+                    submitBtn.disabled = false;
+                    loadingIcon.classList.add('hidden');
+                    return;
+                }
+
+                const formData = {
+                    channel_ids: channelIds,
+                    role_ids: roleIds,
+                    title: title,
+                    description: description || null,
+                    image_url: imageUrl,
+                    color: document.getElementById('embed_color').value || null,
+                    footer: footer || null
+                };
+
+                const res = await fetch(`/api/servers/${currentServerId}/send-embed`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    credentials: 'include',
+                    body: JSON.stringify(formData)
+                });
+
+                if (res.status === 401) {
+                    await checkAuthStatus();
+                    return;
+                }
+
+                if (res.status === 413) {
+                    showMessage('Image URL is too large. Please use a smaller image or a direct image link.', 'error');
+                    submitBtn.disabled = false;
+                    loadingIcon.classList.add('hidden');
+                    return;
+                }
+
+                let data;
+                try {
+                    data = await res.json();
+                } catch (parseErr) {
+                    const text = await res.text();
+                    console.error('Failed to parse response:', text);
+                    showMessage('Server returned an error. Please check the console for details.', 'error');
+                    submitBtn.disabled = false;
+                    loadingIcon.classList.add('hidden');
+                    return;
+                }
+
+                if (data.success) {
+                    showMessage(`Embed sent successfully to ${channelIds.length} channel(s)!`, 'success');
+                    // Reset form
+                    document.getElementById('embedBuilderForm').reset();
+                    document.getElementById('embed_channels').value = '';
+                    document.getElementById('embed_roles').value = '';
+                    document.getElementById('embed_channels_display').textContent = 'Select channels...';
+                    document.getElementById('embed_roles_display').textContent = 'Select roles...';
+                    document.getElementById('embed_channels_selected').innerHTML = '';
+                    document.getElementById('embed_roles_selected').innerHTML = '';
+                    // Restore default color values
+                    const colorPicker = document.getElementById('embed_color_picker');
+                    const colorInput = document.getElementById('embed_color');
+                    if (colorPicker && colorInput && embedDefaultColor) {
+                        colorPicker.value = embedDefaultColor;
+                        colorInput.value = embedDefaultColor;
+                    }
+                    updateEmbedPreview();
+                } else {
+                    showMessage(data.error || 'Failed to send embed', 'error');
+                }
+            } catch (err) {
+                console.error('Error sending embed:', err);
+                showMessage('Failed to send embed. Please try again.', 'error');
+            } finally {
+                submitBtn.disabled = false;
+                loadingIcon.classList.add('hidden');
+            }
+        }
+
         document.getElementById('serverConfigYear').textContent = new Date().getFullYear();
         let botDetailRefreshInterval = null;
         function startBotDetailAutoRefresh() {
@@ -6044,4 +6718,5 @@
         });
     </script>
 </body>
+
 </html>

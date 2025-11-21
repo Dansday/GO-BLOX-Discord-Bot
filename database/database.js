@@ -384,6 +384,12 @@ export async function deleteBot(botId) {
     }
 }
 
+export async function getServer(serverId) {
+    await initializeDatabase();
+    const result = await query('SELECT * FROM servers WHERE id = ? LIMIT 1', [serverId]);
+    return result[0] || null;
+}
+
 export async function getServersForBot(botId) {
     const result = await query('SELECT * FROM servers WHERE bot_id = ? ORDER BY name ASC', [botId]);
     return result;
@@ -1842,6 +1848,7 @@ export default {
     createBot,
     updateBot,
     deleteBot,
+    getServer,
     getServersForBot,
     getServerByDiscordId,
     upsertServer,
