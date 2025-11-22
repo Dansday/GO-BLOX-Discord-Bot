@@ -2002,7 +2002,7 @@ export async function addGiveawayEntry(giveawayId, memberId, discordMemberId, in
 export async function getGiveawayEntries(giveawayId) {
     await initializeDatabase();
     return await query(
-        'SELECT * FROM server_giveaway_entries WHERE giveaway_id = ?',
+        'SELECT * FROM server_giveaway_entries WHERE giveaway_id = ? ORDER BY RAND()',
         [giveawayId]
     );
 }
