@@ -119,7 +119,7 @@ async function runMigration() {
         }
 
         logger.log('✅ Database schema created successfully!');
-        logger.log('📊 Tables created: panel, panel_logs, bots, servers, server_categories, server_channels, server_roles, server_members, server_member_levels, server_member_roles, server_members_afk, server_settings, bot_logs');
+        logger.log('📊 Tables created: panel, panel_logs, bots, servers, server_categories, server_channels, server_roles, server_members, server_member_levels, server_member_roles, server_members_afk, server_settings, server_giveaways, server_giveaway_entries, bot_logs');
         logger.log('📈 Indexes created: all indexes');
 
     } catch (error) {
@@ -139,7 +139,7 @@ async function runMigration() {
 async function setupDatabase() {
     logger.log('🔍 Checking database tables...');
 
-    const tables = [
+        const tables = [
         { name: 'panel', required: true },
         { name: 'panel_logs', required: true },
         { name: 'bots', required: true },
@@ -152,6 +152,8 @@ async function setupDatabase() {
         { name: 'server_member_roles', required: true },
         { name: 'server_members_afk', required: true },
         { name: 'server_settings', required: true },
+        { name: 'server_giveaways', required: true },
+        { name: 'server_giveaway_entries', required: true },
         { name: 'bot_logs', required: true }
     ];
 
@@ -1842,6 +1844,188 @@ export async function serversNeedSync(botId) {
     return false;
 }
 
+export async function createGiveaway(giveawayData) {
+    await initializeDatabase();
+    const now = toMySQLDateTime();
+    const endsAt = toMySQLDateTime(new Date(Date.now() + giveawayData.duration_minutes * 60 * 1000));
+
+            const result = await query(
+                `INSERT INTO server_giveaways (
+                    server_id, member_id, title, prize,
+                    duration_minutes, allowed_roles, multiple_entries_allowed, winner_count,
+                    status, ends_at
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+                [
+                    giveawayData.server_id,
+                    giveawayData.member_id,
+                    giveawayData.title,
+                    giveawayData.prize,
+                    giveawayData.duration_minutes,
+                    giveawayData.allowed_roles ? JSON.stringify(giveawayData.allowed_roles) : null,
+                    giveawayData.multiple_entries_allowed || false,
+                    giveawayData.winner_count || 1,
+                    'active',
+                    endsAt
+                ]
+            );
+
+    const insertedId = result.insertId;
+    const giveaway = await query(
+        'SELECT * FROM server_giveaways WHERE id = ?',
+        [insertedId]
+    );
+
+    if (giveaway[0] && giveaway[0].allowed_roles) {
+        try {
+            giveaway[0].allowed_roles = typeof giveaway[0].allowed_roles === 'string'
+                ? JSON.parse(giveaway[0].allowed_roles)
+                : giveaway[0].allowed_roles;
+        } catch (e) {
+            giveaway[0].allowed_roles = [];
+        }
+    }
+
+    return giveaway[0];
+}
+
+export async function updateGiveawayMessageId(giveawayId, discordMessageId) {
+    await initializeDatabase();
+    await query(
+        'UPDATE server_giveaways SET discord_message_id = ? WHERE id = ?',
+        [discordMessageId, giveawayId]
+    );
+}
+
+export async function getEndedGiveaways() {
+    await initializeDatabase();
+    const result = await query(
+        'SELECT * FROM server_giveaways WHERE status = ? AND ends_at <= NOW() AND winners_announced = ?',
+        ['active', false]
+    );
+
+    return result.map(row => {
+        if (row.allowed_roles) {
+            try {
+                row.allowed_roles = typeof row.allowed_roles === 'string'
+                    ? JSON.parse(row.allowed_roles)
+                    : row.allowed_roles;
+            } catch (e) {
+                row.allowed_roles = [];
+            }
+        }
+        return row;
+    });
+}
+
+export async function getGiveawayById(giveawayId) {
+    await initializeDatabase();
+    const result = await query(
+        'SELECT * FROM server_giveaways WHERE id = ?',
+        [giveawayId]
+    );
+
+    if (result[0] && result[0].allowed_roles) {
+        try {
+            result[0].allowed_roles = typeof result[0].allowed_roles === 'string'
+                ? JSON.parse(result[0].allowed_roles)
+                : result[0].allowed_roles;
+        } catch (e) {
+            result[0].allowed_roles = [];
+        }
+    }
+
+    return result[0] || null;
+}
+
+export async function addGiveawayEntry(giveawayId, memberId, discordMemberId, increment = true) {
+    await initializeDatabase();
+    const now = toMySQLDateTime();
+
+    if (increment) {
+        await query(
+            `INSERT INTO server_giveaway_entries (giveaway_id, member_id, discord_member_id, entry_count, created_at, updated_at)
+             VALUES (?, ?, ?, 1, ?, ?)
+             ON DUPLICATE KEY UPDATE
+                 entry_count = entry_count + 1,
+                 updated_at = ?`,
+            [giveawayId, memberId, discordMemberId, now, now, now]
+        );
+    } else {
+        await query(
+            `INSERT INTO server_giveaway_entries (giveaway_id, member_id, discord_member_id, entry_count, created_at, updated_at)
+             VALUES (?, ?, ?, 1, ?, ?)
+             ON DUPLICATE KEY UPDATE updated_at = ?`,
+            [giveawayId, memberId, discordMemberId, now, now, now]
+        );
+    }
+
+    const entry = await query(
+        'SELECT * FROM server_giveaway_entries WHERE giveaway_id = ? AND discord_member_id = ?',
+        [giveawayId, discordMemberId]
+    );
+
+    return entry[0] || null;
+}
+
+export async function getGiveawayEntries(giveawayId) {
+    await initializeDatabase();
+    return await query(
+        'SELECT * FROM server_giveaway_entries WHERE giveaway_id = ?',
+        [giveawayId]
+    );
+}
+
+export async function getRandomGiveawayWinners(giveawayId, winnerCount) {
+    await initializeDatabase();
+    const entries = await getGiveawayEntries(giveawayId);
+    
+    if (entries.length === 0) {
+        return [];
+    }
+
+    const weightedEntries = [];
+    for (const entry of entries) {
+        for (let i = 0; i < entry.entry_count; i++) {
+            weightedEntries.push(entry);
+        }
+    }
+
+    const winners = [];
+    const usedMemberIds = new Set();
+    
+    while (winners.length < winnerCount && weightedEntries.length > 0) {
+        const randomIndex = Math.floor(Math.random() * weightedEntries.length);
+        const selected = weightedEntries[randomIndex];
+        
+        if (!usedMemberIds.has(selected.discord_member_id)) {
+            winners.push(selected);
+            usedMemberIds.add(selected.discord_member_id);
+        }
+        
+        weightedEntries.splice(randomIndex, 1);
+    }
+
+    return winners;
+}
+
+export async function markGiveawayEnded(giveawayId) {
+    await initializeDatabase();
+    await query(
+        'UPDATE server_giveaways SET status = ?, winners_announced = ? WHERE id = ?',
+        ['ended', true, giveawayId]
+    );
+}
+
+export async function cleanupGiveawayEntries(giveawayId) {
+    await initializeDatabase();
+    const result = await query(
+        'DELETE FROM server_giveaway_entries WHERE giveaway_id = ?',
+        [giveawayId]
+    );
+    return result?.affectedRows || 0;
+}
+
+
 export default {
     getAllBots,
     getBot,
@@ -1891,5 +2075,14 @@ export default {
     serversNeedSync,
     getAFKStatus,
     setAFKStatus,
-    removeAFKStatus
+    removeAFKStatus,
+    createGiveaway,
+    updateGiveawayMessageId,
+    getEndedGiveaways,
+    getGiveawayById,
+    addGiveawayEntry,
+    getGiveawayEntries,
+    getRandomGiveawayWinners,
+    markGiveawayEnded,
+    cleanupGiveawayEntries
 };

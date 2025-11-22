@@ -171,6 +171,39 @@ CREATE TABLE IF NOT EXISTS bot_logs (
     FOREIGN KEY (bot_id) REFERENCES bots(id) ON DELETE CASCADE
 );
 
+CREATE TABLE IF NOT EXISTS server_giveaways (
+    id INT PRIMARY KEY AUTO_INCREMENT,
+    server_id INT NOT NULL,
+    discord_message_id VARCHAR(150) NULL,
+    member_id INT NOT NULL,
+    title TEXT NOT NULL,
+    prize TEXT NOT NULL,
+    duration_minutes INT NOT NULL,
+    allowed_roles JSON NULL,
+    multiple_entries_allowed BOOLEAN DEFAULT FALSE,
+    winner_count INT NOT NULL DEFAULT 1,
+    status ENUM('active', 'ended', 'cancelled') DEFAULT 'active',
+    ends_at TIMESTAMP NOT NULL,
+    winners_announced BOOLEAN DEFAULT FALSE,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    FOREIGN KEY (server_id) REFERENCES servers(id) ON DELETE CASCADE,
+    FOREIGN KEY (member_id) REFERENCES server_members(id) ON DELETE CASCADE
+);
+
+CREATE TABLE IF NOT EXISTS server_giveaway_entries (
+    id INT PRIMARY KEY AUTO_INCREMENT,
+    giveaway_id INT NOT NULL,
+    member_id INT NOT NULL,
+    discord_member_id VARCHAR(150) NOT NULL,
+    entry_count INT DEFAULT 1,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    UNIQUE KEY unique_giveaway_member (giveaway_id, discord_member_id),
+    FOREIGN KEY (giveaway_id) REFERENCES server_giveaways(id) ON DELETE CASCADE,
+    FOREIGN KEY (member_id) REFERENCES server_members(id) ON DELETE CASCADE
+);
+
 CREATE INDEX idx_bots_type ON bots(bot_type);
 CREATE INDEX idx_bots_connect_to ON bots(connect_to);
 CREATE INDEX idx_bots_panel_id ON bots(panel_id);
@@ -196,3 +229,9 @@ CREATE INDEX idx_bot_logs_bot_id ON bot_logs(bot_id);
 CREATE INDEX idx_bot_logs_created_at ON bot_logs(created_at);
 CREATE INDEX idx_panel_logs_panel_id ON panel_logs(panel_id);
 CREATE INDEX idx_panel_logs_attempted_at ON panel_logs(attempted_at);
+CREATE INDEX idx_server_giveaways_server_id ON server_giveaways(server_id);
+CREATE INDEX idx_server_giveaways_member_id ON server_giveaways(member_id);
+CREATE INDEX idx_server_giveaways_status ON server_giveaways(status);
+CREATE INDEX idx_server_giveaways_ends_at ON server_giveaways(ends_at);
+CREATE INDEX idx_server_giveaway_entries_giveaway_id ON server_giveaway_entries(giveaway_id);
+CREATE INDEX idx_server_giveaway_entries_member_id ON server_giveaway_entries(member_id);

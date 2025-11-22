@@ -19,6 +19,7 @@ import commands from "./components/commands.js";
 import interfaceComponent from "./components/interface.js";
 import customSupporterRole from "./components/interface/customsupporterrole.js";
 import afk from "./components/interface/afk.js";
+import giveaway from "./components/interface/giveaway.js";
 import sync from "./components/sync.js";
 import leveling from "./components/leveling.js";
 
@@ -56,6 +57,7 @@ client.on("clientReady", async () => {
     interfaceComponent.init(client);
     customSupporterRole.init(client);
     afk.init(client);
+    giveaway.init(client);
     leveling.init(client);
 
     await sync.init(client, BOT_TOKEN);

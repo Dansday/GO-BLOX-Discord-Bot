@@ -6,6 +6,7 @@ import { handleCustomSupporterRoleButton, handleCustomSupporterRoleModal, handle
 import { handleFeedbackButton, handleFeedbackModal } from './interface/feedback.js';
 import { handleAFKButton, handleAFKModal, handleRemoveAFKButton } from './interface/afk.js';
 import { handleLevelingButton, handleLeaderboardButton, handleDmToggleButton } from './interface/leveling.js';
+import { handleGiveawayButton, handleGiveawayModal, handleGiveawayEnterButton, handleGiveawayRoleSelect, handleGiveawaySkipRolesContinue } from './interface/giveaway.js';
 
 async function handleMenuButton(interaction) {
     const member = interaction.member || await interaction.guild.members.fetch(interaction.user.id).catch(() => null);
@@ -53,6 +54,13 @@ async function handleMenuButton(interaction) {
         buttons.push(new ButtonBuilder()
             .setCustomId('bot_feedback')
             .setLabel('💬 Feedback')
+            .setStyle(ButtonStyle.Success));
+    }
+
+    if (await hasPermission(member, 'giveaway')) {
+        buttons.push(new ButtonBuilder()
+            .setCustomId('bot_giveaway')
+            .setLabel('🎉 Giveaway')
             .setStyle(ButtonStyle.Success));
     }
 
@@ -109,6 +117,9 @@ export async function handleButtonInteraction(interaction, client) {
         case 'bot_feedback':
             await handleFeedbackButton(interaction);
             break;
+        case 'bot_giveaway':
+            await handleGiveawayButton(interaction);
+            break;
         case 'bot_afk':
             await handleAFKButton(interaction);
             break;
@@ -126,11 +137,17 @@ export async function handleButtonInteraction(interaction, client) {
             await handleDmToggleButton(interaction);
             break;
         default:
-            await logger.log(`🔍 Unknown button interaction: ${customId}`);
-            await interaction.reply({
-                content: '❌ Unknown button interaction.',
-                flags: 64
-            });
+            if (customId.startsWith('giveaway_enter_')) {
+                await handleGiveawayEnterButton(interaction);
+            } else if (customId === 'giveaway_continue_form') {
+                await handleGiveawaySkipRolesContinue(interaction);
+            } else {
+                await logger.log(`🔍 Unknown button interaction: ${customId}`);
+                await interaction.reply({
+                    content: '❌ Unknown button interaction.',
+                    flags: 64
+                });
+            }
     }
 }
 
@@ -250,6 +267,8 @@ function init(client) {
                     await handleFeedbackModal(interaction);
                 } else if (interaction.customId === 'afk_set') {
                     await handleAFKModal(interaction);
+                } else if (interaction.customId.startsWith('giveaway_create')) {
+                    await handleGiveawayModal(interaction);
                 } else {
                     await logger.log(`⚠️ Unknown modal: "${customId}" by ${user.tag} (${user.id})`);
                 }
@@ -318,7 +337,11 @@ function init(client) {
                 const selectedRoles = interaction.values;
                 await logger.log(`👥 Role selected: "${customId}" → [${selectedRoles.join(', ')}] by ${user.tag} (${user.id}) in ${interaction.guild?.name || 'DM'}`);
 
-                await logger.log(`⚠️ Unknown role select: "${customId}" by ${user.tag} (${user.id})`);
+                if (customId === 'giveaway_role_select') {
+                    await handleGiveawayRoleSelect(interaction);
+                } else {
+                    await logger.log(`⚠️ Unknown role select: "${customId}" by ${user.tag} (${user.id})`);
+                }
             } catch (error) {
                 await logger.log(`❌ Role selection error in interface.js: ${error.message}`);
                 await logger.log(`❌ Role selection error stack: ${error.stack}`);

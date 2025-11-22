@@ -397,6 +397,23 @@ export const FEEDBACK = {
     }
 };
 
+export const GIVEAWAY = {
+
+    async getChannel(guildId) {
+        requireBotConfig();
+        requireGuildId(guildId, 'getting giveaway channel');
+
+        const settings = await db.getServerSettings((await getOfficialBotServer(guildId)).id, 'giveaway');
+
+        if (settings && settings.settings && settings.settings.giveaway_channel) {
+            return settings.settings.giveaway_channel;
+        }
+
+        const mainChannel = await getMainChannel(guildId);
+        return mainChannel;
+    }
+};
+
 export const FORWARDER = {
 
     async getConfig(guildId) {

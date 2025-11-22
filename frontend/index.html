@@ -2012,6 +2012,7 @@
             { id: 'permissions', name: 'Permissions', icon: 'fa-shield-alt' },
             { id: 'custom_supporter_role', name: 'Custom Supporter Role', icon: 'fa-user-tag' },
             { id: 'feedback', name: 'Feedback', icon: 'fa-comment-dots' },
+            { id: 'giveaway', name: 'Giveaway', icon: 'fa-gift' },
             { id: 'forwarder', name: 'Forwarder', icon: 'fa-exchange-alt' },
             { id: 'leveling', name: 'Leveling', icon: 'fa-chart-line' }
         ];
@@ -3226,6 +3227,21 @@
                         </div>
                     `;
                     return;
+                case 'giveaway':
+                    renderGiveaway(settings).then(html => {
+                        contentContainer.innerHTML = contentHTML + html;
+                        setTimeout(() => {
+                            updateGiveawayChannelDisplay();
+                        }, 100);
+                    });
+                    contentContainer.innerHTML = contentHTML + `
+                        <div class="bg-gray-700 rounded-lg p-4 sm:p-6">
+                            <div class="flex items-center justify-center py-8">
+                                <i class="fas fa-spinner fa-spin text-2xl text-gray-400"></i>
+                            </div>
+                        </div>
+                    `;
+                    return;
                 default:
                     contentHTML += `
                         <div class="bg-gray-700 rounded-lg p-4 sm:p-6">
@@ -3795,6 +3811,62 @@
             if (!hiddenInput) return;
             const channelId = hiddenInput.value;
             const displayEl = document.getElementById('feedback_channel_display');
+            if (!displayEl) return;
+            if (!channelId) {
+                displayEl.textContent = 'Select channel...';
+                return;
+            }
+            const channelNames = await loadChannelNames([channelId]);
+            if (channelNames[channelId]) {
+                displayEl.textContent = `#${channelNames[channelId]}`;
+            } else {
+                displayEl.textContent = `Channel ${channelId}`;
+            }
+        }
+        async function renderGiveaway(settings) {
+            let config = {};
+            if (settings) {
+                if (settings.settings) {
+                    config = settings.settings;
+                } else if (typeof settings === 'object') {
+                    config = settings;
+                }
+            }
+            const channelId = config.giveaway_channel;
+            const channelIds = channelId ? [channelId] : [];
+            const channelNames = await loadChannelNames(channelIds);
+            return `
+                    <form id="giveawayConfigForm" class="space-y-4 sm:space-y-6">
+                        <!-- Giveaway Channel -->
+                        <div>
+                            <label class="block text-xs sm:text-sm font-medium text-gray-300 mb-2">
+                                <i class="fas fa-gift text-red-500 mr-2"></i>Giveaway Channel
+                            </label>
+                            <p class="text-xs text-gray-400 mb-2">Channel where giveaways will be published and winners will be announced. If empty, will use main config default channel</p>
+                            <button type="button" onclick="openChannelSelector('giveaway_channel')"
+                                class="w-full px-3 sm:px-4 py-2.5 sm:py-3 bg-gray-700 border border-gray-600 rounded-lg text-white text-left flex items-center justify-between hover:border-gray-500 transition-all text-sm sm:text-base">
+                                <span id="giveaway_channel_display" class="text-gray-300">${channelId && channelNames[channelId] ? `#${channelNames[channelId]}` : channelId ? `Channel ${channelId}` : 'Select channel...'}</span>
+                                <i class="fas fa-chevron-down text-gray-400"></i>
+                            </button>
+                            <input type="hidden" id="giveaway_channel" name="giveaway_channel" value="${channelId || ''}">
+                        </div>
+                        <!-- Save Button -->
+                        <div class="pt-4 border-t border-gray-700">
+                            <button type="submit" id="saveGiveawayConfigBtn"
+                                class="w-full bg-red-600 hover:bg-red-700 text-white py-2.5 sm:py-3 rounded-lg transition-all duration-200 transform hover:scale-[1.02] active:scale-[0.98] flex items-center justify-center gap-2 text-sm sm:text-base font-medium disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none">
+                                <i class="fas fa-spinner fa-spin hidden" id="saveGiveawayConfigLoading"></i>
+                                <i class="fas fa-save"></i>
+                                <span>Save Configuration</span>
+                            </button>
+                        </div>
+                    </form>
+                `;
+        }
+        async function updateGiveawayChannelDisplay() {
+            const hiddenInput = document.getElementById('giveaway_channel');
+            if (!hiddenInput) return;
+            const channelId = hiddenInput.value;
+            const displayEl = document.getElementById('giveaway_channel_display');
             if (!displayEl) return;
             if (!channelId) {
                 displayEl.textContent = 'Select channel...';
@@ -4993,6 +5065,8 @@
             }
             if (currentChannelField === 'feedback_channel') {
                 await updateFeedbackChannelDisplay();
+            } else if (currentChannelField === 'giveaway_channel') {
+                await updateGiveawayChannelDisplay();
             } else if (currentChannelField === 'forwarder_target_channel') {
                 const targetDisplayEl = document.getElementById('forwarder_target_channel_display');
                 if (targetDisplayEl) {
@@ -5993,45 +6067,89 @@
             }
         });
         document.addEventListener('submit', async function (e) {
-            if (e.target.id !== 'feedbackConfigForm') return;
-            e.preventDefault();
-            const formData = {
-                feedback_channel: document.getElementById('feedback_channel').value || null
-            };
-            const submitBtn = document.getElementById('saveFeedbackConfigBtn');
-            const loadingIcon = document.getElementById('saveFeedbackConfigLoading');
-            submitBtn.disabled = true;
-            loadingIcon.classList.remove('hidden');
-            try {
-                const res = await fetch(`/api/servers/${currentServerId}/settings`, {
-                    method: 'PUT',
-                    headers: {
-                        'Content-Type': 'application/json'
-                    },
-                    credentials: 'include',
-                    body: JSON.stringify({
-                        component_name: 'feedback',
-                        settings: formData
-                    })
-                });
-                if (res.status === 401) {
-                    await checkAuthStatus();
-                    return;
+            if (e.target.id === 'feedbackConfigForm') {
+                e.preventDefault();
+                const formData = {
+                    feedback_channel: document.getElementById('feedback_channel').value || null
+                };
+                const submitBtn = document.getElementById('saveFeedbackConfigBtn');
+                const loadingIcon = document.getElementById('saveFeedbackConfigLoading');
+                submitBtn.disabled = true;
+                loadingIcon.classList.remove('hidden');
+                try {
+                    const res = await fetch(`/api/servers/${currentServerId}/settings`, {
+                        method: 'PUT',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        },
+                        credentials: 'include',
+                        body: JSON.stringify({
+                            component_name: 'feedback',
+                            settings: formData
+                        })
+                    });
+                    if (res.status === 401) {
+                        await checkAuthStatus();
+                        return;
+                    }
+                    const data = await res.json();
+                    if (data.success) {
+                        showMessage('Feedback configuration saved successfully!', 'success');
+                        setTimeout(() => {
+                            loadComponent('feedback');
+                        }, 500);
+                    } else {
+                        showMessage(data.error || 'Failed to save configuration', 'error');
+                    }
+                } catch (err) {
+                    showMessage('Failed to save configuration. Please try again.', 'error');
+                } finally {
+                    submitBtn.disabled = false;
+                    loadingIcon.classList.add('hidden');
                 }
-                const data = await res.json();
-                if (data.success) {
-                    showMessage('Feedback configuration saved successfully!', 'success');
-                    setTimeout(() => {
-                        loadComponent('feedback');
-                    }, 500);
-                } else {
-                    showMessage(data.error || 'Failed to save configuration', 'error');
+                return;
+            }
+            if (e.target.id === 'giveawayConfigForm') {
+                e.preventDefault();
+                const formData = {
+                    giveaway_channel: document.getElementById('giveaway_channel').value || null
+                };
+                const submitBtn = document.getElementById('saveGiveawayConfigBtn');
+                const loadingIcon = document.getElementById('saveGiveawayConfigLoading');
+                submitBtn.disabled = true;
+                loadingIcon.classList.remove('hidden');
+                try {
+                    const res = await fetch(`/api/servers/${currentServerId}/settings`, {
+                        method: 'PUT',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        },
+                        credentials: 'include',
+                        body: JSON.stringify({
+                            component_name: 'giveaway',
+                            settings: formData
+                        })
+                    });
+                    if (res.status === 401) {
+                        await checkAuthStatus();
+                        return;
+                    }
+                    const data = await res.json();
+                    if (data.success) {
+                        showMessage('Giveaway configuration saved successfully!', 'success');
+                        setTimeout(() => {
+                            loadComponent('giveaway');
+                        }, 500);
+                    } else {
+                        showMessage(data.error || 'Failed to save configuration', 'error');
+                    }
+                } catch (err) {
+                    showMessage('Failed to save configuration. Please try again.', 'error');
+                } finally {
+                    submitBtn.disabled = false;
+                    loadingIcon.classList.add('hidden');
                 }
-            } catch (err) {
-                showMessage('Failed to save configuration. Please try again.', 'error');
-            } finally {
-                submitBtn.disabled = false;
-                loadingIcon.classList.add('hidden');
+                return;
             }
         });
         document.addEventListener('submit', async function (e) {
