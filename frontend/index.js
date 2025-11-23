@@ -1020,6 +1020,25 @@ export async function init() {
                 }
             };
 
+            const cleanupUploadedImage = (delay = 0) => {
+                if (!uploaded_image_path) return;
+                const cleanup = () => {
+                    try {
+                        const filePath = join(projectRoot, 'frontend', 'uploads', 'embed-images', uploaded_image_path);
+                        if (existsSync(filePath)) {
+                            unlinkSync(filePath);
+                        }
+                    } catch (cleanupErr) {
+                        logger.log(`⚠️  Failed to cleanup uploaded image: ${cleanupErr.message}`);
+                    }
+                };
+                if (delay > 0) {
+                    setTimeout(cleanup, delay);
+                } else {
+                    cleanup();
+                }
+            };
+
             const webhookReq = http.request(options, (webhookRes) => {
                 let data = '';
                 webhookRes.on('data', (chunk) => {
@@ -1030,56 +1049,20 @@ export async function init() {
                         const result = JSON.parse(data);
                         if (webhookRes.statusCode === 200 && result.success) {
                             if (uploaded_image_path && !imageBuffer) {
-                                setTimeout(() => {
-                                    try {
-                                        const filePath = join(projectRoot, 'frontend', 'uploads', 'embed-images', uploaded_image_path);
-                                        if (existsSync(filePath)) {
-                                            unlinkSync(filePath);
-                                        }
-                                    } catch (cleanupErr) {
-                                        logger.log(`⚠️  Failed to cleanup uploaded image: ${cleanupErr.message}`);
-                                    }
-                                }, 30000);
-                            } else if (uploaded_image_path) {
-                                try {
-                                    const filePath = join(projectRoot, 'frontend', 'uploads', 'embed-images', uploaded_image_path);
-                                    if (existsSync(filePath)) {
-                                        unlinkSync(filePath);
-                                    }
-                                } catch (cleanupErr) {
-                                    logger.log(`⚠️  Failed to cleanup uploaded image: ${cleanupErr.message}`);
-                                }
+                                cleanupUploadedImage(30000);
+                            } else {
+                                cleanupUploadedImage();
                             }
                             res.json({ success: true, message: 'Embed sent successfully' });
                         } else {
-
-                            if (uploaded_image_path) {
-                                try {
-                                    const filePath = join(projectRoot, 'frontend', 'uploads', 'embed-images', uploaded_image_path);
-                                    if (existsSync(filePath)) {
-                                        unlinkSync(filePath);
-                                    }
-                                } catch (cleanupErr) {
-                                    logger.log(`⚠️  Failed to cleanup uploaded image: ${cleanupErr.message}`);
-                                }
-                            }
+                            cleanupUploadedImage();
                             res.status(webhookRes.statusCode || 500).json({
                                 success: false,
                                 error: result.error || 'Failed to send embed'
                             });
                         }
                     } catch (parseErr) {
-
-                        if (uploaded_image_path) {
-                            try {
-                                const filePath = join(projectRoot, 'frontend', 'uploads', 'embed-images', uploaded_image_path);
-                                if (existsSync(filePath)) {
-                                    unlinkSync(filePath);
-                                }
-                            } catch (cleanupErr) {
-                                logger.log(`⚠️  Failed to cleanup uploaded image: ${cleanupErr.message}`);
-                            }
-                        }
+                        cleanupUploadedImage();
                         res.status(500).json({ success: false, error: 'Failed to parse bot response' });
                     }
                 });
@@ -1087,6 +1070,7 @@ export async function init() {
 
             webhookReq.on('error', (err) => {
                 logger.log(`❌ Error calling bot webhook: ${err.message}`);
+                cleanupUploadedImage();
                 res.status(500).json({ success: false, error: 'Failed to communicate with bot' });
             });
 
@@ -1095,10 +1079,9 @@ export async function init() {
 
         } catch (error) {
             logger.log(`❌ Error sending embed: ${error.message}`);
-
-            if (req.body.uploaded_image_path) {
+            if (uploaded_image_path) {
                 try {
-                    const filePath = join(projectRoot, 'frontend', 'uploads', 'embed-images', req.body.uploaded_image_path);
+                    const filePath = join(projectRoot, 'frontend', 'uploads', 'embed-images', uploaded_image_path);
                     if (existsSync(filePath)) {
                         unlinkSync(filePath);
                     }
