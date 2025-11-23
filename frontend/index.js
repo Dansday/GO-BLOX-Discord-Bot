@@ -419,10 +419,6 @@ export async function init() {
         }
     }));
 
-
-
-
-
     app.use((req, res, next) => {
         const path = req.path.toLowerCase();
 
@@ -962,12 +958,10 @@ export async function init() {
                 return res.status(400).json({ success: false, error: 'channel_ids (array) and title are required' });
             }
 
-
             const server = await db.getServer(serverId);
             if (!server) {
                 return res.status(404).json({ success: false, error: 'Server not found' });
             }
-
 
             const bot = await db.getBot(server.bot_id);
             if (!bot) {
@@ -982,7 +976,6 @@ export async function init() {
                 return res.status(400).json({ success: false, error: 'Bot webhook not configured' });
             }
 
-
             let finalImageUrl = image_url;
             if (finalImageUrl && finalImageUrl.startsWith('/uploads/')) {
 
@@ -991,13 +984,11 @@ export async function init() {
                 finalImageUrl = `${protocol}://${host}${finalImageUrl}`;
             }
 
-
             const validChannelIds = (channel_ids || []).filter(id => id != null && id !== '' && id !== undefined);
 
             if (validChannelIds.length === 0) {
                 return res.status(400).json({ success: false, error: 'At least one valid channel ID is required' });
             }
-
 
             const http = await import('http');
             const payload = {
@@ -1119,7 +1110,6 @@ export async function init() {
         }
     });
 
-
     app.post('/api/servers/:id/upload-embed-image', requireAuth, async (req, res) => {
         try {
             const serverId = parseInt(req.params.id);
@@ -1127,11 +1117,9 @@ export async function init() {
                 return res.status(400).json({ success: false, error: 'Invalid server ID' });
             }
 
-
             if (!req.body || !req.body.image) {
                 return res.status(400).json({ success: false, error: 'No image file provided' });
             }
-
 
             let imageData;
             let fileExtension = 'png';
@@ -1154,24 +1142,19 @@ export async function init() {
                 return res.status(400).json({ success: false, error: 'Invalid image format' });
             }
 
-
             if (imageData.length > 10 * 1024 * 1024) {
                 return res.status(400).json({ success: false, error: 'Image file is too large. Maximum size is 10MB' });
             }
-
 
             const uploadsDir = join(projectRoot, 'frontend', 'uploads', 'embed-images');
             if (!existsSync(uploadsDir)) {
                 mkdirSync(uploadsDir, { recursive: true });
             }
 
-
             const filename = `${Date.now()}-${Math.random().toString(36).substring(7)}.${fileExtension}`;
             const filePath = join(uploadsDir, filename);
 
-
             writeFileSync(filePath, imageData);
-
 
             const imageUrl = `/uploads/embed-images/${filename}`;
             res.json({ success: true, url: imageUrl, path: filename });
@@ -1180,7 +1163,6 @@ export async function init() {
             res.status(500).json({ success: false, error: error.message });
         }
     });
-
 
     app.post('/api/servers/:id/delete-embed-image', requireAuth, async (req, res) => {
         try {
@@ -1203,18 +1185,13 @@ export async function init() {
         }
     });
 
-
-
-
     app.get('/uploads/embed-images/:filename', (req, res) => {
         try {
             const filename = req.params.filename;
 
-
             if (filename.includes('..') || filename.includes('/') || filename.includes('\\')) {
                 return res.status(400).json({ error: 'Invalid filename' });
             }
-
 
             const filenamePattern = /^\d+-[a-z0-9]+\.(jpg|jpeg|png|gif|webp|svg)$/i;
             if (!filenamePattern.test(filename)) {
@@ -1223,11 +1200,9 @@ export async function init() {
 
             const filePath = join(projectRoot, 'frontend', 'uploads', 'embed-images', filename);
 
-
             if (!existsSync(filePath)) {
                 return res.status(404).json({ error: 'File not found' });
             }
-
 
             const ext = filename.split('.').pop()?.toLowerCase();
             const contentTypes = {
@@ -1239,7 +1214,6 @@ export async function init() {
                 'svg': 'image/svg+xml'
             };
             const contentType = contentTypes[ext] || 'application/octet-stream';
-
 
             res.setHeader('Content-Type', contentType);
             res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, private');
