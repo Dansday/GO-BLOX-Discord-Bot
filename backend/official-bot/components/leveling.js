@@ -720,12 +720,10 @@ function init(client) {
 
     if (client.isReady()) {
         resumeVoiceSessions(client);
-        // Recalculate all member levels on startup to fix any timezone bug issues
         setTimeout(() => recalculateAllMemberLevels(client), 5000);
     } else {
         client.once("ready", () => {
             resumeVoiceSessions(client);
-            // Recalculate all member levels on startup to fix any timezone bug issues
             setTimeout(() => recalculateAllMemberLevels(client), 5000);
         });
     }
