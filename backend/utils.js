@@ -1,4 +1,4 @@
-const TIMEZONE = process.env.TIMEZONE;
+const TIMEZONE = process.env.TIMEZONE || "Asia/Jakarta";
 
 export function separateChannelsAndCategories(guildChannels) {
 

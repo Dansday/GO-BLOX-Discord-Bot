@@ -436,6 +436,8 @@ export async function init() {
         next();
     });
 
+    app.use(express.static(__dirname));
+
     function getClientIp(req) {
         return req.headers['x-forwarded-for']?.split(',')[0] ||
             req.headers['x-real-ip'] ||

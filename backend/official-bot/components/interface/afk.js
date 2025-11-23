@@ -3,6 +3,7 @@ import { getEmbedConfig, getBotConfig } from '../../../config.js';
 import logger from '../../../logger.js';
 import { hasPermission, getPermissionDeniedMessage } from '../permissions.js';
 import db from '../../../../database/database.js';
+import { getNowInTimezone } from '../../../utils.js';
 
 function stripAfkPrefix(name) {
     if (!name || typeof name !== 'string') return '';
@@ -150,7 +151,7 @@ export async function removeAFK(member, reason = '') {
 
         await db.removeAFKStatus(serverData.id, userId);
 
-        const duration = Math.floor((Date.now() - afkData.timestamp) / 1000);
+        const duration = Math.floor((getNowInTimezone().getTime() - afkData.timestamp) / 1000);
         const minutes = Math.floor(duration / 60);
         const hours = Math.floor(minutes / 60);
 
@@ -196,7 +197,7 @@ export async function handleAFKButton(interaction) {
 
             const buttonRow = new ActionRowBuilder().addComponents(removeButton);
 
-            const duration = Math.floor((Date.now() - afkData.timestamp) / 1000);
+            const duration = Math.floor((getNowInTimezone().getTime() - afkData.timestamp) / 1000);
             const minutes = Math.floor(duration / 60);
             const hours = Math.floor(minutes / 60);
 
@@ -430,7 +431,7 @@ export function init(client) {
                     if (mentionedAFKData) {
                         try {
 
-                            const duration = Math.floor((Date.now() - mentionedAFKData.timestamp) / 1000);
+                            const duration = Math.floor((getNowInTimezone().getTime() - mentionedAFKData.timestamp) / 1000);
                             const minutes = Math.floor(duration / 60);
                             const hours = Math.floor(minutes / 60);
 

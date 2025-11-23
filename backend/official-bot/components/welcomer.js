@@ -2,10 +2,11 @@ import { WELCOMER, getEmbedConfig, getBotConfig } from "../../config.js";
 import { EmbedBuilder } from "discord.js";
 import logger from "../../logger.js";
 import db from "../../../database/database.js";
+import { getNowInTimezone, parseMySQLDateTime } from "../../utils.js";
 
 function replacePlaceholders(message, memberId, serverData, memberData, memberCount) {
-    const now = new Date();
-    const profileCreatedAt = memberData?.profile_created_at ? new Date(memberData.profile_created_at) : null;
+    const now = getNowInTimezone();
+    const profileCreatedAt = memberData?.profile_created_at ? parseMySQLDateTime(memberData.profile_created_at) : null;
     const accountAge = profileCreatedAt ? Math.floor((now.getTime() - profileCreatedAt.getTime()) / (1000 * 60 * 60 * 24)) : 0;
     const accountAgeText = accountAge === 0 ? 'today' : accountAge === 1 ? '1 day ago' : `${accountAge} days ago`;
 
@@ -64,8 +65,8 @@ async function welcomeUser(member, client) {
 
         const embedConfig = await getEmbedConfig(member.guild.id);
 
-        const profileCreatedAt = memberData.profile_created_at ? new Date(memberData.profile_created_at) : null;
-        const accountCreatedTimestamp = profileCreatedAt ? Math.floor(profileCreatedAt.getTime() / 1000) : Math.floor(Date.now() / 1000);
+        const profileCreatedAt = memberData.profile_created_at ? parseMySQLDateTime(memberData.profile_created_at) : null;
+        const accountCreatedTimestamp = profileCreatedAt ? Math.floor(profileCreatedAt.getTime() / 1000) : Math.floor(getNowInTimezone().getTime() / 1000);
 
         const welcomeEmbed = new EmbedBuilder()
             .setColor(embedConfig.COLOR)
