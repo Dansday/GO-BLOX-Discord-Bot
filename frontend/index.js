@@ -419,10 +419,6 @@ export async function init() {
         }
     }));
 
-
-
-
-
     app.use((req, res, next) => {
         const path = req.path.toLowerCase();
 
@@ -435,6 +431,8 @@ export async function init() {
         }
         next();
     });
+
+    app.use(express.static(__dirname));
 
     function getClientIp(req) {
         return req.headers['x-forwarded-for']?.split(',')[0] ||
@@ -942,16 +940,28 @@ export async function init() {
 
             const { channel_ids, role_ids, title, description, image_url, uploaded_image_path, color, footer } = req.body;
 
+            let imageBuffer = null;
+            let imageFilename = null;
+            if (uploaded_image_path) {
+                try {
+                    const filePath = join(projectRoot, 'frontend', 'uploads', 'embed-images', uploaded_image_path);
+                    if (existsSync(filePath)) {
+                        imageBuffer = readFileSync(filePath);
+                        imageFilename = uploaded_image_path.split('/').pop() || 'image.png';
+                    }
+                } catch (readErr) {
+                    logger.log(`⚠️  Failed to read uploaded image: ${readErr.message}`);
+                }
+            }
+
             if (!channel_ids || !Array.isArray(channel_ids) || channel_ids.length === 0 || !title) {
                 return res.status(400).json({ success: false, error: 'channel_ids (array) and title are required' });
             }
-
 
             const server = await db.getServer(serverId);
             if (!server) {
                 return res.status(404).json({ success: false, error: 'Server not found' });
             }
-
 
             const bot = await db.getBot(server.bot_id);
             if (!bot) {
@@ -966,7 +976,6 @@ export async function init() {
                 return res.status(400).json({ success: false, error: 'Bot webhook not configured' });
             }
 
-
             let finalImageUrl = image_url;
             if (finalImageUrl && finalImageUrl.startsWith('/uploads/')) {
 
@@ -975,27 +984,30 @@ export async function init() {
                 finalImageUrl = `${protocol}://${host}${finalImageUrl}`;
             }
 
-
             const validChannelIds = (channel_ids || []).filter(id => id != null && id !== '' && id !== undefined);
 
             if (validChannelIds.length === 0) {
                 return res.status(400).json({ success: false, error: 'At least one valid channel ID is required' });
             }
 
-
             const http = await import('http');
-            const payload = JSON.stringify({
+            const payload = {
                 type: 'send_embed',
                 guild_id: server.discord_server_id,
                 channel_ids: validChannelIds,
                 role_ids: role_ids || [],
                 title,
                 description: description || null,
-                image_url: finalImageUrl || null,
+                image_url: (imageBuffer ? null : finalImageUrl) || null,
                 color: color || null,
-                footer: footer || null
-            });
+                footer: footer || null,
+                image_attachment: imageBuffer ? {
+                    filename: imageFilename,
+                    data: imageBuffer.toString('base64')
+                } : null
+            };
 
+            const payloadString = JSON.stringify(payload);
             const options = {
                 hostname: 'localhost',
                 port: bot.port,
@@ -1003,8 +1015,27 @@ export async function init() {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
-                    'Content-Length': Buffer.byteLength(payload),
+                    'Content-Length': Buffer.byteLength(payloadString),
                     'X-Secret-Key': bot.secret_key
+                }
+            };
+
+            const cleanupUploadedImage = (delay = 0) => {
+                if (!uploaded_image_path) return;
+                const cleanup = () => {
+                    try {
+                        const filePath = join(projectRoot, 'frontend', 'uploads', 'embed-images', uploaded_image_path);
+                        if (existsSync(filePath)) {
+                            unlinkSync(filePath);
+                        }
+                    } catch (cleanupErr) {
+                        logger.log(`⚠️  Failed to cleanup uploaded image: ${cleanupErr.message}`);
+                    }
+                };
+                if (delay > 0) {
+                    setTimeout(cleanup, delay);
+                } else {
+                    cleanup();
                 }
             };
 
@@ -1017,47 +1048,21 @@ export async function init() {
                     try {
                         const result = JSON.parse(data);
                         if (webhookRes.statusCode === 200 && result.success) {
-
-                            if (uploaded_image_path) {
-                                try {
-                                    const filePath = join(projectRoot, 'frontend', 'uploads', 'embed-images', uploaded_image_path);
-                                    if (existsSync(filePath)) {
-                                        unlinkSync(filePath);
-                                    }
-                                } catch (cleanupErr) {
-                                    logger.log(`⚠️  Failed to cleanup uploaded image: ${cleanupErr.message}`);
-                                }
+                            if (uploaded_image_path && !imageBuffer) {
+                                cleanupUploadedImage(30000);
+                            } else {
+                                cleanupUploadedImage();
                             }
                             res.json({ success: true, message: 'Embed sent successfully' });
                         } else {
-
-                            if (uploaded_image_path) {
-                                try {
-                                    const filePath = join(projectRoot, 'frontend', 'uploads', 'embed-images', uploaded_image_path);
-                                    if (existsSync(filePath)) {
-                                        unlinkSync(filePath);
-                                    }
-                                } catch (cleanupErr) {
-                                    logger.log(`⚠️  Failed to cleanup uploaded image: ${cleanupErr.message}`);
-                                }
-                            }
+                            cleanupUploadedImage();
                             res.status(webhookRes.statusCode || 500).json({
                                 success: false,
                                 error: result.error || 'Failed to send embed'
                             });
                         }
                     } catch (parseErr) {
-
-                        if (uploaded_image_path) {
-                            try {
-                                const filePath = join(projectRoot, 'frontend', 'uploads', 'embed-images', uploaded_image_path);
-                                if (existsSync(filePath)) {
-                                    unlinkSync(filePath);
-                                }
-                            } catch (cleanupErr) {
-                                logger.log(`⚠️  Failed to cleanup uploaded image: ${cleanupErr.message}`);
-                            }
-                        }
+                        cleanupUploadedImage();
                         res.status(500).json({ success: false, error: 'Failed to parse bot response' });
                     }
                 });
@@ -1065,18 +1070,18 @@ export async function init() {
 
             webhookReq.on('error', (err) => {
                 logger.log(`❌ Error calling bot webhook: ${err.message}`);
+                cleanupUploadedImage();
                 res.status(500).json({ success: false, error: 'Failed to communicate with bot' });
             });
 
-            webhookReq.write(payload);
+            webhookReq.write(payloadString);
             webhookReq.end();
 
         } catch (error) {
             logger.log(`❌ Error sending embed: ${error.message}`);
-
-            if (req.body.uploaded_image_path) {
+            if (uploaded_image_path) {
                 try {
-                    const filePath = join(projectRoot, 'frontend', 'uploads', 'embed-images', req.body.uploaded_image_path);
+                    const filePath = join(projectRoot, 'frontend', 'uploads', 'embed-images', uploaded_image_path);
                     if (existsSync(filePath)) {
                         unlinkSync(filePath);
                     }
@@ -1088,7 +1093,6 @@ export async function init() {
         }
     });
 
-
     app.post('/api/servers/:id/upload-embed-image', requireAuth, async (req, res) => {
         try {
             const serverId = parseInt(req.params.id);
@@ -1096,11 +1100,9 @@ export async function init() {
                 return res.status(400).json({ success: false, error: 'Invalid server ID' });
             }
 
-
             if (!req.body || !req.body.image) {
                 return res.status(400).json({ success: false, error: 'No image file provided' });
             }
-
 
             let imageData;
             let fileExtension = 'png';
@@ -1110,30 +1112,32 @@ export async function init() {
                 if (!matches) {
                     return res.status(400).json({ success: false, error: 'Invalid image data format' });
                 }
-                fileExtension = matches[1];
+                fileExtension = matches[1].toLowerCase();
+                if (fileExtension === 'jpeg') {
+                    fileExtension = 'jpg';
+                }
+                const supportedFormats = ['jpg', 'png', 'gif', 'webp'];
+                if (!supportedFormats.includes(fileExtension)) {
+                    return res.status(400).json({ success: false, error: `Unsupported image format. Supported formats: ${supportedFormats.join(', ')}` });
+                }
                 imageData = Buffer.from(matches[2], 'base64');
             } else {
                 return res.status(400).json({ success: false, error: 'Invalid image format' });
             }
 
-
             if (imageData.length > 10 * 1024 * 1024) {
                 return res.status(400).json({ success: false, error: 'Image file is too large. Maximum size is 10MB' });
             }
-
 
             const uploadsDir = join(projectRoot, 'frontend', 'uploads', 'embed-images');
             if (!existsSync(uploadsDir)) {
                 mkdirSync(uploadsDir, { recursive: true });
             }
 
-
             const filename = `${Date.now()}-${Math.random().toString(36).substring(7)}.${fileExtension}`;
             const filePath = join(uploadsDir, filename);
 
-
             writeFileSync(filePath, imageData);
-
 
             const imageUrl = `/uploads/embed-images/${filename}`;
             res.json({ success: true, url: imageUrl, path: filename });
@@ -1142,7 +1146,6 @@ export async function init() {
             res.status(500).json({ success: false, error: error.message });
         }
     });
-
 
     app.post('/api/servers/:id/delete-embed-image', requireAuth, async (req, res) => {
         try {
@@ -1165,18 +1168,13 @@ export async function init() {
         }
     });
 
-
-
-
     app.get('/uploads/embed-images/:filename', (req, res) => {
         try {
             const filename = req.params.filename;
 
-
             if (filename.includes('..') || filename.includes('/') || filename.includes('\\')) {
                 return res.status(400).json({ error: 'Invalid filename' });
             }
-
 
             const filenamePattern = /^\d+-[a-z0-9]+\.(jpg|jpeg|png|gif|webp|svg)$/i;
             if (!filenamePattern.test(filename)) {
@@ -1185,11 +1183,9 @@ export async function init() {
 
             const filePath = join(projectRoot, 'frontend', 'uploads', 'embed-images', filename);
 
-
             if (!existsSync(filePath)) {
                 return res.status(404).json({ error: 'File not found' });
             }
-
 
             const ext = filename.split('.').pop()?.toLowerCase();
             const contentTypes = {
@@ -1201,7 +1197,6 @@ export async function init() {
                 'svg': 'image/svg+xml'
             };
             const contentType = contentTypes[ext] || 'application/octet-stream';
-
 
             res.setHeader('Content-Type', contentType);
             res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, private');

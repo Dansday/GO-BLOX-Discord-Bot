@@ -2,6 +2,7 @@ import { EmbedBuilder } from "discord.js";
 import { getMainChannel, getEmbedConfig, getBotConfig } from "../../config.js";
 import logger from "../../logger.js";
 import db from "../../../database/database.js";
+import { parseMySQLDateTime } from "../../utils.js";
 
 async function sendModerationLog(client, embedData, guildId = null) {
     const mainChannel = await getMainChannel(guildId);
@@ -169,7 +170,7 @@ function init(client) {
             }
 
             const reason = kickEntry.reason || "No reason provided";
-            const memberSince = memberData.member_since ? new Date(memberData.member_since) : null;
+            const memberSince = memberData.member_since ? parseMySQLDateTime(memberData.member_since) : null;
             const memberSinceTimestamp = memberSince ? Math.floor(memberSince.getTime() / 1000) : null;
 
             await sendModerationLog(client, {

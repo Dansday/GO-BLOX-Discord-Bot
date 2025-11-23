@@ -4,7 +4,7 @@ import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
 import dotenv from 'dotenv';
 import logger from '../backend/logger.js';
-import { toMySQLDateTime, getNowInTimezone } from '../backend/utils.js';
+import { toMySQLDateTime, getNowInTimezone, parseMySQLDateTime } from '../backend/utils.js';
 
 dotenv.config();
 
@@ -1329,7 +1329,9 @@ export async function getServerOverview(serverId) {
         if (!latest) {
             return row.updated_at;
         }
-        return new Date(row.updated_at) > new Date(latest) ? row.updated_at : latest;
+        const rowDate = parseMySQLDateTime(row.updated_at);
+        const latestDate = parseMySQLDateTime(latest);
+        return rowDate && latestDate && rowDate > latestDate ? row.updated_at : latest;
     }, null);
 
     return {
@@ -1751,7 +1753,7 @@ export async function getAFKStatus(serverId, discordMemberId) {
     const afkData = result[0];
     return {
         message: afkData.message || 'Away',
-        timestamp: new Date(afkData.created_at).getTime(),
+        timestamp: parseMySQLDateTime(afkData.created_at)?.getTime() || getNowInTimezone().getTime(),
         serverDisplayName: afkData.server_display_name
     };
 }
@@ -1902,13 +1904,19 @@ export async function updateGiveawayMessageId(giveawayId, discordMessageId) {
 export async function getEndedGiveaways() {
     await initializeDatabase();
 
-    const nowInTimezone = toMySQLDateTime(getNowInTimezone());
     const result = await query(
-        'SELECT * FROM server_giveaways WHERE status = ? AND ends_at <= ? AND winners_announced = ?',
-        ['active', nowInTimezone, false]
+        'SELECT * FROM server_giveaways WHERE status = ? AND winners_announced = ?',
+        ['active', false]
     );
 
-    return result.map(row => {
+    const nowInTimezone = getNowInTimezone();
+
+    const endedGiveaways = result.filter(row => {
+        const endsAt = parseMySQLDateTime(row.ends_at);
+        return endsAt && endsAt <= nowInTimezone;
+    });
+
+    return endedGiveaways.map(row => {
         if (row.allowed_roles) {
             try {
                 row.allowed_roles = typeof row.allowed_roles === 'string'

@@ -2,6 +2,7 @@ import { getLevelingSettings, PERMISSIONS, getBotConfig, getEmbedConfig } from "
 import db from "../../../database/database.js";
 import logger from "../../logger.js";
 import { EmbedBuilder } from "discord.js";
+import { getNowInTimezone, parseMySQLDateTime } from "../../utils.js";
 
 const recentMessages = new Map();
 const voiceSessions = new Map();
@@ -412,7 +413,7 @@ async function handleMessageCreate(message) {
         const stats = await db.updateMemberLevelStats(dbMember.id, {
             chatIncrement: 1,
             experienceIncrement: xpGained,
-            chatRewardedAt: message.createdAt || new Date()
+            chatRewardedAt: message.createdAt ? new Date(message.createdAt) : getNowInTimezone()
         });
 
         const memberName = dbMember.server_display_name || dbMember.display_name || dbMember.username || message.author.username;
@@ -435,7 +436,7 @@ async function awardVoiceXP(server, dbMember, guildMember, minutes, isAFK, guild
     const xpGained = await getExperienceForVoiceMinutes(minutes, isAFK, guildId);
     const updates = {
         experienceIncrement: xpGained,
-        voiceRewardedAt: new Date(),
+        voiceRewardedAt: getNowInTimezone(),
         isInVoice: true
     };
     if (isAFK) {
@@ -470,7 +471,7 @@ async function startVoiceSession(state, resumed = false) {
         await db.ensureMemberLevel(dbMember.id);
         const levelData = await db.getMemberLevel(dbMember.id);
         const wasMarkedInVoice = !!(levelData?.is_in_voice);
-        const lastRewardedAtMs = levelData?.voice_rewarded_at ? new Date(levelData.voice_rewarded_at).getTime() : null;
+        const lastRewardedAtMs = levelData?.voice_rewarded_at ? parseMySQLDateTime(levelData.voice_rewarded_at)?.getTime() : null;
 
         const sessionKey = `${state.guild.id}:${guildMember.id}`;
         const existingSession = voiceSessions.get(sessionKey);
@@ -478,14 +479,14 @@ async function startVoiceSession(state, resumed = false) {
             clearInterval(existingSession.interval);
         }
 
-        const now = Date.now();
+        const now = getNowInTimezone().getTime();
         const guildId = state.guild.id;
         const voiceCooldownMs = await getVoiceCooldownMs(guildId);
 
         if (lastRewardedAtMs === null) {
             await db.updateMemberLevelStats(dbMember.id, {
                 isInVoice: true,
-                voiceRewardedAt: new Date(now)
+                voiceRewardedAt: getNowInTimezone()
             });
         } else {
             await db.updateMemberLevelStats(dbMember.id, { isInVoice: true });
@@ -581,7 +582,7 @@ async function handleVoiceTick(sessionKey) {
 
         const guildId = session.guildId;
         const voiceCooldownMs = await getVoiceCooldownMs(guildId);
-        const now = Date.now();
+        const now = getNowInTimezone().getTime();
         const lastRewardedAt = session.lastRewardedAt || 0;
 
         if ((now - lastRewardedAt) < voiceCooldownMs) return;
@@ -599,6 +600,76 @@ async function handleVoiceTick(sessionKey) {
         session.lastRewardedAt = now;
     } catch (error) {
         await logger.log(`❌ Leveling voice tick error: ${error.message}`);
+    }
+}
+
+async function recalculateAllMemberLevels(client) {
+    try {
+        const botConfig = getBotConfig();
+        if (!botConfig || !botConfig.id) {
+            await logger.log('⚠️ Bot config not available, skipping level recalculation');
+            return;
+        }
+
+        const servers = await db.getServersForBot(botConfig.id);
+        if (!servers || servers.length === 0) {
+            await logger.log('ℹ️ No servers found, skipping level recalculation');
+            return;
+        }
+
+        await logger.log(`🔄 Starting level recalculation for ${servers.length} server(s)...`);
+        let totalRecalculated = 0;
+        let totalFixed = 0;
+
+        for (const server of servers) {
+            try {
+                const guild = client.guilds.cache.get(server.discord_server_id);
+                if (!guild) {
+                    continue;
+                }
+
+                const members = await db.getServerMembersList(server.id);
+                if (!members || members.length === 0) {
+                    continue;
+                }
+
+                let serverRecalculated = 0;
+                let serverFixed = 0;
+
+                for (const member of members) {
+                    if (!member.id || !member.experience) {
+                        continue;
+                    }
+
+                    const levelData = await db.getMemberLevel(member.id);
+                    if (!levelData) {
+                        continue;
+                    }
+
+                    const currentLevel = levelData.level ?? 1;
+                    const expectedLevel = await determineLevel(levelData.experience ?? 0, guild.id);
+
+                    if (currentLevel !== expectedLevel) {
+                        await db.updateMemberLevelStats(member.id, { level: expectedLevel });
+                        serverFixed++;
+                        totalFixed++;
+                    }
+                    serverRecalculated++;
+                    totalRecalculated++;
+                }
+
+                if (serverRecalculated > 0) {
+                    await db.recalculateServerMemberRanks(server.id);
+                    await logger.log(`✅ Recalculated ${serverRecalculated} member(s) in ${server.name} (${serverFixed} level(s) corrected)`);
+                }
+            } catch (error) {
+                await logger.log(`❌ Error recalculating levels for server ${server.name}: ${error.message}`);
+            }
+        }
+
+        await logger.log(`✅ Level recalculation complete: ${totalRecalculated} member(s) checked, ${totalFixed} level(s) corrected`);
+    } catch (error) {
+        await logger.log(`❌ Error during level recalculation: ${error.message}`);
     }
 }
 
@@ -649,9 +720,11 @@ function init(client) {
 
     if (client.isReady()) {
         resumeVoiceSessions(client);
+        setTimeout(() => recalculateAllMemberLevels(client), 5000);
     } else {
         client.once("ready", () => {
             resumeVoiceSessions(client);
+            setTimeout(() => recalculateAllMemberLevels(client), 5000);
         });
     }
 

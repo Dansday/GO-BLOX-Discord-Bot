@@ -51,7 +51,7 @@ function parseColor(colorInput) {
 
 async function handleSendEmbed(payload) {
     try {
-        const { guild_id, channel_ids, role_ids, title, description, image_url, color, footer } = payload;
+        const { guild_id, channel_ids, role_ids, title, description, image_url, color, footer, image_attachment } = payload;
 
 
         const channelIds = channel_ids || (payload.channel_id ? [payload.channel_id] : []);
@@ -87,8 +87,26 @@ async function handleSendEmbed(payload) {
 
         if (title) embed.setTitle(title);
         if (description) embed.setDescription(description);
-        if (image_url) embed.setImage(image_url);
 
+        let imageAttachment = null;
+        if (image_attachment && image_attachment.data) {
+            try {
+                const imageBuffer = Buffer.from(image_attachment.data, 'base64');
+                const attachmentFilename = image_attachment.filename || 'image.png';
+                imageAttachment = {
+                    attachment: imageBuffer,
+                    name: attachmentFilename
+                };
+                embed.setImage(`attachment://${attachmentFilename}`);
+            } catch (attachErr) {
+                await logger.log(`⚠️  Failed to process image attachment: ${attachErr.message}`);
+                if (image_url) {
+                    embed.setImage(image_url);
+                }
+            }
+        } else if (image_url) {
+            embed.setImage(image_url);
+        }
 
         let content = '';
         if (roleIds && roleIds.length > 0) {
@@ -109,6 +127,9 @@ async function handleSendEmbed(payload) {
             embeds: [embed]
         };
 
+        if (imageAttachment) {
+            messageOptions.files = [imageAttachment];
+        }
 
         const results = [];
         for (const channelId of channelIds) {

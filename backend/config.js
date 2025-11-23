@@ -1,4 +1,5 @@
 import db from '../database/database.js';
+import { getNowInTimezone } from './utils.js';
 
 let botConfig = null;
 
@@ -271,7 +272,7 @@ export async function getEmbedConfig(guildId) {
         throw new Error(`Default footer not configured for guild ${guildId}`);
     }
 
-    const now = new Date();
+    const now = getNowInTimezone();
     let footerText = config.footer
         .replace(/{server}/g, officialBotServer.name)
         .replace(/{year}/g, now.getFullYear().toString())
