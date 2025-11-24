@@ -137,6 +137,7 @@ CREATE TABLE IF NOT EXISTS server_member_roles (
     member_id INT NOT NULL,
     role_id INT NOT NULL,
     is_custom BOOLEAN DEFAULT FALSE,
+    is_rating BOOLEAN DEFAULT FALSE,
     created_at DATETIME NOT NULL,
     UNIQUE KEY unique_member_role (member_id, role_id),
     FOREIGN KEY (member_id) REFERENCES server_members(id) ON DELETE CASCADE,
@@ -205,6 +206,35 @@ CREATE TABLE IF NOT EXISTS server_giveaway_entries (
     FOREIGN KEY (member_id) REFERENCES server_members(id) ON DELETE CASCADE
 );
 
+CREATE TABLE IF NOT EXISTS server_staff_ratings (
+    id INT PRIMARY KEY AUTO_INCREMENT,
+    server_id INT NOT NULL,
+    staff_member_id INT NOT NULL,
+    current_rating DECIMAL(3,2) DEFAULT 0,
+    total_reports INT DEFAULT 0,
+    rating_role_id VARCHAR(150),
+    created_at DATETIME NOT NULL,
+    updated_at DATETIME NOT NULL,
+    UNIQUE KEY unique_staff_rating (server_id, staff_member_id),
+    FOREIGN KEY (server_id) REFERENCES servers(id) ON DELETE CASCADE,
+    FOREIGN KEY (staff_member_id) REFERENCES server_members(id) ON DELETE CASCADE
+);
+
+CREATE TABLE IF NOT EXISTS server_staff_reports (
+    id INT PRIMARY KEY AUTO_INCREMENT,
+    server_id INT NOT NULL,
+    reporter_member_id INT NOT NULL,
+    reported_staff_id INT NOT NULL,
+    rating TINYINT NOT NULL CHECK(rating >= 1 AND rating <= 5),
+    category VARCHAR(50) NOT NULL,
+    description TEXT,
+    is_anonymous BOOLEAN DEFAULT 0,
+    reported_at DATETIME NOT NULL,
+    FOREIGN KEY (server_id) REFERENCES servers(id) ON DELETE CASCADE,
+    FOREIGN KEY (reporter_member_id) REFERENCES server_members(id) ON DELETE CASCADE,
+    FOREIGN KEY (reported_staff_id) REFERENCES server_members(id) ON DELETE CASCADE
+);
+
 CREATE INDEX idx_bots_type ON bots(bot_type);
 CREATE INDEX idx_bots_connect_to ON bots(connect_to);
 CREATE INDEX idx_bots_panel_id ON bots(panel_id);
@@ -237,3 +267,8 @@ CREATE INDEX idx_server_giveaways_status ON server_giveaways(status);
 CREATE INDEX idx_server_giveaways_ends_at ON server_giveaways(ends_at);
 CREATE INDEX idx_server_giveaway_entries_giveaway_id ON server_giveaway_entries(giveaway_id);
 CREATE INDEX idx_server_giveaway_entries_member_id ON server_giveaway_entries(member_id);
+CREATE INDEX idx_server_staff_ratings_server ON server_staff_ratings(server_id);
+CREATE INDEX idx_server_staff_ratings_member ON server_staff_ratings(staff_member_id);
+CREATE INDEX idx_server_staff_reports_server ON server_staff_reports(server_id);
+CREATE INDEX idx_server_staff_reports_staff ON server_staff_reports(server_id, reported_staff_id);
+CREATE INDEX idx_server_staff_reports_pair ON server_staff_reports(server_id, reporter_member_id, reported_staff_id);

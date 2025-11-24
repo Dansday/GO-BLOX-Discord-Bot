@@ -145,6 +145,8 @@ async function setupDatabase() {
         { name: 'server_settings', required: true },
         { name: 'server_giveaways', required: true },
         { name: 'server_giveaway_entries', required: true },
+        { name: 'server_staff_ratings', required: true },
+        { name: 'server_staff_reports', required: true },
         { name: 'bot_logs', required: true }
     ];
 
@@ -2151,6 +2153,113 @@ export async function markGiveawayWinners(giveawayId, winnerMemberIds) {
     );
 }
 
+export async function getStaffRating(serverId, staffMemberId) {
+    await initializeDatabase();
+    const result = await query(
+        'SELECT * FROM server_staff_ratings WHERE server_id = ? AND staff_member_id = ?',
+        [serverId, staffMemberId]
+    );
+    return result[0] || null;
+}
+
+export async function upsertStaffRating(serverId, staffMemberId, ratingValue, totalReports, ratingRoleId = null) {
+    await initializeDatabase();
+    const now = toMySQLDateTime();
+    const existing = await getStaffRating(serverId, staffMemberId);
+    if (existing) {
+        const nextRoleId = ratingRoleId !== null && ratingRoleId !== undefined ? ratingRoleId : existing.rating_role_id;
+        await query(
+            `UPDATE server_staff_ratings
+             SET current_rating = ?, total_reports = ?, rating_role_id = ?, updated_at = ?
+             WHERE server_id = ? AND staff_member_id = ?`,
+            [ratingValue, totalReports, nextRoleId, now, serverId, staffMemberId]
+        );
+    } else {
+        await query(
+            `INSERT INTO server_staff_ratings
+             (server_id, staff_member_id, current_rating, total_reports, rating_role_id, created_at, updated_at)
+             VALUES (?, ?, ?, ?, ?, ?, ?)`,
+            [serverId, staffMemberId, ratingValue, totalReports, ratingRoleId || null, now, now]
+        );
+    }
+    return await getStaffRating(serverId, staffMemberId);
+}
+
+export async function createStaffRatingReport(serverId, reporterMemberId, reportedStaffId, rating, category, description, isAnonymous) {
+    await initializeDatabase();
+    const now = toMySQLDateTime();
+    const result = await query(
+        `INSERT INTO server_staff_reports
+         (server_id, reporter_member_id, reported_staff_id, rating, category, description, is_anonymous, reported_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+        [serverId, reporterMemberId, reportedStaffId, rating, category, description, isAnonymous ? 1 : 0, now]
+    );
+    return result.insertId;
+}
+
+export async function getLastStaffRatingReport(serverId, reporterMemberId, reportedStaffId) {
+    await initializeDatabase();
+    const result = await query(
+        `SELECT *
+         FROM server_staff_reports
+         WHERE server_id = ? AND reporter_member_id = ? AND reported_staff_id = ?
+         ORDER BY reported_at DESC
+         LIMIT 1`,
+        [serverId, reporterMemberId, reportedStaffId]
+    );
+    return result[0] || null;
+}
+
+export async function getStaffRatingAggregate(serverId, staffMemberId) {
+    await initializeDatabase();
+    const result = await query(
+        `SELECT
+            COUNT(*) as total_reports,
+            AVG(rating) as average_rating
+         FROM server_staff_reports
+         WHERE server_id = ? AND reported_staff_id = ?`,
+        [serverId, staffMemberId]
+    );
+    const row = result[0] || { total_reports: 0, average_rating: 0 };
+    return {
+        total_reports: row.total_reports || 0,
+        average_rating: row.average_rating || 0
+    };
+}
+
+export async function markMemberRatingRole(serverId, staffMemberId, discordRoleId) {
+    await initializeDatabase();
+    if (!discordRoleId) {
+        return;
+    }
+    await query(
+        'UPDATE server_member_roles SET is_rating = FALSE WHERE member_id = ?',
+        [staffMemberId]
+    );
+    const roles = await query(
+        'SELECT id FROM server_roles WHERE server_id = ? AND discord_role_id = ? LIMIT 1',
+        [serverId, discordRoleId]
+    );
+    if (!roles[0]) {
+        return;
+    }
+    const now = toMySQLDateTime();
+    await query(
+        `INSERT INTO server_member_roles (member_id, role_id, is_custom, is_rating, created_at)
+         VALUES (?, ?, FALSE, TRUE, ?)
+         ON DUPLICATE KEY UPDATE is_rating = VALUES(is_rating)`,
+        [staffMemberId, roles[0].id, now]
+    );
+}
+
+export async function clearMemberRatingRole(staffMemberId) {
+    await initializeDatabase();
+    await query(
+        'UPDATE server_member_roles SET is_rating = FALSE WHERE member_id = ?',
+        [staffMemberId]
+    );
+}
+
 export default {
     getAllBots,
     getBot,
@@ -2214,5 +2323,12 @@ export default {
     markGiveawayEnded,
     markGiveawayEndedForce,
     cancelGiveaway,
-    markGiveawayWinners
+    markGiveawayWinners,
+    getStaffRating,
+    upsertStaffRating,
+    createStaffRatingReport,
+    getLastStaffRatingReport,
+    getStaffRatingAggregate,
+    markMemberRatingRole,
+    clearMemberRatingRole
 };

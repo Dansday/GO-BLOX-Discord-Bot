@@ -214,6 +214,65 @@
       "submitFailed": "❌ **Failed to Submit Feedback**\\n\\nError: {error}\\n\\nPlease try again later."
     }
   },
+  "staffReport": {
+    "title": "📋 Report Staff Member",
+    "selectStaff": "Select Staff Member",
+    "selectStaffPlaceholder": "Choose a staff member to report...",
+    "button": "🛡️ Staff Report",
+    "selectRatingPrompt": "Select a rating",
+    "selectCategoryPrompt": "Select a category",
+    "status": {
+      "staff": "Staff: {staff}",
+      "ratingPending": "Rating: Not selected",
+      "ratingSelected": "Rating: {rating}/5",
+      "categoryPending": "Category: Not selected",
+      "categorySelected": "Category: {category}"
+    },
+    "buttons": {
+      "continue": "Continue",
+      "changeStaff": "Change Staff"
+    },
+    "modal": {
+      "title": "Report Staff Member",
+      "ratingLabel": "Rating (1-5 stars)",
+      "ratingPlaceholder": "1 = Very Poor, 5 = Excellent",
+      "categoryLabel": "Category",
+      "categoryPlaceholder": "helpful, unhelpful, abuse, slow_response, excellent, rude",
+      "descriptionLabel": "Description",
+      "descriptionPlaceholder": "Please describe your experience with this staff member...",
+      "anonymousLabel": "Report Anonymously? (yes/no)",
+      "anonymousPlaceholder": "yes or no (default: no)"
+    },
+    "submitted": {
+      "title": "✅ Report Submitted",
+      "description": "Your report has been submitted successfully. Thank you for your feedback!",
+      "anonymous": "\\n\\n🔒 Your report was submitted anonymously.",
+      "roleUpdated": "\\n\\n⭐ **Staff Rating Updated**\\n{roleName}\\nRating: {rating}/5.00 ({totalReports} reports)"
+    },
+    "categories": {
+      "helpful": "👍 Helpful",
+      "unhelpful": "👎 Unhelpful",
+      "abuse": "⚠️ Abuse of Power",
+      "slow_response": "⏰ Slow Response",
+      "excellent": "⭐ Excellent Service",
+      "rude": "😠 Rude Behavior"
+    },
+    "errors": {
+      "noStaffSelected": "❌ Please select a staff member to report.",
+      "invalidRating": "❌ **Invalid Rating**\\n\\nRating must be a number between 1 and 5.",
+      "invalidCategory": "❌ **Invalid Category**\\n\\nPlease use one of: helpful, unhelpful, abuse, slow_response, excellent, rude",
+      "emptyDescription": "❌ **Description Required**\\n\\nPlease provide a description of your experience.",
+      "cannotReportSelf": "❌ You cannot report yourself!",
+      "notStaff": "❌ The selected member is not a staff member.",
+      "onCooldown": "❌ **Rating Cooldown**\\n\\nYou must wait {hours} hours before rating this staff member again.\\n\\nLast rated: {lastRated}",
+      "submitFailed": "❌ **Failed to Submit Report**\\n\\nError: {error}\\n\\nPlease try again later.",
+      "notConfigured": "❌ Staff rating system is not configured for this server.",
+      "noStaffConfigured": "❌ Staff roles are not configured for this server. Please ask an admin to configure staff permissions first.",
+      "noStaffAvailable": "❌ No staff members could be found right now. Please try again later or contact a server admin.",
+      "missingRating": "❌ Please select a rating before continuing.",
+      "missingCategory": "❌ Please select a category before continuing."
+    }
+  },
   "customSupporterRole": {
     "create": {
       "title": "💎 Create Custom Supporter Role",

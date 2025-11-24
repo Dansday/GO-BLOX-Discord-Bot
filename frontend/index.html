@@ -2037,6 +2037,7 @@
             { id: 'booster', name: 'Booster', icon: 'fa-gift' },
             { id: 'permissions', name: 'Permissions', icon: 'fa-shield-alt' },
             { id: 'custom_supporter_role', name: 'Custom Supporter Role', icon: 'fa-user-tag' },
+            { id: 'staff_rating', name: 'Staff Rating', icon: 'fa-star' },
             { id: 'feedback', name: 'Feedback', icon: 'fa-comment-dots' },
             { id: 'giveaway', name: 'Giveaway', icon: 'fa-gift' },
             { id: 'forwarder', name: 'Forwarder', icon: 'fa-exchange-alt' },
@@ -3199,6 +3200,11 @@
                         </div>
                     `;
                     return;
+                case 'staff_rating':
+                    renderStaffRating(settings).then(html => {
+                        componentContent.innerHTML = html;
+                    });
+                    break;
                 case 'custom_supporter_role':
                     renderCustomSupporterRole(settings).then(html => {
                         contentContainer.innerHTML = contentHTML + html;
@@ -3786,6 +3792,123 @@
                             <button type="submit" id="saveCustomSupporterRoleConfigBtn"
                                 class="w-full bg-red-600 hover:bg-red-700 text-white py-2.5 sm:py-3 rounded-lg transition-all duration-200 transform hover:scale-[1.02] active:scale-[0.98] flex items-center justify-center gap-2 text-sm sm:text-base font-medium disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none">
                                 <i class="fas fa-spinner fa-spin hidden" id="saveCustomSupporterRoleConfigLoading"></i>
+                                <i class="fas fa-save"></i>
+                                <span>Save Configuration</span>
+                            </button>
+                        </div>
+                    </form>
+                `;
+        }
+        async function renderStaffRating(settings) {
+            let config = {};
+            if (settings) {
+                if (settings.settings) {
+                    config = settings.settings;
+                } else if (typeof settings === 'object') {
+                    config = settings;
+                }
+            }
+            await loadRolesForServer();
+            const roleStartId = config.role_start || '';
+            const roleEndId = config.role_end || '';
+            const cooldownHours = config.cooldown_hours || 168;
+            const ratingChannelId = config.rating_channel_id || config.notification_channel_id || '';
+            const reportChannelId = config.report_channel_id || '';
+            const roleStart = roleStartId ? allRoles.find(r => String(r.discord_role_id) === String(roleStartId)) : null;
+            const roleEnd = roleEndId ? allRoles.find(r => String(r.discord_role_id) === String(roleEndId)) : null;
+            const channelIds = [];
+            if (ratingChannelId) channelIds.push(ratingChannelId);
+            if (reportChannelId && !channelIds.includes(reportChannelId)) channelIds.push(reportChannelId);
+            const channelNames = await loadChannelNames(channelIds);
+            return `
+                    <form id="staffRatingConfigForm" class="space-y-4 sm:space-y-6">
+                        <!-- Role Start (Top/Highest Position) -->
+                        <div>
+                            <label class="block text-xs sm:text-sm font-medium text-gray-300 mb-2">
+                                <i class="fas fa-arrow-up text-red-500 mr-2"></i>Role Start (Top/Highest Position)
+                            </label>
+                            <p class="text-xs text-gray-400 mb-2">Highest role position where staff rating roles will be created. Roles will be placed below this</p>
+                            <button type="button" onclick="openRoleSelectorSingle('staff_rating_role_start')"
+                                class="w-full px-3 sm:px-4 py-2.5 sm:py-3 bg-gray-700 hover:bg-gray-600 border border-gray-600 rounded-lg text-left transition-colors flex items-center justify-between group">
+                                <div class="flex items-center gap-2 sm:gap-3 flex-1 min-w-0">
+                                    <i class="fas fa-star text-gray-400 group-hover:text-white transition-colors flex-shrink-0"></i>
+                                    <span id="staff_rating_role_start_display" class="text-gray-300 text-sm sm:text-base">
+                                        ${roleStart
+                    ? `<span class="inline-flex items-center gap-1.5">
+                                                <span class="w-3 h-3 rounded-full" style="background-color: ${roleStart.color || '#7289da'};"></span>
+                                                ${escapeHtml(roleStart.name || 'Unknown Role')}
+                                            </span>`
+                    : 'Select role...'}
+                                    </span>
+                                </div>
+                                <i class="fas fa-chevron-right text-gray-500 group-hover:text-white transition-colors text-xs"></i>
+                            </button>
+                            <input type="hidden" id="staff_rating_role_start" name="role_start" value="${roleStartId}">
+                        </div>
+                        <!-- Role End (Bottom/Lowest Position) -->
+                        <div>
+                            <label class="block text-xs sm:text-sm font-medium text-gray-300 mb-2">
+                                <i class="fas fa-arrow-down text-red-500 mr-2"></i>Role End (Bottom/Lowest Position)
+                            </label>
+                            <p class="text-xs text-gray-400 mb-2">Lowest role position where staff rating roles will be created. Roles will be placed above this</p>
+                            <button type="button" onclick="openRoleSelectorSingle('staff_rating_role_end')"
+                                class="w-full px-3 sm:px-4 py-2.5 sm:py-3 bg-gray-700 hover:bg-gray-600 border border-gray-600 rounded-lg text-left transition-colors flex items-center justify-between group">
+                                <div class="flex items-center gap-2 sm:gap-3 flex-1 min-w-0">
+                                    <i class="fas fa-star text-gray-400 group-hover:text-white transition-colors flex-shrink-0"></i>
+                                    <span id="staff_rating_role_end_display" class="text-gray-300 text-sm sm:text-base">
+                                        ${roleEnd
+                    ? `<span class="inline-flex items-center gap-1.5">
+                                                <span class="w-3 h-3 rounded-full" style="background-color: ${roleEnd.color || '#7289da'};"></span>
+                                                ${escapeHtml(roleEnd.name || 'Unknown Role')}
+                                            </span>`
+                    : 'Select role...'}
+                                    </span>
+                                </div>
+                                <i class="fas fa-chevron-right text-gray-500 group-hover:text-white transition-colors text-xs"></i>
+                            </button>
+                            <input type="hidden" id="staff_rating_role_end" name="role_end" value="${roleEndId}">
+                        </div>
+                        <!-- Cooldown Hours -->
+                        <div>
+                            <label class="block text-xs sm:text-sm font-medium text-gray-300 mb-2">
+                                <i class="fas fa-clock text-red-500 mr-2"></i>Rating Cooldown (Hours)
+                            </label>
+                            <p class="text-xs text-gray-400 mb-2">Hours a member must wait before rating the same staff member again (default: 168 = 7 days)</p>
+                            <input type="number" id="staff_rating_cooldown_hours" name="cooldown_hours" value="${cooldownHours}" min="1" max="8760"
+                                class="w-full px-3 sm:px-4 py-2.5 sm:py-3 bg-gray-700 border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent transition-all text-sm sm:text-base"
+                                placeholder="168">
+                        </div>
+                        <!-- Rating Update Channel -->
+                        <div>
+                            <label class="block text-xs sm:text-sm font-medium text-gray-300 mb-2">
+                                <i class="fas fa-bell text-red-500 mr-2"></i>Rating Update Channel
+                            </label>
+                            <p class="text-xs text-gray-400 mb-2">Channel where staff rating updates will be sent (optional)</p>
+                            <button type="button" onclick="openChannelSelector('staff_rating_notification_channel')"
+                                class="w-full px-3 sm:px-4 py-2.5 sm:py-3 bg-gray-700 border border-gray-600 rounded-lg text-white text-left flex items-center justify-between hover:border-gray-500 transition-all text-sm sm:text-base">
+                                <span id="staff_rating_notification_channel_display" class="text-gray-300">${ratingChannelId && channelNames[ratingChannelId] ? `#${channelNames[ratingChannelId]}` : ratingChannelId ? `Channel ${ratingChannelId}` : 'Select channel...'}</span>
+                                <i class="fas fa-chevron-down text-gray-400"></i>
+                            </button>
+                            <input type="hidden" id="staff_rating_notification_channel" name="rating_channel_id" value="${ratingChannelId}">
+                        </div>
+                        <!-- Staff Report Channel -->
+                        <div>
+                            <label class="block text-xs sm:text-sm font-medium text-gray-300 mb-2">
+                                <i class="fas fa-flag text-red-500 mr-2"></i>Staff Report Channel
+                            </label>
+                            <p class="text-xs text-gray-400 mb-2">Channel where detailed staff reports will be logged (optional)</p>
+                            <button type="button" onclick="openChannelSelector('staff_rating_report_channel')"
+                                class="w-full px-3 sm:px-4 py-2.5 sm:py-3 bg-gray-700 border border-gray-600 rounded-lg text-white text-left flex items-center justify-between hover:border-gray-500 transition-all text-sm sm:text-base">
+                                <span id="staff_rating_report_channel_display" class="text-gray-300">${reportChannelId && channelNames[reportChannelId] ? `#${channelNames[reportChannelId]}` : reportChannelId ? `Channel ${reportChannelId}` : 'Select channel...'}</span>
+                                <i class="fas fa-chevron-down text-gray-400"></i>
+                            </button>
+                            <input type="hidden" id="staff_rating_report_channel" name="report_channel_id" value="${reportChannelId}">
+                        </div>
+                        <!-- Save Button -->
+                        <div class="pt-4 border-t border-gray-700">
+                            <button type="submit" id="saveStaffRatingConfigBtn"
+                                class="w-full bg-red-600 hover:bg-red-700 text-white py-2.5 sm:py-3 rounded-lg transition-all duration-200 transform hover:scale-[1.02] active:scale-[0.98] flex items-center justify-center gap-2 text-sm sm:text-base font-medium disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none">
+                                <i class="fas fa-spinner fa-spin hidden" id="saveStaffRatingConfigLoading"></i>
                                 <i class="fas fa-save"></i>
                                 <span>Save Configuration</span>
                             </button>
@@ -6181,6 +6304,55 @@
                         showMessage('Giveaway configuration saved successfully!', 'success');
                         setTimeout(() => {
                             loadComponent('giveaway');
+                        }, 500);
+                    } else {
+                        showMessage(data.error || 'Failed to save configuration', 'error');
+                    }
+                } catch (err) {
+                    showMessage('Failed to save configuration. Please try again.', 'error');
+                } finally {
+                    submitBtn.disabled = false;
+                    loadingIcon.classList.add('hidden');
+                }
+                return;
+            }
+            if (e.target.id === 'staffRatingConfigForm') {
+                e.preventDefault();
+                const ratingChannelValue = document.getElementById('staff_rating_notification_channel')?.value || null;
+                const reportChannelValue = document.getElementById('staff_rating_report_channel')?.value || null;
+                const formData = {
+                    role_start: document.getElementById('staff_rating_role_start').value || null,
+                    role_end: document.getElementById('staff_rating_role_end').value || null,
+                    cooldown_hours: parseInt(document.getElementById('staff_rating_cooldown_hours').value) || 168,
+                    rating_channel_id: ratingChannelValue,
+                    notification_channel_id: ratingChannelValue,
+                    report_channel_id: reportChannelValue
+                };
+                const submitBtn = document.getElementById('saveStaffRatingConfigBtn');
+                const loadingIcon = document.getElementById('saveStaffRatingConfigLoading');
+                submitBtn.disabled = true;
+                loadingIcon.classList.remove('hidden');
+                try {
+                    const res = await fetch(`/api/servers/${currentServerId}/settings`, {
+                        method: 'PUT',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        },
+                        credentials: 'include',
+                        body: JSON.stringify({
+                            component_name: 'staff_rating',
+                            settings: formData
+                        })
+                    });
+                    if (res.status === 401) {
+                        await checkAuthStatus();
+                        return;
+                    }
+                    const data = await res.json();
+                    if (data.success) {
+                        showMessage('Staff Rating configuration saved successfully!', 'success');
+                        setTimeout(() => {
+                            loadComponent('staff_rating');
                         }, 500);
                     } else {
                         showMessage(data.error || 'Failed to save configuration', 'error');

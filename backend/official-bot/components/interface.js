@@ -8,6 +8,7 @@ import { handleAFKButton, handleAFKModal, handleRemoveAFKButton } from './interf
 import { handleLevelingButton, handleLeaderboardButton } from './interface/leveling.js';
 import { handleGiveawayButton, handleGiveawayModal, handleGiveawayEnterButton, handleGiveawayRoleSelect, handleGiveawaySkipRolesContinue, handleGiveawayCancel, handleGiveawayFinish } from './interface/giveaway.js';
 import { handleSettingsButton, handleLanguageButton, handleLanguageSelect, handleDMToggleButton } from './interface/settings.js';
+import { handleStaffReportButton, handleStaffReportUserSelect, handleStaffReportModal, handleStaffReportRatingSelect, handleStaffReportCategorySelect, handleStaffReportContinue } from './interface/staffreport.js';
 import { translate } from '../../i18n.js';
 
 async function handleMenuButton(interaction) {
@@ -83,6 +84,13 @@ async function handleMenuButton(interaction) {
             .setStyle(ButtonStyle.Success));
     }
 
+    if (await hasPermission(member, 'staff_report')) {
+        buttons.push(new ButtonBuilder()
+            .setCustomId('bot_staff_report')
+            .setLabel(await translate('staffReport.button', interaction.guild.id, interaction.user.id))
+            .setStyle(ButtonStyle.Success));
+    }
+
     if (buttons.length === 0) {
         const noAccessMsg = await translate('menu.noAccess', interaction.guild.id, interaction.user.id);
         if (interaction.replied || interaction.deferred) {
@@ -121,7 +129,16 @@ async function handleMenuButton(interaction) {
         .setLabel(await translate('settings.title', interaction.guild.id, interaction.user.id))
         .setStyle(ButtonStyle.Secondary);
 
-    rows.push(new ActionRowBuilder().addComponents(settingsButton));
+    if (rows.length === 0) {
+        rows.push(new ActionRowBuilder().addComponents(settingsButton));
+    } else {
+        const lastRow = rows[rows.length - 1];
+        if (lastRow.components.length < 5) {
+            lastRow.addComponents(settingsButton);
+        } else {
+            rows.push(new ActionRowBuilder().addComponents(settingsButton));
+        }
+    }
 
     const isFromEphemeral = interaction.message?.flags?.has(64) || interaction.replied || interaction.deferred;
 
@@ -174,6 +191,9 @@ export async function handleButtonInteraction(interaction, client) {
         case 'bot_feedback':
             await handleFeedbackButton(interaction);
             break;
+        case 'bot_staff_report':
+            await handleStaffReportButton(interaction);
+            break;
         case 'bot_afk':
             await handleAFKButton(interaction);
             break;
@@ -196,8 +216,13 @@ export async function handleButtonInteraction(interaction, client) {
         case 'settings_language':
             await handleLanguageButton(interaction);
             break;
+        case 'staff_report_back_to_staff':
+            await handleStaffReportButton(interaction);
+            break;
         default:
-            if (customId.startsWith('giveaway_enter_')) {
+            if (customId.startsWith('staff_report_continue')) {
+                await handleStaffReportContinue(interaction);
+            } else if (customId.startsWith('giveaway_enter_')) {
                 await handleGiveawayEnterButton(interaction);
             } else if (customId === 'giveaway_continue_form') {
                 await handleGiveawaySkipRolesContinue(interaction);
@@ -332,6 +357,8 @@ function init(client) {
                     await handleFeedbackModal(interaction);
                 } else if (interaction.customId === 'afk_set') {
                     await handleAFKModal(interaction);
+                } else if (interaction.customId.startsWith('staff_report_submit')) {
+                    await handleStaffReportModal(interaction);
                 } else if (interaction.customId.startsWith('giveaway_create')) {
                     await handleGiveawayModal(interaction);
                 } else {
@@ -350,6 +377,40 @@ function init(client) {
                     await logger.log(`❌ Failed to send modal error response: ${replyError.message}`);
                 }
             }
+        } else if (interaction.isStringSelectMenu()) {
+
+            if (!interaction.guild) {
+                return;
+            }
+
+            try {
+                await getServerForCurrentBot(interaction.guild.id);
+            } catch (error) {
+                await logger.log(`⚠️  Server ${interaction.guild.name} (${interaction.guild.id}) not found for this bot, ignoring interaction`);
+                return;
+            }
+
+            try {
+                const user = interaction.user;
+                const customId = interaction.customId;
+                const selectedValues = interaction.values;
+                await logger.log(`📋 String select: "${customId}" → [${selectedValues.join(', ')}] by ${user.tag} (${user.id}) in ${interaction.guild?.name || 'DM'}`);
+
+                if (customId === 'staff_report_select_user') {
+                    await handleStaffReportUserSelect(interaction);
+                } else if (customId.startsWith('staff_report_rating')) {
+                    await handleStaffReportRatingSelect(interaction);
+                } else if (customId.startsWith('staff_report_category')) {
+                    await handleStaffReportCategorySelect(interaction);
+                } else if (customId === 'settings_language_select') {
+                    await handleLanguageSelect(interaction);
+                } else {
+                    await logger.log(`⚠️ Unknown string select: "${customId}" by ${user.tag} (${user.id})`);
+                }
+            } catch (error) {
+                await logger.log(`❌ String select error: ${error.message}`);
+            }
+
         } else if (interaction.isChannelSelectMenu()) {
 
             if (!interaction.guild) {
@@ -417,6 +478,44 @@ function init(client) {
                     });
                 } catch (replyError) {
                     await logger.log(`❌ Failed to send role selection error response: ${replyError.message}`);
+                }
+            }
+        } else if (interaction.isUserSelectMenu()) {
+
+            if (!interaction.guild) {
+                return;
+            }
+
+            try {
+                await getServerForCurrentBot(interaction.guild.id);
+            } catch (error) {
+                await logger.log(`⚠️  Server ${interaction.guild.name} (${interaction.guild.id}) not found for this bot, ignoring interaction`);
+                return;
+            }
+
+            try {
+                const user = interaction.user;
+                const customId = interaction.customId;
+                const selectedUsers = interaction.values;
+                await logger.log(`👤 User selected: "${customId}" → [${selectedUsers.join(', ')}] by ${user.tag} (${user.id}) in ${interaction.guild?.name || 'DM'}`);
+
+                if (customId === 'staff_report_select_user') {
+                    await handleStaffReportUserSelect(interaction);
+                } else {
+                    await logger.log(`⚠️ Unknown user select: "${customId}" by ${user.tag} (${user.id})`);
+                }
+            } catch (error) {
+                await logger.log(`❌ User selection error in interface.js: ${error.message}`);
+                await logger.log(`❌ User selection error stack: ${error.stack}`);
+
+                try {
+                    const errorMsg = await translate('common.errors.selectionError', interaction.guild?.id, interaction.user?.id);
+                    await interaction.reply({
+                        content: errorMsg,
+                        flags: 64
+                    }).catch(() => null);
+                } catch (replyError) {
+                    await logger.log(`❌ Failed to send user selection error response: ${replyError.message}`);
                 }
             }
         } else if (interaction.isStringSelectMenu()) {

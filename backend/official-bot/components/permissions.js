@@ -58,7 +58,7 @@ export async function hasPermission(member, action) {
         return isSupporterMember || isStaffMember || isAdminMember;
     }
 
-    if (action === 'feedback' || action === 'afk' || action === 'leveling' || action === 'giveaway' || action === 'settings') {
+    if (action === 'feedback' || action === 'afk' || action === 'leveling' || action === 'giveaway' || action === 'settings' || action === 'staff_report') {
         return isMemberRole || isSupporterMember || isStaffMember || isAdminMember;
     }
 
@@ -108,7 +108,7 @@ export async function getRequiredRolesForAction(guild, action) {
             return roleNames.length > 0 ? roleNames : ['Supporter, Staff, or Admin'];
         }
 
-        if (action === 'feedback' || action === 'afk' || action === 'leveling' || action === 'giveaway' || action === 'settings' || action === 'menu') {
+        if (action === 'feedback' || action === 'afk' || action === 'leveling' || action === 'giveaway' || action === 'settings' || action === 'staff_report' || action === 'menu') {
             if (perms.MEMBER_ROLES && perms.MEMBER_ROLES.length > 0) {
                 perms.MEMBER_ROLES.forEach(roleId => {
                     const role = guild.roles.cache.get(roleId);
@@ -156,6 +156,7 @@ export async function getPermissionDeniedMessage(guild, action, userId = null) {
         'leveling': 'Leveling',
         'giveaway': 'Giveaway',
         'settings': 'Settings',
+        'staff_report': 'Staff Report',
         'menu': 'Menu'
     };
 
