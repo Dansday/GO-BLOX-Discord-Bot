@@ -8,10 +8,6 @@ const recentMessages = new Map();
 const voiceSessions = new Map();
 let clientInstance = null;
 
-export function getClientInstance() {
-    return clientInstance;
-}
-
 export async function getLevelRequirement(level, guildId) {
     if (!guildId) {
         throw new Error('guildId is required for level requirement calculation');
@@ -29,25 +25,6 @@ export async function getLevelRequirement(level, guildId) {
     }
 }
 
-export async function calculateExperienceFromTotals({
-    chatTotal = 0,
-    voiceMinutesActive = 0,
-    voiceMinutesAfk = 0
-} = {}, guildId) {
-    if (!guildId) {
-        throw new Error('guildId is required for experience calculation');
-    }
-
-    const settings = await getLevelingSettings(guildId);
-    const messageXP = settings.MESSAGE.XP;
-    const voiceXPPerMin = settings.VOICE.XP_PER_MINUTE;
-    const afkXPPerMin = settings.VOICE.AFK_XP_PER_MINUTE;
-
-    const chatXP = messageXP * Math.max(0, chatTotal);
-    const voiceXP = voiceXPPerMin * Math.max(0, voiceMinutesActive);
-    const afkXP = afkXPPerMin * Math.max(0, voiceMinutesAfk);
-    return chatXP + voiceXP + afkXP;
-}
 
 async function getExperienceForMessage(guildId) {
     if (!guildId) {
@@ -100,29 +77,6 @@ export async function determineLevel(experience = 0, guildId) {
         level += 1;
     }
     return level;
-}
-
-async function recalculateLevelFromExperience(memberId, guildId) {
-    if (!memberId || !guildId) {
-        return null;
-    }
-
-    const levelData = await db.getMemberLevel(memberId);
-    if (!levelData) {
-        return null;
-    }
-
-    const currentExperience = levelData.experience ?? 0;
-    const expectedLevel = await determineLevel(currentExperience, guildId);
-
-    if ((levelData.level ?? 1) !== expectedLevel) {
-        const updatedStats = await db.updateMemberLevelStats(memberId, { level: expectedLevel });
-        if (updatedStats) {
-            return updatedStats;
-        }
-    }
-
-    return levelData;
 }
 
 async function resolveServerAndMember(guild, memberLike) {

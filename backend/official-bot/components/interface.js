@@ -239,7 +239,7 @@ export async function createInterfaceEmbed(client, guildId) {
 }
 
 export async function createInterfaceButtons(guildId = null, userId = null) {
-    const menuLabel = await translate('common.buttons.menu', guildId, userId);
+    const menuLabel = '📋 Menu';
     const menuButton = new ButtonBuilder()
         .setCustomId('bot_menu')
         .setLabel(menuLabel)

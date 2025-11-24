@@ -4,7 +4,7 @@ import { hasPermission, getPermissionDeniedMessage } from "../permissions.js";
 import db from "../../../../database/database.js";
 import logger from "../../../logger.js";
 import { getLevelRequirement, determineLevel, sendLevelChangeDM, sendLevelUpNotification } from "../leveling.js";
-import { translate, t } from "../../../i18n.js";
+import { translate } from "../../../i18n.js";
 
 const PROGRESS_BAR_SLOTS = 10;
 
@@ -105,7 +105,7 @@ async function buildLevelingEmbeds(server, memberLevelData, sortType = 'xp', gui
     const actualUserId = userId || memberLevelData?.discord_member_id;
     const embedConfig = await getEmbedConfig(actualGuildId);
 
-    const memberDisplayName = memberLevelData?.server_display_name || memberLevelData?.display_name || memberLevelData?.username || await translate('common.unknown', actualGuildId, actualUserId);
+    const memberDisplayName = memberLevelData?.server_display_name || memberLevelData?.display_name || memberLevelData?.username || await translate('leveling.profile.unknown', actualGuildId, actualUserId);
     const currentXP = memberLevelData?.experience ?? 0;
     const calculatedLevel = await determineLevel(currentXP, actualGuildId);
 
@@ -117,7 +117,7 @@ async function buildLevelingEmbeds(server, memberLevelData, sortType = 'xp', gui
     const xpIntoLevel = Math.max(0, currentXP - currentLevelRequirement);
     const progressRatio = xpRange > 0 ? Math.max(0, Math.min(1, xpIntoLevel / xpRange)) : 0;
     const progressBar = buildProgressBar(progressRatio);
-    const xpLabel = await translate('common.xp', actualGuildId, actualUserId);
+    const xpLabel = await translate('leveling.profile.xp', actualGuildId, actualUserId);
     const xpProgressText = `${formatNumber(Math.round(currentXP))} / ${formatNumber(Math.round(nextLevelRequirement))} ${xpLabel}`;
 
     const levelLabel = await translate('leveling.profile.level', actualGuildId, actualUserId);
@@ -129,7 +129,7 @@ async function buildLevelingEmbeds(server, memberLevelData, sortType = 'xp', gui
     const voiceAfkLabel = await translate('leveling.profile.voiceAfk', actualGuildId, actualUserId);
     const rankLabel = await translate('leveling.profile.rank', actualGuildId, actualUserId);
     const unrankedText = await translate('leveling.profile.unranked', actualGuildId, actualUserId);
-    const minLabel = await translate('common.min', actualGuildId, actualUserId);
+    const minLabel = await translate('leveling.profile.minutes', actualGuildId, actualUserId);
 
     const profileLines = [];
     profileLines.push(`• **${levelLabel}:** ${currentLevel}`);
@@ -139,9 +139,9 @@ async function buildLevelingEmbeds(server, memberLevelData, sortType = 'xp', gui
     const voiceTotal = memberLevelData?.voice_minutes_total ?? 0;
     const voiceActive = memberLevelData?.voice_minutes_active ?? 0;
     const voiceAfk = memberLevelData?.voice_minutes_afk ?? 0;
-    profileLines.push(`• **${voiceMinutesLabel}:** ${formatNumber(voiceTotal)}`);
-    profileLines.push(`• ├ ${voiceActiveLabel}: ${formatNumber(voiceActive)}`);
-    profileLines.push(`• └ ${voiceAfkLabel}: ${formatNumber(voiceAfk)}`);
+    profileLines.push(`• **${voiceMinutesLabel}:** ${formatNumber(voiceTotal)} ${minLabel}`);
+    profileLines.push(`• ├ ${voiceActiveLabel}: ${formatNumber(voiceActive)} ${minLabel}`);
+    profileLines.push(`• └ ${voiceAfkLabel}: ${formatNumber(voiceAfk)} ${minLabel}`);
     profileLines.push(`• **${rankLabel}:** ${memberLevelData?.rank ? `#${memberLevelData.rank}` : unrankedText}`);
 
     const profileTitle = await translate('leveling.profile.title', actualGuildId, actualUserId);
@@ -296,13 +296,17 @@ async function createLeaderboardButtons(selectedType = 'xp', guildId = null, use
 async function createDmToggleRow(dmEnabled = true, guildId = null, userId = null) {
     const dmOnLabel = await translate('leveling.buttons.dmOn', guildId, userId);
     const dmOffLabel = await translate('leveling.buttons.dmOff', guildId, userId);
-
     const toggleButton = new ButtonBuilder()
         .setCustomId('leveling_dm_toggle')
         .setLabel(dmEnabled ? dmOnLabel : dmOffLabel)
         .setStyle(dmEnabled ? ButtonStyle.Success : ButtonStyle.Secondary);
 
-    return new ActionRowBuilder().addComponents(toggleButton);
+    const menuButton = new ButtonBuilder()
+        .setCustomId('bot_menu')
+        .setLabel('📋 Menu')
+        .setStyle(ButtonStyle.Secondary);
+
+    return new ActionRowBuilder().addComponents(toggleButton, menuButton);
 }
 
 export async function handleLevelingButton(interaction) {
@@ -357,15 +361,9 @@ export async function handleLevelingButton(interaction) {
         const buttons = await createLeaderboardButtons(sortType, interaction.guild.id, interaction.user.id);
         const dmRow = await createDmToggleRow(!(memberLevelData?.dm_notifications_enabled === false || memberLevelData?.dm_notifications_enabled === 0), interaction.guild.id, interaction.user.id);
 
-        const backButton = new ButtonBuilder()
-            .setCustomId('bot_menu')
-            .setLabel(await translate('common.buttons.menu', interaction.guild.id, interaction.user.id))
-            .setStyle(ButtonStyle.Secondary);
-        const backRow = new ActionRowBuilder().addComponents(backButton);
-
         await interaction.update({
             embeds: [profileEmbed, leaderboardEmbed],
-            components: [buttons, dmRow, backRow]
+            components: [buttons, dmRow]
         });
     } catch (error) {
         await logger.log(`❌ Leveling interface error: ${error.message}`);
@@ -417,15 +415,9 @@ export async function handleLeaderboardButton(interaction) {
         const buttons = await createLeaderboardButtons(sortType, interaction.guild.id, interaction.user.id);
         const dmRow = await createDmToggleRow(!(memberLevelData?.dm_notifications_enabled === false || memberLevelData?.dm_notifications_enabled === 0), interaction.guild.id, interaction.user.id);
 
-        const backButton = new ButtonBuilder()
-            .setCustomId('bot_menu')
-            .setLabel(await translate('common.buttons.menu', interaction.guild.id, interaction.user.id))
-            .setStyle(ButtonStyle.Secondary);
-        const backRow = new ActionRowBuilder().addComponents(backButton);
-
         await interaction.update({
             embeds: [profileEmbed, leaderboardEmbed],
-            components: [buttons, dmRow, backRow]
+            components: [buttons, dmRow]
         });
     } catch (error) {
         await logger.log(`❌ Leaderboard button error: ${error.message}`);
@@ -515,15 +507,9 @@ export async function handleDmToggleButton(interaction) {
         const buttons = await createLeaderboardButtons(sortType, interaction.guild.id, interaction.user.id);
         const dmRow = await createDmToggleRow(!(memberLevelData?.dm_notifications_enabled === false || memberLevelData?.dm_notifications_enabled === 0), interaction.guild.id, interaction.user.id);
 
-        const backButton = new ButtonBuilder()
-            .setCustomId('bot_menu')
-            .setLabel(await translate('common.buttons.menu', interaction.guild.id, interaction.user.id))
-            .setStyle(ButtonStyle.Secondary);
-        const backRow = new ActionRowBuilder().addComponents(backButton);
-
         await interaction.update({
             embeds: [profileEmbed, leaderboardEmbed],
-            components: [buttons, dmRow, backRow]
+            components: [buttons, dmRow]
         });
     } catch (error) {
         await logger.log(`❌ Leveling DM toggle error: ${error.message}`);

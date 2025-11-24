@@ -353,8 +353,9 @@ export async function handleEditCustomSupporterRole(interaction) {
 
     } catch (error) {
         await logger.log(`❌ Error showing edit modal: ${error.message}`);
+        const errorMsg = await translate('customSupporterRole.errors.editFailed', interaction.guild.id, interaction.user.id, { error: error.message });
         await interaction.reply({
-            content: `❌ Failed to open edit form: ${error.message}`,
+            content: errorMsg,
             flags: 64
         });
     }
@@ -411,8 +412,9 @@ export async function handleDeleteCustomSupporterRole(interaction) {
 
     } catch (error) {
         await logger.log(`❌ Error deleting supporter role: ${error.message}`);
+        const errorMsg = await translate('customSupporterRole.errors.deleteFailed', interaction.guild.id, interaction.user.id, { error: error.message });
         await interaction.editReply({
-            content: `❌ Failed to delete role: ${error.message}`
+            content: errorMsg
         });
     }
 }
@@ -520,32 +522,34 @@ export async function handleCustomSupporterRoleModal(interaction) {
                     }
                 }
 
-                let iconStatusText = 'Unchanged';
-                if (iconStatus === 'updated') iconStatusText = 'Updated';
-                else if (iconStatus === 'removed') iconStatusText = 'Removed';
-                else if (iconStatus === 'failed') iconStatusText = `Failed (role updated without icon)`;
-                else if (iconStatus === 'invalid') iconStatusText = 'Invalid format (role updated without icon)';
+                let iconStatusKey = 'customSupporterRole.updated.iconStatusUnchanged';
+                if (iconStatus === 'updated') iconStatusKey = 'customSupporterRole.updated.iconStatusUpdated';
+                else if (iconStatus === 'removed') iconStatusKey = 'customSupporterRole.updated.iconStatusRemoved';
+                else if (iconStatus === 'failed') iconStatusKey = 'customSupporterRole.updated.iconStatusFailed';
+                else if (iconStatus === 'invalid') iconStatusKey = 'customSupporterRole.updated.iconStatusInvalid';
+                const iconStatusText = await translate(iconStatusKey, interaction.guild.id, interaction.user.id);
+
+                let iconWarningText = '';
+                if (iconError) {
+                    if (iconError.includes('boost')) {
+                        iconWarningText = await translate('customSupporterRole.updated.iconWarningBoost', interaction.guild.id, interaction.user.id);
+                    } else {
+                        iconWarningText = await translate('customSupporterRole.updated.iconWarningGeneric', interaction.guild.id, interaction.user.id);
+                    }
+                }
 
                 const embedConfig = await getEmbedConfig(interaction.guild.id);
-                let updateDescriptionKey = 'customSupporterRole.updated.description';
-                if (iconError) {
-                    if (iconError.includes('boost')) {
-                        updateDescriptionKey = 'customSupporterRole.updated.description';
-                    } else {
-                        updateDescriptionKey = 'customSupporterRole.updated.description';
-                    }
-                }
-                let updateDescription = await translate(updateDescriptionKey, interaction.guild.id, interaction.user.id, { roleName });
-                if (iconError) {
-                    if (iconError.includes('boost')) {
-                        updateDescription += await translate('customSupporterRole.updated.iconWarningBoost', interaction.guild.id, interaction.user.id);
-                    } else {
-                        updateDescription += await translate('customSupporterRole.updated.iconWarningGeneric', interaction.guild.id, interaction.user.id);
-                    }
-                }
+                const updateDescription = await translate('customSupporterRole.updated.description', interaction.guild.id, interaction.user.id, {
+                    roleName,
+                    iconWarning: iconWarningText
+                });
                 const updatedTitle = await translate('customSupporterRole.updated.title', interaction.guild.id, interaction.user.id);
                 const roleDetailsLabel = await translate('customSupporterRole.updated.roleDetails', interaction.guild.id, interaction.user.id);
-                const roleDetailsValue = await translate('customSupporterRole.updated.roleDetailsValue', interaction.guild.id, interaction.user.id, { name: roleName, color: colorInput || 'Unchanged', icon: iconStatusText });
+                const roleDetailsValue = await translate('customSupporterRole.updated.roleDetailsValue', interaction.guild.id, interaction.user.id, {
+                    name: roleName,
+                    color: colorInput || 'Unchanged',
+                    icon: iconStatusText
+                });
                 const roleLabel = await translate('customSupporterRole.updated.role', interaction.guild.id, interaction.user.id);
                 const successEmbed = new EmbedBuilder()
                     .setColor(embedConfig.COLOR)
@@ -578,8 +582,9 @@ export async function handleCustomSupporterRoleModal(interaction) {
                 await logger.log(`❌ Stack: ${err.stack}`);
 
                 try {
+                    const errorMsg = await translate('customSupporterRole.errors.updateFailed', interaction.guild.id, interaction.user.id, { error: err.message });
                     await interaction.editReply({
-                        content: `❌ **Failed to Update Role**\n\nError: ${err.message}\n\nPlease make sure:\n- The bot has permission to manage roles\n- Role constraints are valid`
+                        content: errorMsg
                     });
                 } catch (editErr) {
 
@@ -617,10 +622,9 @@ export async function handleCustomSupporterRoleModal(interaction) {
                 const premiumTier = guild.premiumTier;
                 if (premiumTier < 2) {
 
+                    const errorMsg = await translate('customSupporterRole.errors.boostRequired', interaction.guild.id, interaction.user.id);
                     await interaction.editReply({
-                        content: '❌ **Custom Icon Not Available**\n\n' +
-                            'This server needs **Level 2 Server Boost** to use custom role icons (images).\n\n' +
-                            '💡 **Tip:** You can use an **emoji** instead (like 🔥, ⭐, or any custom emoji) which doesn\'t require server boosts.'
+                        content: errorMsg
                     });
                     return;
                 }
@@ -689,32 +693,47 @@ export async function handleCustomSupporterRoleModal(interaction) {
 
         supporterRoles.set(member.id, newRole.id);
 
-        let iconStatusText = 'None';
-        if (iconStatus === 'success') iconStatusText = 'Set';
-        else if (iconStatus === 'failed') iconStatusText = 'Failed (role created without icon)';
-        else if (iconStatus === 'invalid') iconStatusText = 'Invalid format (role created without icon)';
+        let iconStatusKey = 'customSupporterRole.created.iconStatusNone';
+        if (iconStatus === 'success') iconStatusKey = 'customSupporterRole.created.iconStatusSet';
+        else if (iconStatus === 'failed') iconStatusKey = 'customSupporterRole.created.iconStatusFailed';
+        else if (iconStatus === 'invalid') iconStatusKey = 'customSupporterRole.created.iconStatusInvalid';
+        const iconStatusText = await translate(iconStatusKey, interaction.guild.id, interaction.user.id);
 
-        const embedConfigForCreate = await getEmbedConfig(interaction.guild.id);
-        let description = `Your custom role **${roleName}** has been created and assigned to you!`;
+        let iconWarningText = '';
         if (iconError) {
             if (iconError.includes('boost')) {
-                description += '\n\n⚠️ **Custom Icon Not Available:** This server needs Level 2 Server Boost to use custom role icons (images). You can use an emoji instead!';
+                iconWarningText = await translate('customSupporterRole.created.iconWarningBoost', interaction.guild.id, interaction.user.id);
             } else {
-                description += '\n\n⚠️ **Note:** Icon could not be set, but role was created successfully.';
+                iconWarningText = await translate('customSupporterRole.created.iconWarningGeneric', interaction.guild.id, interaction.user.id);
             }
         }
+
+        const embedConfigForCreate = await getEmbedConfig(interaction.guild.id);
+        const successTitle = await translate('customSupporterRole.created.title', interaction.guild.id, interaction.user.id);
+        const description = await translate('customSupporterRole.created.description', interaction.guild.id, interaction.user.id, {
+            roleName,
+            iconWarning: iconWarningText
+        });
+        const roleDetailsLabel = await translate('customSupporterRole.created.roleDetails', interaction.guild.id, interaction.user.id);
+        const roleDetailsValue = await translate('customSupporterRole.created.roleDetailsValue', interaction.guild.id, interaction.user.id, {
+            name: roleName,
+            color: colorInput || 'Default',
+            icon: iconStatusText
+        });
+        const roleLabel = await translate('customSupporterRole.created.role', interaction.guild.id, interaction.user.id);
+
         const successEmbed = new EmbedBuilder()
             .setColor(embedConfigForCreate.COLOR)
-            .setTitle('✅ Custom Supporter Role Created!')
+            .setTitle(successTitle)
             .setDescription(description)
             .addFields([
                 {
-                    name: '🎨 Role Details',
-                    value: `**Name:** ${roleName}\n**Color:** ${colorInput || 'Default'}\n**Icon:** ${iconStatusText}`,
+                    name: roleDetailsLabel,
+                    value: roleDetailsValue,
                     inline: false
                 },
                 {
-                    name: '💎 Role',
+                    name: roleLabel,
                     value: `<@&${newRole.id}>`,
                     inline: true
                 }

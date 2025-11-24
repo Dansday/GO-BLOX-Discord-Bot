@@ -107,9 +107,9 @@ export async function handleFeedbackModal(interaction) {
 
         const embedConfig = await getEmbedConfig(interaction.guild.id);
 
-        const feedbackEmbedTitle = await translate('feedback.submitted.embedTitle', interaction.guild.id, interaction.user.id);
-        const fromLabel = await translate('feedback.submitted.from', interaction.guild.id, interaction.user.id);
-        const submittedLabel = await translate('feedback.submitted.submitted', interaction.guild.id, interaction.user.id);
+        const feedbackEmbedTitle = '💬 Feedback Submission';
+        const fromLabel = '👤 From';
+        const submittedLabel = '🕐 Submitted';
         const feedbackEmbed = new EmbedBuilder()
             .setColor(embedConfig.COLOR)
             .setTitle(feedbackEmbedTitle)

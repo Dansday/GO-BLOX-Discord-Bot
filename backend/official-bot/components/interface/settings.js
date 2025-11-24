@@ -83,7 +83,7 @@ export async function handleSettingsButton(interaction) {
 
         const backButton = new ButtonBuilder()
             .setCustomId('bot_menu')
-            .setLabel(await translate('common.buttons.menu', interaction.guild.id, interaction.user.id))
+            .setLabel('📋 Menu')
             .setStyle(ButtonStyle.Secondary);
 
         const buttonRow = new ActionRowBuilder()
@@ -164,7 +164,7 @@ export async function handleLanguageButton(interaction) {
 
         const backButton = new ButtonBuilder()
             .setCustomId('bot_settings')
-            .setLabel(await translate('common.buttons.settings', interaction.guild.id, interaction.user.id))
+            .setLabel(await translate('settings.buttons.settings', interaction.guild.id, interaction.user.id))
             .setStyle(ButtonStyle.Secondary);
 
         const backRow = new ActionRowBuilder()
@@ -259,7 +259,7 @@ export async function handleLanguageSelect(interaction) {
 
             const backButton = new ButtonBuilder()
                 .setCustomId('bot_settings')
-                .setLabel(await translate('common.buttons.settings', interaction.guild.id, interaction.user.id))
+                .setLabel(await translate('settings.buttons.settings', interaction.guild.id, interaction.user.id))
                 .setStyle(ButtonStyle.Secondary);
 
             const backRow = new ActionRowBuilder()

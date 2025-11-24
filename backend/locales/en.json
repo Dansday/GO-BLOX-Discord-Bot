@@ -4,9 +4,21 @@
     "description": "Select a feature from the buttons below:",
     "noAccess": "❌ You don't have access to any features."
   },
+  "common": {
+    "errors": {
+      "memberNotFound": "❌ Failed to fetch member information.",
+      "unknownButton": "❌ Unknown button interaction.",
+      "buttonError": "❌ **Button Error**: An error occurred while processing your button click.\\n\\nPlease try again or contact an administrator.",
+      "modalError": "❌ **Modal Error**: An error occurred while processing your form submission.\\n\\nPlease try again or contact an administrator.",
+      "selectionError": "❌ **Selection Error**: An error occurred while processing your selection.\\n\\nPlease try again or contact an administrator."
+    }
+  },
   "settings": {
     "title": "⚙️ Settings",
     "description": "Configure your bot preferences",
+    "buttons": {
+      "settings": "⚙️ Settings"
+    },
     "language": {
       "title": "🌐 Language Settings",
       "description": "Select your preferred language:",
@@ -14,24 +26,6 @@
       "select": "Select Language",
       "updated": "✅ Language updated successfully!",
       "failed": "❌ Failed to update language: {error}"
-    }
-  },
-  "common": {
-    "unknown": "Unknown",
-    "xp": "XP",
-    "min": "min",
-    "buttons": {
-      "menu": "📋 Menu",
-      "settings": "⚙️ Settings",
-      "back": "⬅️ Back"
-    },
-    "errors": {
-      "memberNotFound": "❌ Failed to fetch member information.",
-      "noAccess": "❌ You don't have access to any features.",
-      "unknownButton": "❌ Unknown button interaction.",
-      "buttonError": "❌ **Button Error**: An error occurred while processing your button click.\\n\\nPlease try again or contact an administrator.",
-      "modalError": "❌ **Modal Error**: An error occurred while processing your form submission.\\n\\nPlease try again or contact an administrator.",
-      "selectionError": "❌ **Selection Error**: An error occurred while processing your selection.\\n\\nPlease try again or contact an administrator."
     }
   },
   "leveling": {
@@ -47,7 +41,10 @@
       "voiceActive": "Active",
       "voiceAfk": "AFK",
       "rank": "Rank",
-      "unranked": "Unranked"
+      "unranked": "Unranked",
+      "unknown": "Unknown",
+      "xp": "XP",
+      "minutes": "minutes"
     },
     "leaderboard": {
       "topXp": "⭐ Top XP (Top 3)",
@@ -61,13 +58,6 @@
       "minActive": "min active",
       "minAfk": "min AFK",
       "messages": "messages"
-    },
-    "levelUp": {
-      "title": "🎉 Level Up!",
-      "description": "{member} has reached **Level {level}**!",
-      "totalXp": "📊 Total XP",
-      "rank": "🏆 Rank",
-      "dmMessage": "🎉 **Congratulations!** You've reached **Level {level}** in **{server}**!\\n\\nKeep up the great work! 🚀"
     },
     "buttons": {
       "topXp": "⭐ Top XP",
@@ -120,12 +110,11 @@
     "errors": {
       "notAFK": "❌ You are not currently AFK.",
       "failed": "❌ Failed to open AFK form: {error}",
-      "setFailed": "❌ **Failed to Set AFK**\\n\\nError: {error}\\n\\nPlease try again later."
+      "setFailed": "❌ **Failed to Set AFK**\\n\\nError: {error}\\n\\nPlease try again later.",
+      "removeFailed": "❌ **Failed to Remove AFK**\\n\\nError: {error}\\n\\nPlease try again later."
     },
     "messages": {
       "welcomeBack": "✅ Welcome back, {member}! Your AFK status has been removed.",
-      "mentionedAFK": "⏸️ {member} is currently AFK: **{message}** (for {duration})",
-      "mentionedAFKDefault": "⏸️ {member} is currently AFK (for {duration})",
       "dmMentioned": "📬 You were mentioned by {sender} in **{server}** (#{channel})\\n\\n**Message:** {message}"
     }
   },
@@ -164,21 +153,7 @@
     },
     "cancelled": {
       "title": "✅ Giveaway Cancelled",
-      "description": "Your giveaway **\"{title}\"** has been cancelled.",
-      "embedTitle": "❌ Giveaway Cancelled",
-      "embedDescription": "**{title}**\\n\\n**Prize:** {prize}\\n\\nThis giveaway has been cancelled by the host."
-    },
-    "finished": {
-      "title": "✅ Giveaway Finished",
-      "description": "Your giveaway **\"{title}\"** has been finished early.{extra}",
-      "noEntries": "\\n\\nNo participants entered.",
-      "noWinners": "\\n\\nCould not select winners.",
-      "winners": "\\n\\n**Winners:** {winners}",
-      "embedTitle": "🎉 Giveaway Ended!",
-      "embedDescription": "**{title}**\\n\\n**Prize:** {prize}\\n\\n🎊 **Winner{plural}:** {winners}\\n\\n{warning}\\n\\nCongratulations! 🎉",
-      "noEntriesEmbed": "**{title}**\\n\\n❌ No entries! The giveaway has ended with no participants.",
-      "noWinnersEmbed": "**{title}**\\n\\n❌ Could not select winners.",
-      "warning": "⚠️ *Only {count} winner{plural} selected ({requested} requested) due to limited entries.*\\n\\n"
+      "description": "Your giveaway **\"{title}\"** has been cancelled."
     },
     "buttons": {
       "finish": "🏁 Finish Giveaway",
@@ -203,7 +178,6 @@
       "memberNotFoundDB": "❌ Member not found in database. Please try again later.",
       "cannotEnterOwn": "❌ You cannot enter your own giveaway!",
       "alreadyEntered": "❌ You have already entered this giveaway!",
-      "enterFailed": "❌ **Failed to Enter Giveaway**\\n\\nError: {error}",
       "cancelOwnOnly": "❌ You can only cancel your own giveaways.",
       "cancelNotActive": "❌ This giveaway is not active.",
       "finishOwnOnly": "❌ You can only finish your own giveaways.",
@@ -211,10 +185,7 @@
       "finishChannelError": "❌ Failed to get giveaway channel.",
       "finishChannelNotConfigured": "❌ Giveaway channel not configured.",
       "finishChannelNotFound": "❌ Giveaway channel not found.",
-      "failed": "❌ Failed to open giveaway form: {error}",
-      "processFailed": "❌ Failed to process role selection: {error}",
-      "cancelFailed": "❌ Failed to cancel giveaway: {error}",
-      "finishFailed": "❌ Failed to finish giveaway: {error}"
+      "failed": "❌ Failed to open giveaway form: {error}"
     }
   },
   "feedback": {
@@ -226,10 +197,7 @@
     },
     "submitted": {
       "title": "✅ Feedback Submitted!",
-      "description": "Thank you for your feedback! Your submission has been received.",
-      "embedTitle": "💬 Feedback Submission",
-      "from": "👤 From",
-      "submitted": "🕐 Submitted"
+      "description": "Thank you for your feedback! Your submission has been received."
     },
     "errors": {
       "invalid": "❌ **Invalid Feedback**\\n\\nFeedback message cannot be empty.",
@@ -241,7 +209,6 @@
     }
   },
   "customSupporterRole": {
-    "title": "💎 Custom Supporter Role",
     "create": {
       "title": "💎 Create Custom Supporter Role",
       "editTitle": "💎 Edit Custom Supporter Role",

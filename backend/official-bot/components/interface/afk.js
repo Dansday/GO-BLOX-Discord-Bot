@@ -389,8 +389,9 @@ export async function handleRemoveAFKButton(interaction) {
 
     } catch (error) {
         await logger.log(`❌ Error removing AFK: ${error.message}`);
+        const errorMsg = await translate('afk.errors.removeFailed', interaction.guild.id, interaction.user.id, { error: error.message });
         await interaction.reply({
-            content: `❌ **Failed to Remove AFK**\n\nError: ${error.message}\n\nPlease try again later.`,
+            content: errorMsg,
             flags: 64
         });
     }
@@ -471,9 +472,9 @@ export function init(client) {
 
                             let afkMessage;
                             if (mentionedAFKData.message && mentionedAFKData.message !== 'Away') {
-                                afkMessage = await translate('afk.messages.mentionedAFK', member.guild.id, member.id, { member: mentionedMember.toString(), message: mentionedAFKData.message, duration: durationText });
+                                afkMessage = `⏸️ ${mentionedMember.toString()} is currently AFK: **${mentionedAFKData.message}** (for ${durationText})`;
                             } else {
-                                afkMessage = await translate('afk.messages.mentionedAFKDefault', member.guild.id, member.id, { member: mentionedMember.toString(), duration: durationText });
+                                afkMessage = `⏸️ ${mentionedMember.toString()} is currently AFK (for ${durationText})`;
                             }
 
                             const afkNotice = await message.reply(afkMessage);

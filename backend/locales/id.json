@@ -4,9 +4,21 @@
     "description": "Pilih fitur dari tombol di bawah:",
     "noAccess": "❌ Anda tidak memiliki akses ke fitur apa pun."
   },
+  "common": {
+    "errors": {
+      "memberNotFound": "❌ Gagal mengambil informasi anggota.",
+      "unknownButton": "❌ Interaksi tombol tidak dikenal.",
+      "buttonError": "❌ **Error Tombol**: Terjadi kesalahan saat memproses klik tombol Anda.\\n\\nSilakan coba lagi atau hubungi administrator.",
+      "modalError": "❌ **Error Formulir**: Terjadi kesalahan saat memproses pengiriman formulir Anda.\\n\\nSilakan coba lagi atau hubungi administrator.",
+      "selectionError": "❌ **Error Pilihan**: Terjadi kesalahan saat memproses pilihan Anda.\\n\\nSilakan coba lagi atau hubungi administrator."
+    }
+  },
   "settings": {
     "title": "⚙️ Pengaturan",
     "description": "Konfigurasi preferensi bot Anda",
+    "buttons": {
+      "settings": "⚙️ Pengaturan"
+    },
     "language": {
       "title": "🌐 Pengaturan Bahasa",
       "description": "Pilih bahasa pilihan Anda:",
@@ -14,24 +26,6 @@
       "select": "Pilih Bahasa",
       "updated": "✅ Bahasa berhasil diperbarui!",
       "failed": "❌ Gagal memperbarui bahasa: {error}"
-    }
-  },
-  "common": {
-    "unknown": "Tidak Diketahui",
-    "xp": "XP",
-    "min": "menit",
-    "buttons": {
-      "menu": "📋 Menu",
-      "settings": "⚙️ Pengaturan",
-      "back": "⬅️ Kembali"
-    },
-    "errors": {
-      "memberNotFound": "❌ Gagal mengambil informasi anggota.",
-      "noAccess": "❌ Anda tidak memiliki akses ke fitur apa pun.",
-      "unknownButton": "❌ Interaksi tombol tidak dikenal.",
-      "buttonError": "❌ **Error Tombol**: Terjadi kesalahan saat memproses klik tombol Anda.\\n\\nSilakan coba lagi atau hubungi administrator.",
-      "modalError": "❌ **Error Formulir**: Terjadi kesalahan saat memproses pengiriman formulir Anda.\\n\\nSilakan coba lagi atau hubungi administrator.",
-      "selectionError": "❌ **Error Pilihan**: Terjadi kesalahan saat memproses pilihan Anda.\\n\\nSilakan coba lagi atau hubungi administrator."
     }
   },
   "leveling": {
@@ -47,7 +41,10 @@
       "voiceActive": "Aktif",
       "voiceAfk": "AFK",
       "rank": "Peringkat",
-      "unranked": "Tidak Berperingkat"
+      "unranked": "Tidak Berperingkat",
+      "unknown": "Tidak Diketahui",
+      "xp": "XP",
+      "minutes": "menit"
     },
     "leaderboard": {
       "topXp": "⭐ XP Teratas (Top 3)",
@@ -61,13 +58,6 @@
       "minActive": "menit aktif",
       "minAfk": "menit AFK",
       "messages": "pesan"
-    },
-    "levelUp": {
-      "title": "🎉 Naik Level!",
-      "description": "{member} telah mencapai **Level {level}**!",
-      "totalXp": "📊 Total XP",
-      "rank": "🏆 Peringkat",
-      "dmMessage": "🎉 **Selamat!** Anda telah mencapai **Level {level}** di **{server}**!\\n\\nTeruskan kerja bagusnya! 🚀"
     },
     "buttons": {
       "topXp": "⭐ XP Teratas",
@@ -120,12 +110,11 @@
     "errors": {
       "notAFK": "❌ Anda saat ini tidak sedang AFK.",
       "failed": "❌ Gagal membuka formulir AFK: {error}",
-      "setFailed": "❌ **Gagal Mengatur AFK**\\n\\nError: {error}\\n\\nSilakan coba lagi nanti."
+      "setFailed": "❌ **Gagal Mengatur AFK**\\n\\nError: {error}\\n\\nSilakan coba lagi nanti.",
+      "removeFailed": "❌ **Gagal Menghapus AFK**\\n\\nError: {error}\\n\\nSilakan coba lagi nanti."
     },
     "messages": {
       "welcomeBack": "✅ Selamat datang kembali, {member}! Status AFK Anda telah dihapus.",
-      "mentionedAFK": "⏸️ {member} saat ini sedang AFK: **{message}** (selama {duration})",
-      "mentionedAFKDefault": "⏸️ {member} saat ini sedang AFK (selama {duration})",
       "dmMentioned": "📬 Anda disebutkan oleh {sender} di **{server}** (#{channel})\\n\\n**Pesan:** {message}"
     }
   },
@@ -164,21 +153,7 @@
     },
     "cancelled": {
       "title": "✅ Giveaway Dibatalkan",
-      "description": "Giveaway Anda **\"{title}\"** telah dibatalkan.",
-      "embedTitle": "❌ Giveaway Dibatalkan",
-      "embedDescription": "**{title}**\\n\\n**Hadiah:** {prize}\\n\\nGiveaway ini telah dibatalkan oleh pembuat."
-    },
-    "finished": {
-      "title": "✅ Giveaway Selesai",
-      "description": "Giveaway Anda **\"{title}\"** telah selesai lebih awal.{extra}",
-      "noEntries": "\\n\\nTidak ada peserta yang masuk.",
-      "noWinners": "\\n\\nTidak dapat memilih pemenang.",
-      "winners": "\\n\\n**Pemenang:** {winners}",
-      "embedTitle": "🎉 Giveaway Berakhir!",
-      "embedDescription": "**{title}**\\n\\n**Hadiah:** {prize}\\n\\n🎊 **Pemenang{plural}:** {winners}\\n\\n{warning}\\n\\nSelamat! 🎉",
-      "noEntriesEmbed": "**{title}**\\n\\n❌ Tidak ada peserta! Giveaway telah berakhir tanpa peserta.",
-      "noWinnersEmbed": "**{title}**\\n\\n❌ Tidak dapat memilih pemenang.",
-      "warning": "⚠️ *Hanya {count} pemenang{plural} yang dipilih ({requested} diminta) karena peserta terbatas.*\\n\\n"
+      "description": "Giveaway Anda **\"{title}\"** telah dibatalkan."
     },
     "buttons": {
       "finish": "🏁 Selesaikan Giveaway",
@@ -203,7 +178,6 @@
       "memberNotFoundDB": "❌ Anggota tidak ditemukan di database. Silakan coba lagi nanti.",
       "cannotEnterOwn": "❌ Anda tidak dapat mengikuti giveaway Anda sendiri!",
       "alreadyEntered": "❌ Anda sudah mengikuti giveaway ini!",
-      "enterFailed": "❌ **Gagal Mengikuti Giveaway**\\n\\nError: {error}",
       "cancelOwnOnly": "❌ Anda hanya dapat membatalkan giveaway Anda sendiri.",
       "cancelNotActive": "❌ Giveaway ini tidak aktif.",
       "finishOwnOnly": "❌ Anda hanya dapat menyelesaikan giveaway Anda sendiri.",
@@ -211,10 +185,7 @@
       "finishChannelError": "❌ Gagal mendapatkan saluran giveaway.",
       "finishChannelNotConfigured": "❌ Saluran giveaway tidak dikonfigurasi.",
       "finishChannelNotFound": "❌ Saluran giveaway tidak ditemukan.",
-      "failed": "❌ Gagal membuka formulir giveaway: {error}",
-      "processFailed": "❌ Gagal memproses pilihan role: {error}",
-      "cancelFailed": "❌ Gagal membatalkan giveaway: {error}",
-      "finishFailed": "❌ Gagal menyelesaikan giveaway: {error}"
+      "failed": "❌ Gagal membuka formulir giveaway: {error}"
     }
   },
   "feedback": {
@@ -226,10 +197,7 @@
     },
     "submitted": {
       "title": "✅ Feedback Terkirim!",
-      "description": "Terima kasih atas feedback Anda! Pengiriman Anda telah diterima.",
-      "embedTitle": "💬 Pengiriman Feedback",
-      "from": "👤 Dari",
-      "submitted": "🕐 Dikirim"
+      "description": "Terima kasih atas feedback Anda! Pengiriman Anda telah diterima."
     },
     "errors": {
       "invalid": "❌ **Feedback Tidak Valid**\\n\\nPesan feedback tidak boleh kosong.",
@@ -241,7 +209,6 @@
     }
   },
   "customSupporterRole": {
-    "title": "💎 Role Supporter Kustom",
     "create": {
       "title": "💎 Buat Role Supporter Kustom",
       "editTitle": "💎 Edit Role Supporter Kustom",
