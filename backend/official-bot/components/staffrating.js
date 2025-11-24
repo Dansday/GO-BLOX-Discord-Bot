@@ -3,29 +3,46 @@ import logger from '../../logger.js';
 import db from '../../../database/database.js';
 
 function getRatingColor(rating) {
-    const r = rating.toFixed(1);
-    const colors = {
-        '1.0': 0xFF0000, '1.1': 0xFF1100, '1.2': 0xFF2200, '1.3': 0xFF3300, '1.4': 0xFF4400,
-        '1.5': 0xFF5500, '1.6': 0xFF6600, '1.7': 0xFF7700, '1.8': 0xFF8800, '1.9': 0xFF9900,
-        '2.0': 0xFFAA00, '2.1': 0xFFBB00, '2.2': 0xFFCC00, '2.3': 0xFFDD00, '2.4': 0xFFEE00,
-        '2.5': 0xFFFF00, '2.6': 0xEEFF00, '2.7': 0xDDFF00, '2.8': 0xCCFF00, '2.9': 0xBBFF00,
-        '3.0': 0xAAFF00, '3.1': 0x99FF00, '3.2': 0x88FF00, '3.3': 0x77FF00, '3.4': 0x66FF00,
-        '3.5': 0x55FF00, '3.6': 0x44FF00, '3.7': 0x33FF00, '3.8': 0x22FF00, '3.9': 0x11FF00,
-        '4.0': 0x00FF00, '4.1': 0x00FF22, '4.2': 0x00FF44, '4.3': 0x00FF66, '4.4': 0x00FF88,
-        '4.5': 0x00FFAA, '4.6': 0x00FFCC, '4.7': 0x00FFEE, '4.8': 0x00EEFF, '4.9': 0x00DDFF,
-        '5.0': 0xFFD700
-    };
-    return colors[r] || 0x808080;
+    const clamped = Math.max(1.0, Math.min(5.0, rating));
+    const normalized = (clamped - 1.0) / 4.0;
+
+    const red = 255;
+    const green = Math.round(0 + (215 * normalized));
+    const blue = Math.round(0 + (0 * normalized));
+
+    return (red << 16) | (green << 8) | blue;
+}
+
+async function updateAllRatingRolePositions(guild, serverId) {
+    const constraints = await STAFF_RATING.getRoleConstraints(guild.id);
+    const endRole = constraints?.ROLE_END ? guild.roles.cache.get(constraints.ROLE_END) : null;
+    if (!endRole) {
+        return;
+    }
+
+    const allRatings = await db.getAllStaffRatings(serverId);
+
+    for (let i = 0; i < allRatings.length; i++) {
+        const rating = allRatings[i];
+        if (!rating.rating_role_id) continue;
+
+        const role = guild.roles.cache.get(rating.rating_role_id);
+        if (!role) continue;
+
+        const targetPosition = endRole.position + 1 + (allRatings.length - i - 1);
+
+        if (role.position !== targetPosition) {
+            await role.setPosition(targetPosition).catch(() => null);
+        }
+    }
 }
 
 async function ensureRatingRole(guild, serverId, member, ratingValue, ratingRecord) {
-    const nameBase = member.displayName || member.user.globalName || member.user.username || member.user.tag || member.id;
-    const desiredName = `⭐ ${ratingValue.toFixed(1)} • ${nameBase}`.slice(0, 100);
+    const desiredName = `⭐ ${ratingValue.toFixed(1)} • Staff Rating`.slice(0, 100);
     const color = getRatingColor(ratingValue);
     const constraints = await STAFF_RATING.getRoleConstraints(guild.id);
-    const startRole = constraints?.ROLE_START ? guild.roles.cache.get(constraints.ROLE_START) : null;
     const endRole = constraints?.ROLE_END ? guild.roles.cache.get(constraints.ROLE_END) : null;
-    const targetPosition = endRole ? endRole.position + 1 : null;
+
     let role = ratingRecord?.rating_role_id ? guild.roles.cache.get(ratingRecord.rating_role_id) : null;
     if (!role) {
         const creationData = {
@@ -34,8 +51,8 @@ async function ensureRatingRole(guild, serverId, member, ratingValue, ratingReco
             reason: 'Staff rating role',
             mentionable: false
         };
-        if (targetPosition !== null) {
-            creationData.position = targetPosition;
+        if (endRole) {
+            creationData.position = endRole.position + 1;
         }
         role = await guild.roles.create(creationData);
         await db.upsertRole(serverId, {
@@ -50,10 +67,10 @@ async function ensureRatingRole(guild, serverId, member, ratingValue, ratingReco
             name: desiredName,
             color
         });
-        if (targetPosition !== null && role.position !== targetPosition) {
-            await role.setPosition(targetPosition).catch(() => null);
-        }
     }
+
+    await updateAllRatingRolePositions(guild, serverId);
+
     return role;
 }
 
@@ -120,4 +137,3 @@ export function init() {
 }
 
 export default { init, updateStaffRatingRole };
-

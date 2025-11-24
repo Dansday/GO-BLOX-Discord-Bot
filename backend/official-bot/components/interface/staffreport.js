@@ -176,7 +176,6 @@ export async function handleStaffReportButton(interaction) {
             return;
         }
 
-        // Check if system is configured
         const config = await STAFF_RATING.getConfig(interaction.guild.id);
         if (!config) {
             const errorMsg = await translate('staffReport.errors.notConfigured', interaction.guild.id, interaction.user.id);
@@ -253,7 +252,6 @@ export async function handleStaffReportUserSelect(interaction) {
             return;
         }
 
-        // Check if user is trying to report themselves
         if (selectedUserId === member.id) {
             const errorMsg = await translate('staffReport.errors.cannotReportSelf', interaction.guild.id, interaction.user.id);
             await interaction.reply({
@@ -263,7 +261,6 @@ export async function handleStaffReportUserSelect(interaction) {
             return;
         }
 
-        // Check if selected user is staff
         const selectedMember = await interaction.guild.members.fetch(selectedUserId).catch(() => null);
         if (!selectedMember) {
             const errorMsg = await translate('common.errors.memberNotFound', interaction.guild.id, interaction.user.id);
@@ -274,8 +271,7 @@ export async function handleStaffReportUserSelect(interaction) {
             return;
         }
 
-        // Verify the selected member is staff or admin
-        const isStaff = await hasPermission(selectedMember, 'send_message'); // Staff and admin can send messages
+        const isStaff = await hasPermission(selectedMember, 'send_message');
         if (!isStaff) {
             const errorMsg = await translate('staffReport.errors.notStaff', interaction.guild.id, interaction.user.id);
             await interaction.reply({
@@ -297,11 +293,25 @@ export async function handleStaffReportUserSelect(interaction) {
             const now = Date.now();
             const hoursPassed = (now - lastRatedTime) / (1000 * 60 * 60);
 
-            if (hoursPassed < cooldownHours) {
+            if (Number.isFinite(cooldownHours) && cooldownHours > 0 && hoursPassed < cooldownHours) {
                 const hoursRemaining = Math.ceil(cooldownHours - hoursPassed);
                 const lastRatedStr = `<t:${Math.floor(lastRatedTime / 1000)}:R>`;
+                
+                let timeRemaining;
+                let timeUnitKey;
+                if (hoursRemaining >= 24) {
+                    const daysRemaining = Math.ceil(hoursRemaining / 24);
+                    timeRemaining = daysRemaining;
+                    timeUnitKey = daysRemaining === 1 ? 'common.timeUnits.day' : 'common.timeUnits.days';
+                } else {
+                    timeRemaining = hoursRemaining;
+                    timeUnitKey = hoursRemaining === 1 ? 'common.timeUnits.hour' : 'common.timeUnits.hours';
+                }
+                
+                const timeUnit = await translate(timeUnitKey, interaction.guild.id, interaction.user.id);
                 const errorMsg = await translate('staffReport.errors.onCooldown', interaction.guild.id, interaction.user.id, {
-                    hours: hoursRemaining,
+                    time: timeRemaining,
+                    unit: timeUnit,
                     lastRated: lastRatedStr
                 });
                 await interaction.reply({
@@ -460,7 +470,6 @@ export async function handleStaffReportModal(interaction) {
         const anonymousValue = interaction.fields.getTextInputValue('anonymous')?.trim().toLowerCase() || 'no';
         const isAnonymous = anonymousValue === 'yes' || anonymousValue === 'ya';
 
-        // Get database records
         const botConfig = getBotConfig();
         const server = await db.getServerByDiscordId(botConfig.id, guild.id);
         
@@ -476,7 +485,6 @@ export async function handleStaffReportModal(interaction) {
         
         const staffDbMember = await db.upsertMember(server.id, staffMember);
 
-        // Create report
         await db.createStaffRatingReport(
             server.id,
             reporterDbMember.id,
@@ -496,7 +504,6 @@ export async function handleStaffReportModal(interaction) {
             rating_role_id: ratingRecord?.rating_role_id || null
         });
 
-        // Build success message
         const embedConfig = await getEmbedConfig(interaction.guild.id);
         const successTitle = await translate('staffReport.submitted.title', interaction.guild.id, interaction.user.id);
         let successDescription = await translate('staffReport.submitted.description', interaction.guild.id, interaction.user.id);
@@ -504,15 +511,6 @@ export async function handleStaffReportModal(interaction) {
         if (isAnonymous) {
             const anonymousText = await translate('staffReport.submitted.anonymous', interaction.guild.id, interaction.user.id);
             successDescription += anonymousText;
-        }
-
-        if (roleUpdate.updated) {
-            const roleUpdatedText = await translate('staffReport.submitted.roleUpdated', interaction.guild.id, interaction.user.id, {
-                roleName: roleUpdate.role_name,
-                rating: roleUpdate.rating.toFixed(2),
-                totalReports: roleUpdate.total_reports
-            });
-            successDescription += roleUpdatedText;
         }
 
         const successEmbed = new EmbedBuilder()

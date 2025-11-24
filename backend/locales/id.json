@@ -11,6 +11,12 @@
       "buttonError": "❌ **Error Tombol**: Terjadi kesalahan saat memproses klik tombol kamu.\\n\\nSilakan coba lagi atau hubungi administrator.",
       "modalError": "❌ **Error Formulir**: Terjadi kesalahan saat memproses pengiriman formulir kamu.\\n\\nSilakan coba lagi atau hubungi administrator.",
       "selectionError": "❌ **Error Pilihan**: Terjadi kesalahan saat memproses pilihan kamu.\\n\\nSilakan coba lagi atau hubungi administrator."
+    },
+    "timeUnits": {
+      "hour": "jam",
+      "hours": "jam",
+      "day": "hari",
+      "days": "hari"
     }
   },
   "permissions": {
@@ -264,7 +270,7 @@
       "emptyDescription": "❌ **Deskripsi Diperlukan**\\n\\nSilakan berikan deskripsi pengalaman kamu.",
       "cannotReportSelf": "❌ Kamu tidak bisa melaporkan diri sendiri!",
       "notStaff": "❌ Member yang dipilih bukan staff.",
-      "onCooldown": "❌ **Cooldown Rating**\\n\\nKamu harus menunggu {hours} jam sebelum memberi rating staff ini lagi.\\n\\nTerakhir diberi rating: {lastRated}",
+      "onCooldown": "❌ **Cooldown Rating**\\n\\nKamu harus menunggu {time} {unit} sebelum memberi rating staff ini lagi.\\n\\nTerakhir diberi rating: {lastRated}",
       "submitFailed": "❌ **Gagal Mengirim Laporan**\\n\\nError: {error}\\n\\nSilakan coba lagi nanti.",
       "notConfigured": "❌ Sistem rating staff belum dikonfigurasi untuk server ini.",
       "noStaffConfigured": "❌ Role staff belum dikonfigurasi untuk server ini. Silakan minta admin mengatur perizinan staff terlebih dahulu.",

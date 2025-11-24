@@ -2260,6 +2260,25 @@ export async function clearMemberRatingRole(staffMemberId) {
     );
 }
 
+export async function getAllStaffRatings(serverId) {
+    await initializeDatabase();
+    const result = await query(
+        `SELECT 
+            ssr.id,
+            ssr.staff_member_id,
+            ssr.current_rating,
+            ssr.total_reports,
+            ssr.rating_role_id,
+            ssr.created_at,
+            ssr.updated_at
+         FROM server_staff_ratings ssr
+         WHERE ssr.server_id = ? AND ssr.rating_role_id IS NOT NULL AND ssr.current_rating > 0
+         ORDER BY ssr.current_rating DESC, ssr.created_at ASC`,
+        [serverId]
+    );
+    return result || [];
+}
+
 export default {
     getAllBots,
     getBot,
@@ -2330,5 +2349,6 @@ export default {
     getLastStaffRatingReport,
     getStaffRatingAggregate,
     markMemberRatingRole,
-    clearMemberRatingRole
+    clearMemberRatingRole,
+    getAllStaffRatings
 };

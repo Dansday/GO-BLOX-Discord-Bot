@@ -11,6 +11,12 @@
       "buttonError": "❌ **Button Error**: An error occurred while processing your button click.\\n\\nPlease try again or contact an administrator.",
       "modalError": "❌ **Modal Error**: An error occurred while processing your form submission.\\n\\nPlease try again or contact an administrator.",
       "selectionError": "❌ **Selection Error**: An error occurred while processing your selection.\\n\\nPlease try again or contact an administrator."
+    },
+    "timeUnits": {
+      "hour": "hour",
+      "hours": "hours",
+      "day": "day",
+      "days": "days"
     }
   },
   "permissions": {
@@ -264,7 +270,7 @@
       "emptyDescription": "❌ **Description Required**\\n\\nPlease provide a description of your experience.",
       "cannotReportSelf": "❌ You cannot report yourself!",
       "notStaff": "❌ The selected member is not a staff member.",
-      "onCooldown": "❌ **Rating Cooldown**\\n\\nYou must wait {hours} hours before rating this staff member again.\\n\\nLast rated: {lastRated}",
+      "onCooldown": "❌ **Rating Cooldown**\\n\\nYou must wait {time} {unit} before rating this staff member again.\\n\\nLast rated: {lastRated}",
       "submitFailed": "❌ **Failed to Submit Report**\\n\\nError: {error}\\n\\nPlease try again later.",
       "notConfigured": "❌ Staff rating system is not configured for this server.",
       "noStaffConfigured": "❌ Staff roles are not configured for this server. Please ask an admin to configure staff permissions first.",

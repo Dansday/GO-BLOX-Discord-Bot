@@ -411,15 +411,12 @@ export async function handleDMToggleButton(interaction) {
             .setLabel('📋 Menu')
             .setStyle(ButtonStyle.Secondary);
 
-        const buttonRow1 = new ActionRowBuilder()
-            .addComponents(languageButton, dmNotificationButton);
-        
-        const buttonRow2 = new ActionRowBuilder()
-            .addComponents(backButton);
+        const buttonRow = new ActionRowBuilder()
+            .addComponents(languageButton, dmNotificationButton, backButton);
 
         await interaction.update({
             embeds: [settingsEmbed],
-            components: [buttonRow1, buttonRow2]
+            components: [buttonRow]
         });
     } catch (error) {
         await logger.log(`❌ DM toggle error: ${error.message}`);

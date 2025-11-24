@@ -2037,7 +2037,7 @@
             { id: 'booster', name: 'Booster', icon: 'fa-gift' },
             { id: 'permissions', name: 'Permissions', icon: 'fa-shield-alt' },
             { id: 'custom_supporter_role', name: 'Custom Supporter Role', icon: 'fa-user-tag' },
-            { id: 'staff_rating', name: 'Staff Rating', icon: 'fa-star' },
+            { id: 'staff_report_rating', name: 'Staff Report & Rating', icon: 'fa-star' },
             { id: 'feedback', name: 'Feedback', icon: 'fa-comment-dots' },
             { id: 'giveaway', name: 'Giveaway', icon: 'fa-gift' },
             { id: 'forwarder', name: 'Forwarder', icon: 'fa-exchange-alt' },
@@ -3200,7 +3200,7 @@
                         </div>
                     `;
                     return;
-                case 'staff_rating':
+                case 'staff_report_rating':
                     renderStaffRating(settings).then(html => {
                         componentContent.innerHTML = html;
                     });
@@ -3811,8 +3811,11 @@
             await loadRolesForServer();
             const roleStartId = config.role_start || '';
             const roleEndId = config.role_end || '';
-            const cooldownHours = config.cooldown_hours || 168;
-            const ratingChannelId = config.rating_channel_id || config.notification_channel_id || '';
+            const storedCooldownHours = Number(config.cooldown_hours);
+            const cooldownDays = Number.isFinite(storedCooldownHours)
+                ? Math.min(30, Math.max(1, Math.round(storedCooldownHours / 24)))
+                : null;
+            const ratingChannelId = config.rating_channel_id || '';
             const reportChannelId = config.report_channel_id || '';
             const roleStart = roleStartId ? allRoles.find(r => String(r.discord_role_id) === String(roleStartId)) : null;
             const roleEnd = roleEndId ? allRoles.find(r => String(r.discord_role_id) === String(roleEndId)) : null;
@@ -3820,8 +3823,22 @@
             if (ratingChannelId) channelIds.push(ratingChannelId);
             if (reportChannelId && !channelIds.includes(reportChannelId)) channelIds.push(reportChannelId);
             const channelNames = await loadChannelNames(channelIds);
+            let cooldownOptions = '';
+            for (let i = 1; i <= 30; i++) {
+                const hoursValue = i * 24;
+                const label = `${i} ${i === 1 ? 'day' : 'days'}`;
+                const selected = i === cooldownDays ? 'selected' : '';
+                cooldownOptions += `<option value="${hoursValue}" ${selected}>${label}</option>`;
+            }
             return `
-                    <form id="staffRatingConfigForm" class="space-y-4 sm:space-y-6">
+                    <div class="space-y-6">
+                        <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+                            <div>
+                                <h2 class="text-2xl font-semibold text-white">Staff Report &amp; Rating</h2>
+                                <p class="text-gray-400 text-sm">Configure how staff reporting and rating roles behave across your server.</p>
+                            </div>
+                        </div>
+                        <form id="staffRatingConfigForm" class="space-y-4 sm:space-y-6">
                         <!-- Role Start (Top/Highest Position) -->
                         <div>
                             <label class="block text-xs sm:text-sm font-medium text-gray-300 mb-2">
@@ -3868,15 +3885,16 @@
                             </button>
                             <input type="hidden" id="staff_rating_role_end" name="role_end" value="${roleEndId}">
                         </div>
-                        <!-- Cooldown Hours -->
+                        <!-- Cooldown Days -->
                         <div>
                             <label class="block text-xs sm:text-sm font-medium text-gray-300 mb-2">
-                                <i class="fas fa-clock text-red-500 mr-2"></i>Rating Cooldown (Hours)
+                                <i class="fas fa-clock text-red-500 mr-2"></i>Rating Cooldown (Days)
                             </label>
-                            <p class="text-xs text-gray-400 mb-2">Hours a member must wait before rating the same staff member again (default: 168 = 7 days)</p>
-                            <input type="number" id="staff_rating_cooldown_hours" name="cooldown_hours" value="${cooldownHours}" min="1" max="8760"
-                                class="w-full px-3 sm:px-4 py-2.5 sm:py-3 bg-gray-700 border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent transition-all text-sm sm:text-base"
-                                placeholder="168">
+                            <p class="text-xs text-gray-400 mb-2">Days a member must wait before rating the same staff member again (1–30 days)</p>
+                            <select id="staff_rating_cooldown_hours" name="cooldown_hours"
+                                class="w-full px-3 sm:px-4 py-2.5 sm:py-3 bg-gray-700 border border-gray-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent text-sm sm:text-base">
+                                ${cooldownOptions}
+                            </select>
                         </div>
                         <!-- Rating Update Channel -->
                         <div>
@@ -3914,7 +3932,8 @@
                             </button>
                         </div>
                     </form>
-                `;
+                </div>
+            `;
         }
         async function renderFeedback(settings) {
             let config = {};
@@ -6320,12 +6339,16 @@
                 e.preventDefault();
                 const ratingChannelValue = document.getElementById('staff_rating_notification_channel')?.value || null;
                 const reportChannelValue = document.getElementById('staff_rating_report_channel')?.value || null;
+                const selectedCooldownDays = parseInt(document.getElementById('staff_rating_cooldown_hours').value, 10);
+                const normalizedCooldownDays = Number.isFinite(selectedCooldownDays)
+                    ? Math.min(30, Math.max(1, selectedCooldownDays))
+                    : null;
+                const cooldownHoursValue = normalizedCooldownDays !== null ? normalizedCooldownDays * 24 : null;
                 const formData = {
                     role_start: document.getElementById('staff_rating_role_start').value || null,
                     role_end: document.getElementById('staff_rating_role_end').value || null,
-                    cooldown_hours: parseInt(document.getElementById('staff_rating_cooldown_hours').value) || 168,
+                    cooldown_hours: cooldownHoursValue,
                     rating_channel_id: ratingChannelValue,
-                    notification_channel_id: ratingChannelValue,
                     report_channel_id: reportChannelValue
                 };
                 const submitBtn = document.getElementById('saveStaffRatingConfigBtn');
@@ -6350,9 +6373,9 @@
                     }
                     const data = await res.json();
                     if (data.success) {
-                        showMessage('Staff Rating configuration saved successfully!', 'success');
+                        showMessage('Staff Report & Rating configuration saved successfully!', 'success');
                         setTimeout(() => {
-                            loadComponent('staff_rating');
+                            loadComponent('staff_report_rating');
                         }, 500);
                     } else {
                         showMessage(data.error || 'Failed to save configuration', 'error');

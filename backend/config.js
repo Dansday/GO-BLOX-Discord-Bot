@@ -419,26 +419,26 @@ export const GIVEAWAY = {
 };
 
 export const STAFF_RATING = {
-    
+
     async getConfig(guildId) {
         requireBotConfig();
         requireGuildId(guildId, 'getting staff rating config');
-        
+
         const settings = await db.getServerSettings((await getOfficialBotServer(guildId)).id, 'staff_rating');
-        
+
         if (settings && settings.settings) {
             return settings.settings;
         }
-        
+
         return null;
     },
-    
+
     async getRatingChannel(guildId) {
         requireBotConfig();
         requireGuildId(guildId, 'getting staff rating channel');
         
         const config = await this.getConfig(guildId);
-        return config?.rating_channel_id || config?.notification_channel_id || null;
+        return config?.rating_channel_id || null;
     },
 
     async getReportChannel(guildId) {
@@ -448,32 +448,33 @@ export const STAFF_RATING = {
         const config = await this.getConfig(guildId);
         return config?.report_channel_id || null;
     },
-    
+
     async getRoleConstraints(guildId) {
         requireBotConfig();
         requireGuildId(guildId, 'getting staff rating role constraints');
-        
+
         const config = await this.getConfig(guildId);
-        
+
         if (config && config.role_start && config.role_end) {
             return {
                 ROLE_START: config.role_start,
                 ROLE_END: config.role_end
             };
         }
-        
+
         return {
             ROLE_START: null,
             ROLE_END: null
         };
     },
-    
+
     async getCooldownHours(guildId) {
         requireBotConfig();
         requireGuildId(guildId, 'getting staff rating cooldown');
-        
+
         const config = await this.getConfig(guildId);
-        return config?.cooldown_hours || 168; // Default 7 days
+        const rawHours = Number(config?.cooldown_hours);
+        return Number.isFinite(rawHours) ? rawHours : null;
     }
 };
 
