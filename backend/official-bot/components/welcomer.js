@@ -2,11 +2,17 @@ import { WELCOMER, getEmbedConfig, getBotConfig } from "../../config.js";
 import { EmbedBuilder } from "discord.js";
 import logger from "../../logger.js";
 import db from "../../../database/database.js";
-import { getNowInTimezone, parseMySQLDateTime } from "../../utils.js";
-
+import { parseMySQLDateTime } from "../../utils.js";
 function replacePlaceholders(message, memberId, serverData, memberData, memberCount) {
-    const now = getNowInTimezone();
-    const profileCreatedAt = memberData?.profile_created_at ? parseMySQLDateTime(memberData.profile_created_at) : null;
+    const now = new Date();
+    let profileCreatedAt = null;
+    if (memberData?.profile_created_at) {
+        if (memberData.profile_created_at instanceof Date) {
+            profileCreatedAt = memberData.profile_created_at;
+        } else {
+            profileCreatedAt = parseMySQLDateTime(memberData.profile_created_at);
+        }
+    }
     const accountAge = profileCreatedAt ? Math.floor((now.getTime() - profileCreatedAt.getTime()) / (1000 * 60 * 60 * 24)) : 0;
     const accountAgeText = accountAge === 0 ? 'today' : accountAge === 1 ? '1 day ago' : `${accountAge} days ago`;
 
@@ -14,9 +20,7 @@ function replacePlaceholders(message, memberId, serverData, memberData, memberCo
         .replace(/{user}/g, `<@${memberId}>`)
         .replace(/{server}/g, serverData?.name || 'Unknown Server')
         .replace(/{memberCount}/g, (memberCount || 0).toString())
-        .replace(/{accountAge}/g, accountAgeText)
-        .replace(/{date}/g, now.toLocaleDateString())
-        .replace(/{time}/g, now.toLocaleTimeString());
+        .replace(/{accountAge}/g, accountAgeText);
 }
 
 async function welcomeUser(member, client) {
@@ -65,8 +69,15 @@ async function welcomeUser(member, client) {
 
         const embedConfig = await getEmbedConfig(member.guild.id);
 
-        const profileCreatedAt = memberData.profile_created_at ? parseMySQLDateTime(memberData.profile_created_at) : null;
-        const accountCreatedTimestamp = profileCreatedAt ? Math.floor(profileCreatedAt.getTime() / 1000) : Math.floor(getNowInTimezone().getTime() / 1000);
+        let profileCreatedAt = null;
+        if (memberData.profile_created_at) {
+            if (memberData.profile_created_at instanceof Date) {
+                profileCreatedAt = memberData.profile_created_at;
+            } else {
+                profileCreatedAt = parseMySQLDateTime(memberData.profile_created_at);
+            }
+        }
+        const accountCreatedTimestamp = profileCreatedAt ? Math.floor(profileCreatedAt.getTime() / 1000) : Math.floor(Date.now() / 1000);
 
         const welcomeEmbed = new EmbedBuilder()
             .setColor(embedConfig.COLOR)

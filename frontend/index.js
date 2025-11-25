@@ -8,6 +8,7 @@ import bcrypt from 'bcrypt';
 import { CONTROL_PANEL } from './config.js';
 import logger from '../backend/logger.js';
 import db, { initializeDatabase } from '../database/database.js';
+import { parseMySQLDateTime } from '../backend/utils.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -93,13 +94,18 @@ async function startBotById(botId, bot) {
 
         botProcesses.set(botId, processInfo);
 
+        let stdoutBuffer = '';
+        let stderrBuffer = '';
+
         botProcess.stdout.on('data', (data) => {
             const output = data.toString();
+            stdoutBuffer += output;
             console.log(`[Bot ${botId}] ${output}`);
         });
 
         botProcess.stderr.on('data', (data) => {
             const output = data.toString();
+            stderrBuffer += output;
             console.error(`[Bot ${botId} Error] ${output}`);
         });
 
@@ -122,7 +128,17 @@ async function startBotById(botId, bot) {
                 logger.log(`⚠️  Failed to update bot status: ${err.message}`);
             }
 
-            logger.log(`Bot ${botId} exited with code ${code}${signal ? ` (signal: ${signal})` : ''}`);
+            if (code !== 0 && code !== null) {
+                logger.log(`❌ Bot ${botId} exited with code ${code}${signal ? ` (signal: ${signal})` : ''}`);
+                if (stderrBuffer.trim()) {
+                    logger.log(`❌ Bot ${botId} stderr output:\n${stderrBuffer.trim()}`);
+                }
+                if (stdoutBuffer.trim() && code === 1) {
+                    logger.log(`❌ Bot ${botId} stdout output:\n${stdoutBuffer.trim()}`);
+                }
+            } else {
+                logger.log(`Bot ${botId} exited with code ${code}${signal ? ` (signal: ${signal})` : ''}`);
+            }
         });
 
         botProcess.on('error', async (err) => {
@@ -140,14 +156,46 @@ async function startBotById(botId, bot) {
                     process_id: null,
                     uptime_started_at: null
                 });
-            } catch (updateErr) { }
+            } catch (updateErr) {
+                logger.log(`⚠️  Failed to update bot status after error: ${updateErr.message}`);
+            }
 
-            logger.log(`Failed to start bot ${botId}: ${err.message}`);
+            logger.log(`❌ Failed to start bot ${botId}: ${err.message}`);
+            logger.log(`❌ Error details: ${err.stack || err.toString()}`);
         });
 
         setTimeout(async () => {
+            if (botProcess.exitCode !== null) {
+                logger.log(`❌ Bot ${botId} process ${botProcess.pid} exited immediately (exit code: ${botProcess.exitCode})`);
+                if (stderrBuffer.trim()) {
+                    logger.log(`❌ Bot ${botId} immediate stderr:\n${stderrBuffer.trim()}`);
+                }
+                if (stdoutBuffer.trim()) {
+                    logger.log(`❌ Bot ${botId} immediate stdout:\n${stdoutBuffer.trim()}`);
+                }
+                try {
+                    await db.updateBot(botId, {
+                        status: 'stopped',
+                        process_id: null,
+                        uptime_started_at: null
+                    });
+                } catch (updateErr) {
+                    logger.log(`⚠️  Failed to update bot status after immediate exit: ${updateErr.message}`);
+                }
+                return;
+            }
+        }, 500);
 
+        setTimeout(async () => {
             try {
+                if (botProcess.exitCode !== null) {
+                    logger.log(`⚠️  Bot ${botId} process ${botProcess.pid} exited before status check (exit code: ${botProcess.exitCode})`);
+                    if (stderrBuffer.trim()) {
+                        logger.log(`❌ Bot ${botId} stderr output:\n${stderrBuffer.trim()}`);
+                    }
+                    return;
+                }
+
                 process.kill(botProcess.pid, 0);
 
                 try {
@@ -161,15 +209,27 @@ async function startBotById(botId, bot) {
                     logger.log(`⚠️  Failed to update bot status to running: ${err.message}`);
                 }
             } catch (e) {
-
-                logger.log(`⚠️  Bot process ${botProcess.pid} may have failed to start`);
+                if (e.code === 'ESRCH' || e.message.includes('ESRCH')) {
+                    logger.log(`❌ Bot ${botId} process ${botProcess.pid} failed to start (process not found)`);
+                    if (stderrBuffer.trim()) {
+                        logger.log(`❌ Bot ${botId} stderr output:\n${stderrBuffer.trim()}`);
+                    }
+                    if (stdoutBuffer.trim()) {
+                        logger.log(`❌ Bot ${botId} stdout output:\n${stdoutBuffer.trim()}`);
+                    }
+                } else {
+                    logger.log(`❌ Bot ${botId} process ${botProcess.pid} may have failed to start`);
+                    logger.log(`❌ Process check error: ${e.message}`);
+                }
                 try {
                     await db.updateBot(botId, {
                         status: 'stopped',
                         process_id: null,
                         uptime_started_at: null
                     });
-                } catch (updateErr) { }
+                } catch (updateErr) {
+                    logger.log(`⚠️  Failed to update bot status after failure check: ${updateErr.message}`);
+                }
             }
         }, 2000);
 
@@ -454,15 +514,6 @@ export async function init() {
         return res.status(401).json({ error: 'Authentication required' });
     }
 
-    app.get('/api/panel/status', async (req, res) => {
-        try {
-            const panel = await db.getPanel();
-            res.json({ panelExists: panel !== null });
-        } catch (error) {
-            res.json({ panelExists: false, error: error.message });
-        }
-    });
-
     app.post('/api/panel/register', async (req, res) => {
         try {
             const { password } = req.body;
@@ -593,6 +644,14 @@ export async function init() {
         });
     });
 
+    app.get('/api/config/timezone', (req, res) => {
+        const timezone = process.env.TIMEZONE;
+        if (!timezone) {
+            return res.status(500).json({ error: 'TIMEZONE environment variable not set' });
+        }
+        res.json({ timezone });
+    });
+
     app.get('/api/bots', requireAuth, async (req, res) => {
         try {
             const bots = await db.getAllBots();
@@ -652,7 +711,12 @@ export async function init() {
                 }
 
                 if (botData.status === 'running' && botData.uptime_started_at) {
-                    const startTime = new Date(botData.uptime_started_at);
+                    let startTime;
+                    if (botData.uptime_started_at instanceof Date) {
+                        startTime = botData.uptime_started_at;
+                    } else {
+                        startTime = parseMySQLDateTime(botData.uptime_started_at);
+                    }
                     const now = new Date();
                     const uptimeMs = now - startTime;
                     botData.uptime_ms = uptimeMs;
@@ -718,7 +782,23 @@ export async function init() {
             }
 
             if (botData.status === 'running' && botData.uptime_started_at) {
-                const startTime = new Date(botData.uptime_started_at);
+                let startTime;
+                if (botData.uptime_started_at instanceof Date) {
+                    startTime = botData.uptime_started_at;
+                } else {
+                    const dateStr = String(botData.uptime_started_at);
+                    const [datePart, timePart] = dateStr.split(' ');
+                    const [year, month, day] = datePart.split('-');
+                    const [hours, minutes, seconds] = timePart.split(':');
+                    const date = new Date();
+                    date.setFullYear(parseInt(year), parseInt(month) - 1, parseInt(day));
+                    date.setHours(parseInt(hours), parseInt(minutes), parseInt(seconds || 0), 0);
+                    const TIMEZONE = process.env.TIMEZONE;
+                    const utcDate = new Date(date.toLocaleString('en-US', { timeZone: 'UTC' }));
+                    const tzDate = new Date(date.toLocaleString('en-US', { timeZone: TIMEZONE }));
+                    const offset = (tzDate.getTime() - utcDate.getTime()) / 60000;
+                    startTime = new Date(date.getTime() - offset * 60000);
+                }
                 const now = new Date();
                 const uptimeMs = now - startTime;
                 botData.uptime_ms = uptimeMs;

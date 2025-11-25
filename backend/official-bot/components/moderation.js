@@ -170,7 +170,14 @@ function init(client) {
             }
 
             const reason = kickEntry.reason || "No reason provided";
-            const memberSince = memberData.member_since ? parseMySQLDateTime(memberData.member_since) : null;
+            let memberSince = null;
+            if (memberData.member_since) {
+                if (memberData.member_since instanceof Date) {
+                    memberSince = memberData.member_since;
+                } else {
+                    memberSince = parseMySQLDateTime(memberData.member_since);
+                }
+            }
             const memberSinceTimestamp = memberSince ? Math.floor(memberSince.getTime() / 1000) : null;
 
             await sendModerationLog(client, {

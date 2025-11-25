@@ -49,6 +49,12 @@ A comprehensive Discord bot management system with a web-based control panel. Fe
   - Visual embed builder with live preview and image upload
   - Mobile-responsive design throughout
 
+### Localization & User Preferences (`backend/i18n.js`, `backend/locales/`)
+- **Multi-language support**: Built-in translation files for English and Bahasa Indonesia with easy JSON overrides
+- **Per-member language**: Each member's preferred language is stored in `server_members.language` and respected across embeds, errors, and buttons
+- **User preferences**: The in-discord ⚙️ Settings button lets members toggle level-up DM notifications (`server_member_levels.dm_notifications_enabled`) and change languages at any time
+- **Extensible**: Add additional locale files under `backend/locales/` and they automatically appear in the Settings selector
+
 ## Project Structure
 
 ```
@@ -65,6 +71,10 @@ GOBLOX/
 │   └── config.js             # Frontend configuration
 ├── backend/
 │   ├── config.js             # Backend configuration (database-driven)
+│   ├── i18n.js               # Localization runtime + helpers
+│   ├── locales/              # Translation resources (per language JSON)
+│   │   ├── en.json
+│   │   └── id.json
 │   ├── logger.js             # Centralized logging utility
 │   ├── utils.js              # Utility functions
 │   ├── official-bot/
@@ -79,18 +89,19 @@ GOBLOX/
 │   │       ├── moderation.js     # Moderation tracking component
 │   │       ├── permissions.js    # Permission checking system
 │   │       ├── leveling.js       # Leveling system component
+│   │       ├── staffreportrating.js # Staff rating role manager
 │   │       ├── sync.js           # Server/channel/role sync to database
 │   │       ├── commands/         # Command definitions
 │   │       │   └── admin/
 │   │       │       └── setup.js  # Setup command
 │   │       └── interface/        # Interface button handlers
-│   │           ├── afk.js            # AFK button handler
-│   │           ├── feedback.js      # Feedback button handler
-│   │           ├── giveaway.js      # Giveaway button handler
-│   │           ├── sendmessage.js    # Send message button handler
-│   │           ├── help.js           # Help button handler
-│   │           ├── leveling.js        # Leveling button handler
-│   │           └── customsupporterrole.js # Custom role handler
+│   │           ├── afk.js                 # AFK button handler
+│   │           ├── customsupporterrole.js # Custom role handler
+│   │           ├── feedback.js           # Feedback button handler
+│   │           ├── giveaway.js           # Giveaway button handler
+│   │           ├── leveling.js           # Leveling button handler
+│   │           ├── settings.js           # Per-member settings + localization
+│   │           └── staffreportrating.js  # Staff report/rating workflow
 │   └── self-bot/
 │       ├── selfbot.js         # Self-bot entry point
 │       └── components/
@@ -121,6 +132,11 @@ GOBLOX/
   - Top 5 leaderboard with medal emotes (🥇🥈🥉)
   - Tie-breaking by who reached level first
 - **Feedback System**: Submit feedback to staff with automatic channel posting
+- **Staff Report & Rating System**: Collect granular ratings for staff members with audit trail
+  - Select staff from configured staff roles, choose rating (⭐1-5) and category (helpful, rude, abuse, etc.)
+  - Require written feedback, optionally allow anonymous submissions, and enforce cooldowns per staff/member pair
+  - Moderators approve/reject reports via buttons; approvals update running averages, DM the reporter, and notify the rated staff member
+  - Automatically create/update per-staff rating roles with color-coded scores and send summary embeds to a dedicated rating channel
 - **Giveaway System**: Create and manage giveaways with advanced features
   - Create giveaways with custom title, prize, duration, and winner count
   - Optional role restrictions (limit entries to specific roles)
@@ -133,6 +149,7 @@ GOBLOX/
   - Timezone-aware scheduling (uses configured TIMEZONE)
 - **Permission System**: Role-based permissions (Admin, Staff, Supporter, Member)
 - **Testing/Production Modes**: Switch between test and production channels
+- **Localization & Personal Settings**: English + Bahasa Indonesia translations with per-member language preferences and level-up DM notification toggles exposed through the in-discord ⚙️ Settings interface
 
 ### Management Features
 - **Web Control Panel**: Full web interface for bot management
@@ -368,19 +385,6 @@ Access the control panel at `http://localhost:8080` (or your configured port).
 
 The `/interface` command creates a visual interface with buttons. All button responses are ephemeral (private to the user).
 
-#### 📤 Send Message Button
-- Send custom embed messages to any channel
-- Features:
-  - Select target channel from dropdown
-  - Optionally mention one or more roles
-  - Custom title (required)
-  - Custom description (optional)
-  - Optional image URL
-  - Optional color customization (hex/decimal/color name)
-  - Optional footer text (defaults to configured footer if empty)
-- Step-by-step process: Select channel → Choose role (optional) → Fill embed details → Send
-- **Permission:** Staff+
-
 #### 💎 Custom Supporter Role Button
 - Create, edit, or delete a custom role
 - **Create Features:**
@@ -419,6 +423,20 @@ The `/interface` command creates a visual interface with buttons. All button res
   - Exponential XP curve: Level 2 = 100 XP, Level 3 = 200 XP, Level 4 = 400 XP, etc.
   - Level up DM notifications sent automatically
 - **Permission:** Member+
+
+#### ⭐ Staff Report & Rating Button
+- Rate staff members after an interaction with structured prompts
+- Flow:
+  - Pick a staff member (list populated from configured staff roles)
+  - Select a category (Excellent, Helpful, Slow Response, Unhelpful, Rude, Abuse of Power) and a rating (⭐1-5)
+  - Provide mandatory written feedback and optionally type “yes” to submit anonymously
+- Safeguards & moderation:
+  - Prevents self-reporting and enforces a configurable cooldown between reports for the same staff/member pair
+  - Pending reports are posted to an audit channel with Approve/Reject buttons that require setup-level permissions
+- Outcomes:
+  - Approved reports update the staff member’s average score, refresh their dynamic rating role/name/color, send a rich embed to the rating channel, and DM both reporter and staff
+  - Rejected reports notify the reporter privately and remove buttons from the audit entry
+- **Permission:** Member+ to submit, Staff/Admin (setup) to approve
 
 #### ⏸️ AFK Button
 - Set yourself as AFK (Away From Keyboard) with optional message
@@ -467,8 +485,12 @@ The `/interface` command creates a visual interface with buttons. All button res
 - **Permission:** Staff+ (configurable via permissions)
 - **Note:** Giveaway channel must be configured in control panel
 
-#### ❓ Help Button
-- Displays comprehensive help information for all interface features
+#### ⚙️ Settings Button
+- Lets members manage personal preferences without leaving Discord
+- Features:
+  - Toggle level-up DM notifications (updates `server_member_levels.dm_notifications_enabled`)
+  - Change language between English and Bahasa Indonesia (stored in `server_members.language`)
+  - See immediate confirmation via localized embeds/buttons
 - **Permission:** Member+
 
 ## Communication Method
@@ -511,9 +533,9 @@ Configuration is managed through:
 
 #### Permissions Configuration
 - Admin roles (full access)
-- Staff roles (all interfaces: Send Message, Custom Supporter Role, Leveling, AFK, Help, Feedback, Giveaway)
-- Supporter roles (Custom Supporter Role, Help)
-- Member roles (Leveling, AFK, Help, Feedback)
+- Staff roles (interface access: Custom Supporter Role, Leveling, AFK, Feedback, Giveaway, Staff Report, Settings)
+- Supporter roles (Custom Supporter Role, Settings)
+- Member roles (Leveling, AFK, Feedback, Staff Report, Settings)
 
 #### Main Configuration
 - Production channel (for moderation logs)
@@ -531,6 +553,13 @@ Configuration is managed through:
 - Role End (bottom/lowest position - typically Staff role)
 - Custom roles are created between these constraints
 
+#### Staff Report & Rating Configuration
+- Report channel ID (where pending reports + moderation buttons are posted)
+- Rating channel ID (optional) for announcing approved reports and updated averages
+- Role Start / Role End (re-uses supporter constraint logic to clamp dynamic rating roles into the correct bracket)
+- Cooldown days (minimum wait time before the same member can rate the same staff again)
+- Category labels are localized via `backend/locales/*.json`, so you can rename categories or add translations without redeploying
+
 #### Giveaway Configuration
 - Giveaway channel ID (where giveaways are posted)
 - Creator can participate toggle (allow/disallow giveaway creator from entering)
@@ -545,6 +574,11 @@ Configuration is managed through:
 - Exponential level curve: Level 2 = 100 XP, Level 3 = 200 XP, Level 4 = 400 XP, etc.
 - Leaderboard: Top 5 with medal emotes for positions 1-3
 - Tie-breaking: Users with same level/XP ranked by who reached it first
+
+#### Localization & Preference Configuration
+- Translate any string by editing `backend/locales/en.json`, `backend/locales/id.json`, or by adding new locale files (they auto-register in the Settings dropdown)
+- Per-member language selections are stored automatically in `server_members.language`
+- Level-up DM notification preferences live in `server_member_levels.dm_notifications_enabled` and are toggled via the Settings button
 
 ## Testing vs Production Mode
 
@@ -584,6 +618,11 @@ Each feature is organized as a component for easy maintenance:
   - Level up DM notifications
   - Voice session resume after bot restarts
   - AFK status checking (AFK users earn reduced XP: 5 XP/min vs 30 XP/min)
+- **Staff Rating Component**: Automates staff reputation once a report is approved
+  - Calculates rolling averages and total report counts per staff member
+  - Creates/updates dedicated rating roles with clamped positions and color gradients
+  - Posts celebratory embeds to the rating channel and DMs staff with their latest score
+  - Supports role cleanup when a staff member loses all approved reports
 - **Giveaway Component**: Manages server giveaways with full lifecycle support
   - Create giveaways with role restrictions and multiple entry support
   - Automatic winner selection with weighted random distribution
@@ -619,12 +658,15 @@ The system uses MySQL/MariaDB with the following main tables:
 - **server_categories**: Discord category information (type 4 channels)
 - **server_channels**: Discord channel information (text, voice, stage, announcement)
 - **server_roles**: Discord role information with position tracking
-- **server_members**: Discord member information per server
-- **server_member_levels**: Leveling stats (XP, level, rank, chat count, voice minutes)
-- **server_member_roles**: Member role assignments
+- **server_members**: Discord member information per server (includes boosters, language preference, join timestamps)
+- **server_member_levels**: Leveling stats (XP, level, rank, chat count, voice minutes, DM notification flag)
+- **server_member_roles**: Member role assignments (flags for custom supporter roles and rating roles)
 - **server_members_afk**: AFK status and messages
 - **server_giveaways**: Giveaway information (title, prize, duration, status, etc.)
 - **server_giveaway_entries**: Giveaway entry tracking (member entries, entry counts, winner status)
+- **server_staff_ratings**: Aggregated rating + total report count per staff member and their associated rating role
+- **server_staff_reports**: Individual staff reports with rating, category, description, anonymity flag, and approval status
+- **server_feedback**: Stored feedback submissions (anonymous or attributed)
 - **server_settings**: Component-specific settings per server (JSON)
 
 ## Troubleshooting
@@ -734,7 +776,7 @@ Akbar Yudhanto
 
 ## Version
 
-7.6.3
+7.7.0
 
 ---
 

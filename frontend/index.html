@@ -586,14 +586,6 @@
                             <code class="bg-blue-800 px-1.5 py-0.5 rounded text-blue-200">{accountAge}</code>
                             <span>Account age</span>
                         </div>
-                        <div class="flex items-center gap-2">
-                            <code class="bg-blue-800 px-1.5 py-0.5 rounded text-blue-200">{date}</code>
-                            <span>Current date</span>
-                        </div>
-                        <div class="flex items-center gap-2">
-                            <code class="bg-blue-800 px-1.5 py-0.5 rounded text-blue-200">{time}</code>
-                            <span>Current time</span>
-                        </div>
                     </div>
                 </div>
                 <!-- Form Actions -->
@@ -794,23 +786,9 @@
             }, 5000);
         }
         async function checkPanelStatus() {
-            try {
-                const res = await fetch('/api/panel/status', {
-                    credentials: 'include'
-                });
-                const data = await res.json();
-                if (data.panelExists) {
-                    document.getElementById('authSubtitle').textContent = 'Login to your control panel';
-                    document.getElementById('buttonText').textContent = 'Login';
-                    document.getElementById('authButton').querySelector('i.fa-user-plus')?.classList.replace('fa-user-plus', 'fa-sign-in-alt');
-                } else {
-                    document.getElementById('authSubtitle').textContent = 'Create your control panel password';
-                    document.getElementById('buttonText').textContent = 'Register';
-                }
-            } catch (err) {
-                console.error('Error checking panel status:', err);
-                showMessage('Failed to check panel status', 'error');
-            }
+            document.getElementById('authSubtitle').textContent = 'Login to your control panel';
+            document.getElementById('buttonText').textContent = 'Login';
+            document.getElementById('authButton').querySelector('i.fa-user-plus')?.classList.replace('fa-user-plus', 'fa-sign-in-alt');
         }
         async function checkAuthStatus() {
             try {
@@ -845,15 +823,7 @@
             loadingIcon.classList.remove('hidden');
             buttonText.textContent = 'Processing...';
             try {
-                const statusRes = await fetch('/api/panel/status', {
-                    credentials: 'include'
-                });
-                const statusData = await statusRes.json();
-                let endpoint = '/api/panel/login';
-                if (!statusData.panelExists) {
-                    endpoint = '/api/panel/register';
-                }
-                const res = await fetch(endpoint, {
+                let res = await fetch('/api/panel/login', {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json'
@@ -861,9 +831,22 @@
                     credentials: 'include',
                     body: JSON.stringify({ password })
                 });
-                const data = await res.json();
+                let data = await res.json();
+
+                if (!data.success && data.error && data.error.includes('Panel not registered')) {
+                    res = await fetch('/api/panel/register', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        },
+                        credentials: 'include',
+                        body: JSON.stringify({ password })
+                    });
+                    data = await res.json();
+                }
+
                 if (data.success) {
-                    showMessage(data.message || (statusData.panelExists ? 'Login successful!' : 'Registration successful!'), 'success');
+                    showMessage(data.message || 'Authentication successful!', 'success');
                     document.getElementById('password').value = '';
                     setTimeout(async () => {
                         await checkAuthStatus();
@@ -872,22 +855,14 @@
                     showMessage(data.error || 'Authentication failed', 'error');
                     button.disabled = false;
                     loadingIcon.classList.add('hidden');
-                    buttonText.textContent = statusData.panelExists ? 'Login' : 'Register';
+                    buttonText.textContent = 'Login';
                 }
             } catch (err) {
                 console.error('Auth error:', err);
                 showMessage('Authentication failed. Please try again.', 'error');
                 button.disabled = false;
                 loadingIcon.classList.add('hidden');
-                try {
-                    const statusRes = await fetch('/api/panel/status', {
-                        credentials: 'include'
-                    });
-                    const statusData = await statusRes.json();
-                    buttonText.textContent = statusData.panelExists ? 'Login' : 'Register';
-                } catch (e) {
-                    buttonText.textContent = 'Login';
-                }
+                buttonText.textContent = 'Login';
             }
         });
         let allBots = [];
@@ -1261,6 +1236,18 @@
         const SERVERS_PER_PAGE = 9;
         let allServers = [];
         let currentServerPage = 1;
+        let appTimezone = null;
+        async function loadTimezone() {
+            try {
+                const res = await fetch('/api/config/timezone', { credentials: 'include' });
+                if (res.ok) {
+                    const data = await res.json();
+                    appTimezone = data.timezone;
+                }
+            } catch (err) {
+                console.error('Failed to load timezone:', err);
+            }
+        }
         function formatNumber(num) {
             return num.toString().replace(/\B(?=(\d{3})+(?!\d))/g, '.');
         }
@@ -1270,7 +1257,15 @@
             if (Number.isNaN(date.getTime())) {
                 return 'N/A';
             }
+            if (!appTimezone) return date.toLocaleString('en-US', {
+                year: 'numeric',
+                month: 'short',
+                day: 'numeric',
+                hour: '2-digit',
+                minute: '2-digit'
+            });
             return date.toLocaleString('en-US', {
+                timeZone: appTimezone,
                 year: 'numeric',
                 month: 'short',
                 day: 'numeric',
@@ -1300,12 +1295,22 @@
             if (Number.isNaN(date.getTime())) {
                 return '--:--:--';
             }
-            return date.toLocaleTimeString('en-US', {
+            if (!appTimezone) {
+                return date.toLocaleTimeString('en-US', {
+                    hour12: false,
+                    hour: '2-digit',
+                    minute: '2-digit',
+                    second: '2-digit'
+                });
+            }
+            const formatter = new Intl.DateTimeFormat('en-US', {
+                timeZone: appTimezone,
                 hour12: false,
                 hour: '2-digit',
                 minute: '2-digit',
                 second: '2-digit'
             });
+            return formatter.format(date);
         }
         function ensureBotLogElements() {
             const terminal = document.getElementById('botLogTerminal');
@@ -1363,9 +1368,22 @@
                 statusEl.classList.toggle('text-gray-500', !isError);
             }
             if (updatedEl) {
-                updatedEl.textContent = botLogsLastUpdated
-                    ? `Updated ${botLogsLastUpdated.toLocaleTimeString('en-US', { hour12: false })}`
-                    : '';
+                if (botLogsLastUpdated) {
+                    if (appTimezone) {
+                        const formatter = new Intl.DateTimeFormat('en-US', {
+                            timeZone: appTimezone,
+                            hour12: false,
+                            hour: '2-digit',
+                            minute: '2-digit',
+                            second: '2-digit'
+                        });
+                        updatedEl.textContent = `Updated ${formatter.format(botLogsLastUpdated)}`;
+                    } else {
+                        updatedEl.textContent = `Updated ${botLogsLastUpdated.toLocaleTimeString('en-US', { hour12: false })}`;
+                    }
+                } else {
+                    updatedEl.textContent = '';
+                }
             }
         }
         function renderBotLogs() {
@@ -2004,6 +2022,7 @@
         let currentServerId = null;
         let embedDefaultColor = '#FF0000';
         let embedDefaultFooter = '';
+        let currentServerName = '';
         let currentBotIdForServer = null;
         const components = [
             { id: 'main_config', name: 'Main Config', icon: 'fa-cog' },
@@ -2011,6 +2030,7 @@
             { id: 'booster', name: 'Booster', icon: 'fa-gift' },
             { id: 'permissions', name: 'Permissions', icon: 'fa-shield-alt' },
             { id: 'custom_supporter_role', name: 'Custom Supporter Role', icon: 'fa-user-tag' },
+            { id: 'staff_report_rating', name: 'Staff Report & Rating', icon: 'fa-star' },
             { id: 'feedback', name: 'Feedback', icon: 'fa-comment-dots' },
             { id: 'giveaway', name: 'Giveaway', icon: 'fa-gift' },
             { id: 'forwarder', name: 'Forwarder', icon: 'fa-exchange-alt' },
@@ -3173,6 +3193,11 @@
                         </div>
                     `;
                     return;
+                case 'staff_report_rating':
+                    renderStaffRating(settings).then(html => {
+                        componentContent.innerHTML = html;
+                    });
+                    break;
                 case 'custom_supporter_role':
                     renderCustomSupporterRole(settings).then(html => {
                         contentContainer.innerHTML = contentHTML + html;
@@ -3290,12 +3315,12 @@
             const channelNames = await loadChannelNames(channelIds);
             return `
                 <form id="mainConfigForm" class="space-y-4 sm:space-y-6">
-                    <!-- Channel for Production -->
+                    <!-- Default Channel for Production -->
                     <div>
                         <label class="block text-xs sm:text-sm font-medium text-gray-300 mb-2">
-                            <i class="fas fa-rocket mr-2"></i>Channel for Production
+                            <i class="fas fa-rocket mr-2"></i>Default Channel for Production
                         </label>
-                        <p class="text-xs text-gray-400 mb-2">Channel where bot interface and production messages will be sent</p>
+                        <p class="text-xs text-gray-400 mb-2">Default channel where bot interface and production messages will be sent</p>
                         <button type="button" onclick="openChannelSelector('production_channel')"
                             class="w-full px-3 sm:px-4 py-2.5 sm:py-3 bg-gray-700 border border-gray-600 rounded-lg text-white text-left flex items-center justify-between hover:border-gray-500 transition-all text-sm sm:text-base">
                             <span id="production_channel_display" class="text-gray-300">${config.production_channel && channelNames[config.production_channel] ? `#${channelNames[config.production_channel]}` : config.production_channel ? `Channel ${config.production_channel}` : 'Select channel...'}</span>
@@ -3303,12 +3328,12 @@
                         </button>
                         <input type="hidden" id="production_channel" name="production_channel" value="${config.production_channel || ''}">
                     </div>
-                    <!-- Channel for Testing -->
+                    <!-- Default Channel for Testing -->
                     <div>
                         <label class="block text-xs sm:text-sm font-medium text-gray-300 mb-2">
-                            <i class="fas fa-flask mr-2"></i>Channel for Testing
+                            <i class="fas fa-flask mr-2"></i>Default Channel for Testing
                         </label>
-                        <p class="text-xs text-gray-400 mb-2">Optional channel for testing bot features before deploying to production</p>
+                        <p class="text-xs text-gray-400 mb-2">Default channel for testing bot features before deploying to production</p>
                         <button type="button" onclick="openChannelSelector('testing_channel')"
                             class="w-full px-3 sm:px-4 py-2.5 sm:py-3 bg-gray-700 border border-gray-600 rounded-lg text-white text-left flex items-center justify-between hover:border-gray-500 transition-all text-sm sm:text-base">
                             <span id="testing_channel_display" class="text-gray-300">${config.testing_channel && channelNames[config.testing_channel] ? `#${channelNames[config.testing_channel]}` : config.testing_channel ? `Channel ${config.testing_channel}` : 'Select channel...'}</span>
@@ -3349,14 +3374,6 @@
                                 <div class="flex items-center gap-2">
                                     <code class="bg-blue-800 px-1.5 py-0.5 rounded text-blue-200">{year}</code>
                                     <span>Current year</span>
-                                </div>
-                                <div class="flex items-center gap-2">
-                                    <code class="bg-blue-800 px-1.5 py-0.5 rounded text-blue-200">{date}</code>
-                                    <span>Current date</span>
-                                </div>
-                                <div class="flex items-center gap-2">
-                                    <code class="bg-blue-800 px-1.5 py-0.5 rounded text-blue-200">{time}</code>
-                                    <span>Current time</span>
                                 </div>
                             </div>
                         </div>
@@ -3399,7 +3416,7 @@
                         <label class="block text-xs sm:text-sm font-medium text-gray-300 mb-2">
                             <i class="fas fa-hashtag mr-2"></i>Welcome Channels
                         </label>
-                        <p class="text-xs text-gray-400 mb-2">Channels where welcome messages will be sent when new members join. You can select multiple channels</p>
+                        <p class="text-xs text-gray-400 mb-2">Channels for welcome messages. Multiple channels allowed. Uses default channel if not set</p>
                         <button type="button" onclick="openChannelSelectorMultiselect('welcomer_channels')"
                             class="w-full px-3 sm:px-4 py-2.5 sm:py-3 bg-gray-700 border border-gray-600 rounded-lg text-white text-left flex items-center justify-between hover:border-gray-500 transition-all text-sm sm:text-base">
                             <span id="welcomer_channels_display" class="text-gray-300">
@@ -3501,7 +3518,7 @@
                         <label class="block text-xs sm:text-sm font-medium text-gray-300 mb-2">
                             <i class="fas fa-hashtag mr-2"></i>Booster Channels
                         </label>
-                        <p class="text-xs text-gray-400 mb-2">Channels where booster messages will be sent when members boost the server. You can select multiple channels</p>
+                        <p class="text-xs text-gray-400 mb-2">Channels for booster messages. Multiple channels allowed. Uses default channel if not set</p>
                         <button type="button" onclick="openChannelSelectorMultiselect('booster_channels')"
                             class="w-full px-3 sm:px-4 py-2.5 sm:py-3 bg-gray-700 border border-gray-600 rounded-lg text-white text-left flex items-center justify-between hover:border-gray-500 transition-all text-sm sm:text-base">
                             <span id="booster_channels_display" class="text-gray-300">
@@ -3767,6 +3784,141 @@
                     </form>
                 `;
         }
+        async function renderStaffRating(settings) {
+            let config = {};
+            if (settings) {
+                if (settings.settings) {
+                    config = settings.settings;
+                } else if (typeof settings === 'object') {
+                    config = settings;
+                }
+            }
+            await loadRolesForServer();
+            const roleStartId = config.role_start || '';
+            const roleEndId = config.role_end || '';
+            const storedCooldownDays = Number(config.cooldown_days);
+            const cooldownDays = Number.isFinite(storedCooldownDays)
+                ? Math.min(30, Math.max(1, storedCooldownDays))
+                : null;
+            const ratingChannelId = config.rating_channel_id || '';
+            const reportChannelId = config.report_channel_id || '';
+            const roleStart = roleStartId ? allRoles.find(r => String(r.discord_role_id) === String(roleStartId)) : null;
+            const roleEnd = roleEndId ? allRoles.find(r => String(r.discord_role_id) === String(roleEndId)) : null;
+            const channelIds = [];
+            if (ratingChannelId) channelIds.push(ratingChannelId);
+            if (reportChannelId && !channelIds.includes(reportChannelId)) channelIds.push(reportChannelId);
+            const channelNames = await loadChannelNames(channelIds);
+            let cooldownOptions = '';
+            for (let i = 1; i <= 30; i++) {
+                const label = `${i} ${i === 1 ? 'day' : 'days'}`;
+                const selected = i === cooldownDays ? 'selected' : '';
+                cooldownOptions += `<option value="${i}" ${selected}>${label}</option>`;
+            }
+            return `
+                    <div class="space-y-6">
+                        <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+                            <div>
+                                <h2 class="text-2xl font-semibold text-white">Staff Report &amp; Rating</h2>
+                                <p class="text-gray-400 text-sm">Configure how staff reporting and rating roles behave across your server.</p>
+                            </div>
+                        </div>
+                        <form id="staffRatingConfigForm" class="space-y-4 sm:space-y-6">
+                        <!-- Role Start (Top/Highest Position) -->
+                        <div>
+                            <label class="block text-xs sm:text-sm font-medium text-gray-300 mb-2">
+                                <i class="fas fa-arrow-up text-red-500 mr-2"></i>Role Start (Top/Highest Position)
+                            </label>
+                            <p class="text-xs text-gray-400 mb-2">Highest role position where staff rating roles will be created. Roles will be placed below this</p>
+                            <button type="button" onclick="openRoleSelectorSingle('staff_rating_role_start')"
+                                class="w-full px-3 sm:px-4 py-2.5 sm:py-3 bg-gray-700 hover:bg-gray-600 border border-gray-600 rounded-lg text-left transition-colors flex items-center justify-between group">
+                                <div class="flex items-center gap-2 sm:gap-3 flex-1 min-w-0">
+                                    <i class="fas fa-star text-gray-400 group-hover:text-white transition-colors flex-shrink-0"></i>
+                                    <span id="staff_rating_role_start_display" class="text-gray-300 text-sm sm:text-base">
+                                        ${roleStart
+                    ? `<span class="inline-flex items-center gap-1.5">
+                                                <span class="w-3 h-3 rounded-full" style="background-color: ${roleStart.color || '#7289da'};"></span>
+                                                ${escapeHtml(roleStart.name || 'Unknown Role')}
+                                            </span>`
+                    : 'Select role...'}
+                                    </span>
+                                </div>
+                                <i class="fas fa-chevron-right text-gray-500 group-hover:text-white transition-colors text-xs"></i>
+                            </button>
+                            <input type="hidden" id="staff_rating_role_start" name="role_start" value="${roleStartId}">
+                        </div>
+                        <!-- Role End (Bottom/Lowest Position) -->
+                        <div>
+                            <label class="block text-xs sm:text-sm font-medium text-gray-300 mb-2">
+                                <i class="fas fa-arrow-down text-red-500 mr-2"></i>Role End (Bottom/Lowest Position)
+                            </label>
+                            <p class="text-xs text-gray-400 mb-2">Lowest role position where staff rating roles will be created. Roles will be placed above this</p>
+                            <button type="button" onclick="openRoleSelectorSingle('staff_rating_role_end')"
+                                class="w-full px-3 sm:px-4 py-2.5 sm:py-3 bg-gray-700 hover:bg-gray-600 border border-gray-600 rounded-lg text-left transition-colors flex items-center justify-between group">
+                                <div class="flex items-center gap-2 sm:gap-3 flex-1 min-w-0">
+                                    <i class="fas fa-star text-gray-400 group-hover:text-white transition-colors flex-shrink-0"></i>
+                                    <span id="staff_rating_role_end_display" class="text-gray-300 text-sm sm:text-base">
+                                        ${roleEnd
+                    ? `<span class="inline-flex items-center gap-1.5">
+                                                <span class="w-3 h-3 rounded-full" style="background-color: ${roleEnd.color || '#7289da'};"></span>
+                                                ${escapeHtml(roleEnd.name || 'Unknown Role')}
+                                            </span>`
+                    : 'Select role...'}
+                                    </span>
+                                </div>
+                                <i class="fas fa-chevron-right text-gray-500 group-hover:text-white transition-colors text-xs"></i>
+                            </button>
+                            <input type="hidden" id="staff_rating_role_end" name="role_end" value="${roleEndId}">
+                        </div>
+                        <!-- Cooldown Days -->
+                        <div>
+                            <label class="block text-xs sm:text-sm font-medium text-gray-300 mb-2">
+                                <i class="fas fa-clock text-red-500 mr-2"></i>Rating Cooldown (Days)
+                            </label>
+                            <p class="text-xs text-gray-400 mb-2">Days a member must wait before rating the same staff member again (1–30 days)</p>
+                            <select id="staff_rating_cooldown_hours" name="cooldown_hours"
+                                class="w-full px-3 sm:px-4 py-2.5 sm:py-3 bg-gray-700 border border-gray-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent text-sm sm:text-base">
+                                ${cooldownOptions}
+                            </select>
+                        </div>
+                        <!-- Staff Report Channel -->
+                        <div>
+                            <label class="block text-xs sm:text-sm font-medium text-gray-300 mb-2">
+                                <i class="fas fa-flag text-red-500 mr-2"></i>Staff Report Channel
+                            </label>
+                            <p class="text-xs text-gray-400 mb-2">Channel for detailed staff reports. Uses default channel if not set</p>
+                            <button type="button" onclick="openChannelSelector('staff_rating_report_channel')"
+                                class="w-full px-3 sm:px-4 py-2.5 sm:py-3 bg-gray-700 border border-gray-600 rounded-lg text-white text-left flex items-center justify-between hover:border-gray-500 transition-all text-sm sm:text-base">
+                                <span id="staff_rating_report_channel_display" class="text-gray-300">${reportChannelId && channelNames[reportChannelId] ? `#${channelNames[reportChannelId]}` : reportChannelId ? `Channel ${reportChannelId}` : 'Select channel...'}</span>
+                                <i class="fas fa-chevron-down text-gray-400"></i>
+                            </button>
+                            <input type="hidden" id="staff_rating_report_channel" name="report_channel_id" value="${reportChannelId}">
+                        </div>
+                        <!-- Rating Update Channel -->
+                        <div>
+                            <label class="block text-xs sm:text-sm font-medium text-gray-300 mb-2">
+                                <i class="fas fa-bell text-red-500 mr-2"></i>Rating Update Channel
+                            </label>
+                            <p class="text-xs text-gray-400 mb-2">Channel for staff rating updates. Uses default channel if not set</p>
+                            <button type="button" onclick="openChannelSelector('staff_rating_notification_channel')"
+                                class="w-full px-3 sm:px-4 py-2.5 sm:py-3 bg-gray-700 border border-gray-600 rounded-lg text-white text-left flex items-center justify-between hover:border-gray-500 transition-all text-sm sm:text-base">
+                                <span id="staff_rating_notification_channel_display" class="text-gray-300">${ratingChannelId && channelNames[ratingChannelId] ? `#${channelNames[ratingChannelId]}` : ratingChannelId ? `Channel ${ratingChannelId}` : 'Select channel...'}</span>
+                                <i class="fas fa-chevron-down text-gray-400"></i>
+                            </button>
+                            <input type="hidden" id="staff_rating_notification_channel" name="rating_channel_id" value="${ratingChannelId}">
+                        </div>
+                        <!-- Save Button -->
+                        <div class="pt-4 border-t border-gray-700">
+                            <button type="submit" id="saveStaffRatingConfigBtn"
+                                class="w-full bg-red-600 hover:bg-red-700 text-white py-2.5 sm:py-3 rounded-lg transition-all duration-200 transform hover:scale-[1.02] active:scale-[0.98] flex items-center justify-center gap-2 text-sm sm:text-base font-medium disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none">
+                                <i class="fas fa-spinner fa-spin hidden" id="saveStaffRatingConfigLoading"></i>
+                                <i class="fas fa-save"></i>
+                                <span>Save Configuration</span>
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            `;
+        }
         async function renderFeedback(settings) {
             let config = {};
             if (settings) {
@@ -3776,9 +3928,12 @@
                     config = settings;
                 }
             }
+            await loadRolesForServer();
             const channelId = config.feedback_channel;
             const channelIds = channelId ? [channelId] : [];
             const channelNames = await loadChannelNames(channelIds);
+            const feedbackRoleId = config.feedback_role || '';
+            const feedbackRole = feedbackRoleId ? allRoles.find(r => String(r.discord_role_id) === String(feedbackRoleId)) : null;
             return `
                     <form id="feedbackConfigForm" class="space-y-4 sm:space-y-6">
                         <!-- Feedback Channel -->
@@ -3786,13 +3941,36 @@
                             <label class="block text-xs sm:text-sm font-medium text-gray-300 mb-2">
                                 <i class="fas fa-comment-dots text-red-500 mr-2"></i>Feedback Channel
                             </label>
-                            <p class="text-xs text-gray-400 mb-2">Channel where user feedback submissions will be sent. Staff roles will be mentioned automatically</p>
+                            <p class="text-xs text-gray-400 mb-2">Channel for user feedback. Uses default channel if not set</p>
                             <button type="button" onclick="openChannelSelector('feedback_channel')"
                                 class="w-full px-3 sm:px-4 py-2.5 sm:py-3 bg-gray-700 border border-gray-600 rounded-lg text-white text-left flex items-center justify-between hover:border-gray-500 transition-all text-sm sm:text-base">
                                 <span id="feedback_channel_display" class="text-gray-300">${channelId && channelNames[channelId] ? `#${channelNames[channelId]}` : channelId ? `Channel ${channelId}` : 'Select channel...'}</span>
                                 <i class="fas fa-chevron-down text-gray-400"></i>
                             </button>
                             <input type="hidden" id="feedback_channel" name="feedback_channel" value="${channelId || ''}">
+                        </div>
+                        <!-- Feedback Role -->
+                        <div>
+                            <label class="block text-xs sm:text-sm font-medium text-gray-300 mb-2">
+                                <i class="fas fa-user-shield text-red-500 mr-2"></i>Role to Mention
+                            </label>
+                            <p class="text-xs text-gray-400 mb-2">Role to mention when feedback is submitted. Optional</p>
+                            <button type="button" onclick="openRoleSelectorSingle('feedback_role')"
+                                class="w-full px-3 sm:px-4 py-2.5 sm:py-3 bg-gray-700 hover:bg-gray-600 border border-gray-600 rounded-lg text-left transition-colors flex items-center justify-between group">
+                                <div class="flex items-center gap-2 sm:gap-3 flex-1 min-w-0">
+                                    <i class="fas fa-user-shield text-gray-400 group-hover:text-white transition-colors flex-shrink-0"></i>
+                                    <span id="feedback_role_display" class="text-gray-300 text-sm sm:text-base">
+                                        ${feedbackRole
+                    ? `<span class="inline-flex items-center gap-1.5">
+                                                <span class="w-3 h-3 rounded-full" style="background-color: ${feedbackRole.color || '#7289da'};"></span>
+                                                ${escapeHtml(feedbackRole.name || 'Unknown Role')}
+                                            </span>`
+                    : 'Select role...'}
+                                    </span>
+                                </div>
+                                <i class="fas fa-chevron-right text-gray-500 group-hover:text-white transition-colors text-xs"></i>
+                            </button>
+                            <input type="hidden" id="feedback_role" name="feedback_role" value="${feedbackRoleId}">
                         </div>
                         <!-- Save Button -->
                         <div class="pt-4 border-t border-gray-700">
@@ -3843,7 +4021,7 @@
                             <label class="block text-xs sm:text-sm font-medium text-gray-300 mb-2">
                                 <i class="fas fa-gift text-red-500 mr-2"></i>Giveaway Channel
                             </label>
-                            <p class="text-xs text-gray-400 mb-2">Channel where giveaways will be published and winners will be announced. If empty, will use main config default channel</p>
+                            <p class="text-xs text-gray-400 mb-2">Channel for giveaways and winner announcements. Uses default channel if not set</p>
                             <button type="button" onclick="openChannelSelector('giveaway_channel')"
                                 class="w-full px-3 sm:px-4 py-2.5 sm:py-3 bg-gray-700 border border-gray-600 rounded-lg text-white text-left flex items-center justify-between hover:border-gray-500 transition-all text-sm sm:text-base">
                                 <span id="giveaway_channel_display" class="text-gray-300">${channelId && channelNames[channelId] ? `#${channelNames[channelId]}` : channelId ? `Channel ${channelId}` : 'Select channel...'}</span>
@@ -4023,118 +4201,93 @@
             return `
                 <form id="levelingConfigForm" class="space-y-4 sm:space-y-6">
                     <!-- Level Requirements -->
-                    <div class="bg-gray-700 rounded-lg p-4 sm:p-6">
-                        <h3 class="text-base sm:text-lg font-semibold text-white mb-4">
-                            <i class="fas fa-trophy mr-2"></i>Level Requirements
-                        </h3>
-                        <div class="space-y-4">
-                            <div>
-                                <label class="block text-xs sm:text-sm font-medium text-gray-300 mb-2">
-                                    Base XP
-                                </label>
-                                <p class="text-xs text-gray-400 mb-2">XP required to reach level 2. Higher levels use exponential formula: Base XP × (Multiplier ^ (Level - 2))</p>
-                                <select id="base_xp" name="base_xp" class="w-full px-3 sm:px-4 py-2.5 sm:py-3 bg-gray-800 border border-gray-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent text-sm sm:text-base">
-                                    ${baseXPOptions}
-                                </select>
-                            </div>
-                            <div>
-                                <label class="block text-xs sm:text-sm font-medium text-gray-300 mb-2">
-                                    Multiplier
-                                </label>
-                                <p class="text-xs text-gray-400 mb-2">Exponential multiplier for level requirements. Higher values make leveling progressively harder</p>
-                                <select id="multiplier" name="multiplier" class="w-full px-3 sm:px-4 py-2.5 sm:py-3 bg-gray-800 border border-gray-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent text-sm sm:text-base">
-                                    ${multiplierOptions}
-                                </select>
-                            </div>
-                        </div>
+                    <div>
+                        <label class="block text-xs sm:text-sm font-medium text-gray-300 mb-2">
+                            <i class="fas fa-trophy text-red-500 mr-2"></i>Base XP
+                        </label>
+                        <p class="text-xs text-gray-400 mb-2">XP required to reach level 2. Higher levels use exponential formula: Base XP × (Multiplier ^ (Level - 2))</p>
+                        <select id="base_xp" name="base_xp" class="w-full px-3 sm:px-4 py-2.5 sm:py-3 bg-gray-700 border border-gray-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent text-sm sm:text-base">
+                            ${baseXPOptions}
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-xs sm:text-sm font-medium text-gray-300 mb-2">
+                            <i class="fas fa-chart-line text-red-500 mr-2"></i>Multiplier
+                        </label>
+                        <p class="text-xs text-gray-400 mb-2">Exponential multiplier for level requirements. Higher values make leveling progressively harder</p>
+                        <select id="multiplier" name="multiplier" class="w-full px-3 sm:px-4 py-2.5 sm:py-3 bg-gray-700 border border-gray-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent text-sm sm:text-base">
+                            ${multiplierOptions}
+                        </select>
                     </div>
                     <!-- Message XP -->
-                    <div class="bg-gray-700 rounded-lg p-4 sm:p-6">
-                        <h3 class="text-base sm:text-lg font-semibold text-white mb-4">
-                            <i class="fas fa-comment mr-2"></i>Message XP
-                        </h3>
-                        <div class="space-y-4">
-                            <div>
-                                <label class="block text-xs sm:text-sm font-medium text-gray-300 mb-2">
-                                    XP Per Message
-                                </label>
-                                <p class="text-xs text-gray-400 mb-2">XP awarded for each eligible message (must pass cooldown and have member role)</p>
-                                <select id="message_xp" name="message_xp" class="w-full px-3 sm:px-4 py-2.5 sm:py-3 bg-gray-800 border border-gray-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent text-sm sm:text-base">
-                                    ${xpOptions}
-                                </select>
-                            </div>
-                            <div>
-                                <label class="block text-xs sm:text-sm font-medium text-gray-300 mb-2">
-                                    Cooldown (seconds)
-                                </label>
-                                <p class="text-xs text-gray-400 mb-2">Minimum time between messages to earn XP. Messages sent too quickly won't award XP</p>
-                                <select id="message_cooldown" name="message_cooldown" class="w-full px-3 sm:px-4 py-2.5 sm:py-3 bg-gray-800 border border-gray-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent text-sm sm:text-base">
-                                    ${cooldownOptions}
-                                </select>
-                            </div>
-                        </div>
+                    <div>
+                        <label class="block text-xs sm:text-sm font-medium text-gray-300 mb-2">
+                            <i class="fas fa-comment text-red-500 mr-2"></i>XP Per Message
+                        </label>
+                        <p class="text-xs text-gray-400 mb-2">XP awarded for each eligible message (must pass cooldown and have member role)</p>
+                        <select id="message_xp" name="message_xp" class="w-full px-3 sm:px-4 py-2.5 sm:py-3 bg-gray-700 border border-gray-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent text-sm sm:text-base">
+                            ${xpOptions}
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-xs sm:text-sm font-medium text-gray-300 mb-2">
+                            <i class="fas fa-clock text-red-500 mr-2"></i>Cooldown (seconds)
+                        </label>
+                        <p class="text-xs text-gray-400 mb-2">Minimum time between messages to earn XP. Messages sent too quickly won't award XP</p>
+                        <select id="message_cooldown" name="message_cooldown" class="w-full px-3 sm:px-4 py-2.5 sm:py-3 bg-gray-700 border border-gray-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent text-sm sm:text-base">
+                            ${cooldownOptions}
+                        </select>
                     </div>
                     <!-- Voice XP -->
-                    <div class="bg-gray-700 rounded-lg p-4 sm:p-6">
-                        <h3 class="text-base sm:text-lg font-semibold text-white mb-4">
-                            <i class="fas fa-microphone mr-2"></i>Voice XP
-                        </h3>
-                        <div class="space-y-4">
-                            <div>
-                                <label class="block text-xs sm:text-sm font-medium text-gray-300 mb-2">
-                                    Active Voice XP (per cooldown interval)
-                                </label>
-                                <p class="text-xs text-gray-400 mb-2">XP awarded per cooldown interval when actively in voice</p>
-                                <select id="voice_xp_per_minute" name="voice_xp_per_minute" class="w-full px-3 sm:px-4 py-2.5 sm:py-3 bg-gray-800 border border-gray-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent text-sm sm:text-base">
-                                    ${voiceXPOptions}
-                                </select>
-                            </div>
-                            <div>
-                                <label class="block text-xs sm:text-sm font-medium text-gray-300 mb-2">
-                                    AFK Voice XP (per cooldown interval)
-                                </label>
-                                <p class="text-xs text-gray-400 mb-2">XP awarded per cooldown interval when AFK in voice</p>
-                                <select id="voice_afk_xp_per_minute" name="voice_afk_xp_per_minute" class="w-full px-3 sm:px-4 py-2.5 sm:py-3 bg-gray-800 border border-gray-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent text-sm sm:text-base">
-                                    ${voiceAfkXPOptions}
-                                </select>
-                            </div>
-                            <div>
-                                <label class="block text-xs sm:text-sm font-medium text-gray-300 mb-2">
-                                    Cooldown (seconds)
-                                </label>
-                                <p class="text-xs text-gray-400 mb-2">How often voice XP is checked and awarded. XP amount above is given each interval</p>
-                                <select id="voice_cooldown" name="voice_cooldown" class="w-full px-3 sm:px-4 py-2.5 sm:py-3 bg-gray-800 border border-gray-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent text-sm sm:text-base">
-                                    ${voiceCooldownOptions}
-                                </select>
-                            </div>
-                        </div>
+                    <div>
+                        <label class="block text-xs sm:text-sm font-medium text-gray-300 mb-2">
+                            <i class="fas fa-microphone text-red-500 mr-2"></i>Active Voice XP (per cooldown interval)
+                        </label>
+                        <p class="text-xs text-gray-400 mb-2">XP awarded per cooldown interval when actively in voice</p>
+                        <select id="voice_xp_per_minute" name="voice_xp_per_minute" class="w-full px-3 sm:px-4 py-2.5 sm:py-3 bg-gray-700 border border-gray-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent text-sm sm:text-base">
+                            ${voiceXPOptions}
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-xs sm:text-sm font-medium text-gray-300 mb-2">
+                            <i class="fas fa-pause text-red-500 mr-2"></i>AFK Voice XP (per cooldown interval)
+                        </label>
+                        <p class="text-xs text-gray-400 mb-2">XP awarded per cooldown interval when AFK in voice</p>
+                        <select id="voice_afk_xp_per_minute" name="voice_afk_xp_per_minute" class="w-full px-3 sm:px-4 py-2.5 sm:py-3 bg-gray-700 border border-gray-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent text-sm sm:text-base">
+                            ${voiceAfkXPOptions}
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-xs sm:text-sm font-medium text-gray-300 mb-2">
+                            <i class="fas fa-clock text-red-500 mr-2"></i>Voice Cooldown (seconds)
+                        </label>
+                        <p class="text-xs text-gray-400 mb-2">How often voice XP is checked and awarded. XP amount above is given each interval</p>
+                        <select id="voice_cooldown" name="voice_cooldown" class="w-full px-3 sm:px-4 py-2.5 sm:py-3 bg-gray-700 border border-gray-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent text-sm sm:text-base">
+                            ${voiceCooldownOptions}
+                        </select>
                     </div>
                     <!-- Level Up Channel -->
-                    <div class="bg-gray-700 rounded-lg p-4 sm:p-6">
-                        <h3 class="text-base sm:text-lg font-semibold text-white mb-4">
-                            <i class="fas fa-hashtag mr-2"></i>Level Up Channel
-                        </h3>
-                        <div class="space-y-4">
-                            <div>
-                                <label class="block text-xs sm:text-sm font-medium text-gray-300 mb-2">
-                                    Level Up Notification Channel
-                                </label>
-                                <p class="text-xs text-gray-400 mb-2">Channel where level up images will be posted when members level up</p>
-                                <button type="button" onclick="openChannelSelector('leveling_channel')"
-                                    class="w-full px-3 sm:px-4 py-2.5 sm:py-3 bg-gray-800 border border-gray-600 rounded-lg text-white hover:bg-gray-750 focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent transition-all text-sm sm:text-base flex items-center justify-between">
-                                    <span id="leveling_channel_display" class="text-gray-300">${config.LEVEL_UP_CHANNEL_ID && channelNames[config.LEVEL_UP_CHANNEL_ID] ? '#' + channelNames[config.LEVEL_UP_CHANNEL_ID] : config.LEVEL_UP_CHANNEL_ID ? 'Channel ' + config.LEVEL_UP_CHANNEL_ID : 'Select channel...'}</span>
-                                    <i class="fas fa-chevron-right text-gray-400"></i>
-                                </button>
-                                <input type="hidden" id="leveling_channel" name="leveling_channel" value="${config.LEVEL_UP_CHANNEL_ID ?? ''}">
-                            </div>
-                        </div>
+                    <div>
+                        <label class="block text-xs sm:text-sm font-medium text-gray-300 mb-2">
+                            <i class="fas fa-hashtag text-red-500 mr-2"></i>Level Up Notification Channel
+                        </label>
+                        <p class="text-xs text-gray-400 mb-2">Channel for level up notifications. Uses default channel if not set</p>
+                        <button type="button" onclick="openChannelSelector('leveling_channel')"
+                            class="w-full px-3 sm:px-4 py-2.5 sm:py-3 bg-gray-700 border border-gray-600 rounded-lg text-white text-left flex items-center justify-between hover:border-gray-500 transition-all text-sm sm:text-base">
+                            <span id="leveling_channel_display" class="text-gray-300">${config.LEVEL_UP_CHANNEL_ID && channelNames[config.LEVEL_UP_CHANNEL_ID] ? '#' + channelNames[config.LEVEL_UP_CHANNEL_ID] : config.LEVEL_UP_CHANNEL_ID ? 'Channel ' + config.LEVEL_UP_CHANNEL_ID : 'Select channel...'}</span>
+                            <i class="fas fa-chevron-down text-gray-400"></i>
+                        </button>
+                        <input type="hidden" id="leveling_channel" name="leveling_channel" value="${config.LEVEL_UP_CHANNEL_ID ?? ''}">
                     </div>
-                    <button type="submit" id="saveLevelingConfigBtn"
-                        class="w-full bg-red-600 hover:bg-red-700 text-white font-semibold py-2.5 sm:py-3 px-4 rounded-lg transition-all duration-200 transform hover:scale-[1.02] active:scale-[0.98] flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none text-sm sm:text-base">
-                        <i class="fas fa-spinner fa-spin hidden" id="saveLevelingConfigLoading"></i>
-                        <i class="fas fa-save mr-2"></i>
-                        Save Configuration
-                    </button>
+                    <!-- Save Button -->
+                    <div class="pt-4 border-t border-gray-700">
+                        <button type="submit" id="saveLevelingConfigBtn"
+                            class="w-full bg-red-600 hover:bg-red-700 text-white py-2.5 sm:py-3 rounded-lg transition-all duration-200 transform hover:scale-[1.02] active:scale-[0.98] flex items-center justify-center gap-2 text-sm sm:text-base font-medium disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none">
+                            <i class="fas fa-spinner fa-spin hidden" id="saveLevelingConfigLoading"></i>
+                            <i class="fas fa-save"></i>
+                            <span>Save Configuration</span>
+                        </button>
+                    </div>
                 </form>
             `;
         }
@@ -5174,7 +5327,8 @@
                 const titles = {
                     'role_start': 'Select Role Start (Top/Highest Position)',
                     'role_end': 'Select Role End (Bottom/Lowest Position)',
-                    'embed_roles': 'Select Roles to Mention'
+                    'embed_roles': 'Select Roles to Mention',
+                    'feedback_role': 'Select Role to Mention for Feedback'
                 };
                 document.getElementById('roleSelectorTitle').innerHTML = `<i class="fas fa-user-shield text-red-500"></i> ${titles[fieldId] || 'Select Role'}`;
                 document.getElementById('roleSelectorConfirm').classList.add('hidden');
@@ -5434,14 +5588,6 @@
                     <div class="flex items-center gap-2">
                         <code class="bg-blue-800 px-1.5 py-0.5 rounded text-blue-200">{accountAge}</code>
                         <span>Account age</span>
-                    </div>
-                    <div class="flex items-center gap-2">
-                        <code class="bg-blue-800 px-1.5 py-0.5 rounded text-blue-200">{date}</code>
-                        <span>Current date</span>
-                    </div>
-                    <div class="flex items-center gap-2">
-                        <code class="bg-blue-800 px-1.5 py-0.5 rounded text-blue-200">{time}</code>
-                        <span>Current time</span>
                     </div>
                 `;
             }
@@ -6085,7 +6231,8 @@
             if (e.target.id === 'feedbackConfigForm') {
                 e.preventDefault();
                 const formData = {
-                    feedback_channel: document.getElementById('feedback_channel').value || null
+                    feedback_channel: document.getElementById('feedback_channel').value || null,
+                    feedback_role: document.getElementById('feedback_role').value || null
                 };
                 const submitBtn = document.getElementById('saveFeedbackConfigBtn');
                 const loadingIcon = document.getElementById('saveFeedbackConfigLoading');
@@ -6167,6 +6314,58 @@
                 }
                 return;
             }
+            if (e.target.id === 'staffRatingConfigForm') {
+                e.preventDefault();
+                const ratingChannelValue = document.getElementById('staff_rating_notification_channel')?.value || null;
+                const reportChannelValue = document.getElementById('staff_rating_report_channel')?.value || null;
+                const selectedCooldownDays = parseInt(document.getElementById('staff_rating_cooldown_hours').value, 10);
+                const normalizedCooldownDays = Number.isFinite(selectedCooldownDays)
+                    ? Math.min(30, Math.max(1, selectedCooldownDays))
+                    : null;
+                const formData = {
+                    role_start: document.getElementById('staff_rating_role_start').value || null,
+                    role_end: document.getElementById('staff_rating_role_end').value || null,
+                    cooldown_days: normalizedCooldownDays,
+                    rating_channel_id: ratingChannelValue,
+                    report_channel_id: reportChannelValue
+                };
+                const submitBtn = document.getElementById('saveStaffRatingConfigBtn');
+                const loadingIcon = document.getElementById('saveStaffRatingConfigLoading');
+                submitBtn.disabled = true;
+                loadingIcon.classList.remove('hidden');
+                try {
+                    const res = await fetch(`/api/servers/${currentServerId}/settings`, {
+                        method: 'PUT',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        },
+                        credentials: 'include',
+                        body: JSON.stringify({
+                            component_name: 'staff_report_rating',
+                            settings: formData
+                        })
+                    });
+                    if (res.status === 401) {
+                        await checkAuthStatus();
+                        return;
+                    }
+                    const data = await res.json();
+                    if (data.success) {
+                        showMessage('Staff Report & Rating configuration saved successfully!', 'success');
+                        setTimeout(() => {
+                            loadComponent('staff_report_rating');
+                        }, 500);
+                    } else {
+                        showMessage(data.error || 'Failed to save configuration', 'error');
+                    }
+                } catch (err) {
+                    showMessage('Failed to save configuration. Please try again.', 'error');
+                } finally {
+                    submitBtn.disabled = false;
+                    loadingIcon.classList.add('hidden');
+                }
+                return;
+            }
         });
         document.addEventListener('submit', async function (e) {
             if (e.target.id !== 'levelingConfigForm') return;
@@ -6228,6 +6427,12 @@
             if (!contentContainer) return;
 
             try {
+                const overviewRes = await fetch(`/api/servers/${currentServerId}/overview`, {
+                    credentials: 'include'
+                });
+                const overviewData = overviewRes.ok ? await overviewRes.json() : null;
+                currentServerName = overviewData?.name || 'Unknown Server';
+
                 const configRes = await fetch(`/api/servers/${currentServerId}/settings?component=main_config`, {
                     credentials: 'include'
                 });
@@ -6800,6 +7005,14 @@
 
         window.switchImageMode = switchImageMode;
 
+        function replaceFooterPlaceholders(text) {
+            if (!text) return text;
+            const now = new Date();
+            return text
+                .replace(/{server}/g, currentServerName || 'Unknown Server')
+                .replace(/{year}/g, now.getFullYear().toString());
+        }
+
         function updateEmbedPreview() {
             const preview = document.getElementById('embedPreview');
             if (!preview) return;
@@ -6838,7 +7051,7 @@
             }
 
 
-            const hasContent = title.trim() || description.trim() || imageUrl.trim() || (footerInput && footerInput.trim());
+            const hasContent = title.trim() || description.trim() || imageUrl.trim() || (footerInput && footerInput.trim()) || embedDefaultFooter;
 
             if (!hasContent) {
                 preview.innerHTML = '<p class="text-gray-400 text-sm">Preview will appear here as you type...</p>';
@@ -6847,11 +7060,12 @@
 
             const borderColor = embedColor;
             const footerText = footerInput || embedDefaultFooter;
+            const footerTextWithPlaceholders = replaceFooterPlaceholders(footerText);
 
 
             const displayTitle = title.length > 256 ? title.substring(0, 253) + '...' : title;
             const displayDescription = description.length > 4096 ? description.substring(0, 4093) + '...' : description;
-            const displayFooter = footerText.length > 2048 ? footerText.substring(0, 2045) + '...' : footerText;
+            const displayFooter = footerTextWithPlaceholders.length > 2048 ? footerTextWithPlaceholders.substring(0, 2045) + '...' : footerTextWithPlaceholders;
 
             preview.innerHTML = `
                 <div class="border-l-4 rounded overflow-hidden bg-gray-800/30" style="border-color: ${borderColor};">
@@ -7044,6 +7258,7 @@
             }
         }
         window.addEventListener('DOMContentLoaded', async () => {
+            await loadTimezone();
             await checkPanelStatus();
             await checkAuthStatus();
         });

@@ -2,8 +2,6 @@ import { formatTimestamp } from "./utils.js";
 import db from "../database/database.js";
 import { getBotConfig } from "./config.js";
 
-let clientInstance = null;
-
 async function log(text) {
     const timestamp = formatTimestamp(Date.now(), true);
     const formattedText = `[${timestamp}] ${text}`;
@@ -30,7 +28,7 @@ async function log(text) {
 }
 
 function init(client) {
-    clientInstance = client;
+    void client;
 }
 
 export default {

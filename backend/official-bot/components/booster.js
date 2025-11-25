@@ -98,7 +98,16 @@ async function thankBooster(member, client) {
                         },
                         {
                             name: "📅 Boosted Since",
-                            value: memberData.booster_since ? `<t:${Math.floor(parseMySQLDateTime(memberData.booster_since).getTime() / 1000)}:R>` : "Just now",
+                            value: (() => {
+                                if (!memberData.booster_since) return "Just now";
+                                let boosterSinceDate;
+                                if (memberData.booster_since instanceof Date) {
+                                    boosterSinceDate = memberData.booster_since;
+                                } else {
+                                    boosterSinceDate = parseMySQLDateTime(memberData.booster_since);
+                                }
+                                return boosterSinceDate ? `<t:${Math.floor(boosterSinceDate.getTime() / 1000)}:R>` : "Just now";
+                            })(),
                             inline: false
                         }
                     ])

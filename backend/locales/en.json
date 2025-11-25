@@ -1,0 +1,346 @@
+{
+  "menu": {
+    "title": "📋 GO BLOX Bot Menu",
+    "description": "Select a feature from the buttons below:",
+    "noAccess": "❌ You don't have access to any features."
+  },
+  "common": {
+    "errors": {
+      "memberNotFound": "❌ Failed to fetch member information.",
+      "unknownButton": "❌ Unknown button interaction.",
+      "buttonError": "❌ **Button Error**: An error occurred while processing your button click.\\n\\nPlease try again or contact an administrator.",
+      "modalError": "❌ **Modal Error**: An error occurred while processing your form submission.\\n\\nPlease try again or contact an administrator.",
+      "selectionError": "❌ **Selection Error**: An error occurred while processing your selection.\\n\\nPlease try again or contact an administrator."
+    },
+    "timeUnits": {
+      "hour": "hour",
+      "hours": "hours",
+      "day": "day",
+      "days": "days"
+    }
+  },
+  "permissions": {
+    "denied": {
+      "title": "❌ **Permission Denied**",
+      "description": "You need one of the following roles to use **{action}**:\\n{roles}",
+      "footer": "Please contact a server administrator if you believe this is an error."
+    }
+  },
+  "settings": {
+    "title": "⚙️ Settings",
+    "description": "Configure your bot preferences",
+    "notifications": {
+      "levelUpOn": "🔔 Level Up DM: On",
+      "levelUpOff": "🔕 Level Up DM: Off"
+    },
+    "language": {
+      "title": "🌐 Language Settings",
+      "description": "Select your preferred language:",
+      "current": "Current Language",
+      "select": "Select Language",
+      "updated": "✅ Language updated successfully!",
+      "failed": "❌ Failed to update language: {error}"
+    }
+  },
+  "leveling": {
+    "profile": {
+      "title": "📈 Your Leveling Stats",
+      "description": "Stats for **{member}**",
+      "yourProgress": "Your Progress",
+      "level": "Level",
+      "experience": "Experience",
+      "progress": "Progress",
+      "chatTotal": "Chat Total",
+      "voiceMinutes": "Voice Minutes (Total)",
+      "voiceActive": "Active",
+      "voiceAfk": "AFK",
+      "rank": "Rank",
+      "unranked": "Unranked",
+      "unknown": "Unknown",
+      "xp": "XP",
+      "minutes": "minutes"
+    },
+    "leaderboard": {
+      "topXp": "⭐ Top XP (Top 3)",
+      "topChat": "💬 Top Chat (Top 3)",
+      "topVoiceTotal": "🎤 Top Voice (Total • Top 3)",
+      "topVoiceActive": "🎤 Top Voice (Active • Top 3)",
+      "topVoiceAfk": "🎤 Top Voice (AFK • Top 3)",
+      "noData": "No leveling data available yet.",
+      "member": "Member {position}",
+      "minTotal": "min total",
+      "minActive": "min active",
+      "minAfk": "min AFK",
+      "messages": "messages"
+    },
+    "buttons": {
+      "topXp": "⭐ Top XP",
+      "voiceTotal": "🎤 Voice Total",
+      "voiceActive": "🎤 Voice Active",
+      "voiceAfk": "🎤 Voice AFK",
+      "topChat": "💬 Top Chat"
+    },
+    "errors": {
+      "notRegistered": "⚠️ This server is not registered with the bot. Please run a sync first.",
+      "memberNotFound": "❌ Failed to fetch member information. Please try again.",
+      "noData": "⚠️ No leveling data found for this member.",
+      "createRecordFailed": "❌ Failed to create member record. Please try again.",
+      "loadFailed": "❌ Failed to load leveling information: {error}",
+      "leaderboardFailed": "❌ Failed to load leaderboard: {error}",
+      "dmToggleFailed": "❌ Failed to update DM notifications: {error}"
+    }
+  },
+  "afk": {
+    "title": "⏸️ Set AFK Status",
+    "current": {
+      "title": "⏸️ You are currently AFK",
+      "description": "**Status:** {message}\\n**Duration:** {duration}",
+      "howToRemove": "💡 How to remove",
+      "howToRemoveValue": "• Click the button below to remove AFK\\n• Send any message (auto-removes AFK and unmutes)\\n• AFK removal will automatically unmute you if bot muted you"
+    },
+    "set": {
+      "title": "✅ AFK Status Set!",
+      "description": "You're now marked as AFK: **{message}**{voiceInfo}",
+      "howToRemove": "💡 How to remove",
+      "howToRemoveValue": "• Send any message (auto-removes AFK and unmutes)\\n• Click AFK button and remove (will unmute if bot muted you)\\n• Removing AFK automatically unmutes you if you were muted by the bot",
+      "voiceMutedDeafened": "\\n\\nYou will be muted and deafened in voice.",
+      "voiceMutedOnly": "\\n\\nYou will be muted in voice (not deafened)."
+    },
+    "removed": {
+      "title": "✅ AFK Status Removed!",
+      "description": "Welcome back! Your AFK status has been removed."
+    },
+    "modal": {
+      "messageLabel": "AFK Message (Optional)",
+      "messagePlaceholder": "e.g., Taking a break, Studying, etc.",
+      "deafenLabel": "Deafen in Voice? (yes/no, default: yes)",
+      "deafenPlaceholder": "yes or no (leave empty for yes)"
+    },
+    "buttons": {
+      "remove": "🔄 Remove AFK"
+    },
+    "errors": {
+      "notAFK": "❌ You are not currently AFK.",
+      "failed": "❌ Failed to open AFK form: {error}",
+      "setFailed": "❌ **Failed to Set AFK**\\n\\nError: {error}\\n\\nPlease try again later.",
+      "removeFailed": "❌ **Failed to Remove AFK**\\n\\nError: {error}\\n\\nPlease try again later."
+    },
+    "messages": {
+      "welcomeBack": "✅ Welcome back, {member}! Your AFK status has been removed.",
+      "dmMentioned": "📬 You were mentioned by {sender} in **{server}** (#{channel})\\n\\n**Message:** {message}"
+    }
+  },
+  "giveaway": {
+    "create": {
+      "title": "🎉 Create Giveaway",
+      "step1Title": "**Step 1 of 2: Select Roles (Optional)**",
+      "step1Description": "Select roles that can enter this giveaway from the dropdown below. Leave empty or click \"Continue to Form\" to allow all roles.",
+      "roleSelectPlaceholder": "Select roles that can enter (optional)...",
+      "continueButton": "Continue to Form"
+    },
+    "active": {
+      "title": "🎉 Active Giveaway Found",
+      "description": "You already have an active giveaway:\\n\\n**{title}**\\n**Prize:** {prize}\\n\\nWhat would you like to do?",
+      "ends": "⏰ Ends"
+    },
+    "modal": {
+      "titleLabel": "Title",
+      "titlePlaceholder": "Enter giveaway title...",
+      "prizeLabel": "Prize",
+      "prizePlaceholder": "What is the prize?",
+      "durationLabel": "Duration (minutes)",
+      "durationPlaceholder": "e.g., 60 for 1 hour, 1440 for 1 day",
+      "winnerCountLabel": "Number of Winners",
+      "winnerCountPlaceholder": "How many winners? (default: 1)",
+      "multipleEntriesLabel": "Multiple Entries Allowed? (yes/no)",
+      "multipleEntriesPlaceholder": "yes or no (default: no)"
+    },
+    "created": {
+      "title": "✅ Giveaway Created!",
+      "description": "Your giveaway has been created and posted in {channel}!"
+    },
+    "entered": {
+      "title": "✅ Entered Giveaway!",
+      "description": "You have successfully entered the giveaway! Good luck! 🍀"
+    },
+    "buttons": {
+      "finish": "🏁 Finish Giveaway"
+    },
+    "errors": {
+      "memberNotFound": "❌ Failed to retrieve member information.",
+      "activeExists": "❌ You already have an active giveaway. Please finish it first.",
+      "invalidTitle": "❌ **Invalid Giveaway**\\n\\nTitle cannot be empty.",
+      "invalidPrize": "❌ **Invalid Giveaway**\\n\\nPrize cannot be empty.",
+      "invalidDuration": "❌ **Invalid Giveaway**\\n\\nDuration must be a positive number (in minutes).",
+      "invalidWinnerCount": "❌ **Invalid Giveaway**\\n\\nWinner count must be a positive number.",
+      "channelNotConfigured": "❌ Failed to create giveaway: Giveaway channel not configured. Please configure it in the panel.",
+      "channelNotFound": "❌ Failed to create giveaway: Giveaway channel not found.",
+      "channelError": "❌ Failed to create giveaway: Error retrieving giveaway channel configuration.",
+      "createFailed": "❌ **Failed to Create Giveaway**\\n\\nError: {error}\\n\\nPlease try again later.",
+      "invalidMessage": "❌ Invalid giveaway message.",
+      "invalidId": "❌ Invalid giveaway ID.",
+      "notFound": "❌ Giveaway not found or has already ended.",
+      "ended": "❌ This giveaway has already ended.",
+      "roleRestriction": "❌ **Role Restriction**\\n\\nThis giveaway is restricted to the following roles:\\n{roles}\\n\\nYou need all of these roles to enter.",
+      "memberNotFoundDB": "❌ Member not found in database. Please try again later.",
+      "cannotEnterOwn": "❌ You cannot enter your own giveaway!",
+      "alreadyEntered": "❌ You have already entered this giveaway!",
+      "finishOwnOnly": "❌ You can only finish your own giveaways.",
+      "finishNotActive": "❌ This giveaway is not active.",
+      "finishChannelError": "❌ Failed to get giveaway channel.",
+      "finishChannelNotConfigured": "❌ Giveaway channel not configured.",
+      "finishChannelNotFound": "❌ Giveaway channel not found.",
+      "failed": "❌ Failed to open giveaway form: {error}"
+    }
+  },
+  "feedback": {
+    "modal": {
+      "title": "💬 Submit Feedback",
+      "label": "Your Feedback",
+      "placeholder": "Please share your feedback, suggestions, or concerns...",
+      "maxLength": 2000,
+      "anonymousLabel": "Submit Anonymously? (yes/no)",
+      "anonymousPlaceholder": "yes or no (default: no)"
+    },
+    "submitted": {
+      "title": "✅ Feedback Submitted!",
+      "description": "Thank you for your feedback! Your feedback has been submitted successfully.",
+      "anonymous": "\\n\\n🔒 Your feedback was submitted anonymously."
+    },
+    "errors": {
+      "invalid": "❌ **Invalid Feedback**\\n\\nFeedback message cannot be empty.",
+      "channelError": "❌ Failed to submit feedback: Error retrieving feedback channel configuration.",
+      "channelNotConfigured": "❌ Failed to submit feedback: Feedback channel not configured.",
+      "channelNotFound": "❌ Failed to submit feedback: Feedback channel not found.",
+      "failed": "❌ Failed to open feedback form: {error}",
+      "submitFailed": "❌ **Failed to Submit Feedback**\\n\\nError: {error}\\n\\nPlease try again later."
+    }
+  },
+  "staffReport": {
+    "title": "📋 Report Staff Member",
+    "selectStaff": "Select Staff Member",
+    "selectStaffPlaceholder": "Choose a staff member to report...",
+    "button": "🛡️ Staff Report",
+    "selectRatingPrompt": "Select a rating",
+    "selectCategoryPrompt": "Select a category",
+    "status": {
+      "staff": "Staff: {staff}",
+      "ratingPending": "Rating: Not selected",
+      "ratingSelected": "Rating: {rating}/5",
+      "categoryPending": "Category: Not selected",
+      "categorySelected": "Category: {category}"
+    },
+    "buttons": {
+      "continue": "Continue",
+      "changeStaff": "Change Staff"
+    },
+    "modal": {
+      "title": "Report Staff Member",
+      "ratingLabel": "Rating (1-5 stars)",
+      "ratingPlaceholder": "1 = Very Poor, 5 = Excellent",
+      "categoryLabel": "Category",
+      "categoryPlaceholder": "helpful, unhelpful, abuse, slow_response, excellent, rude",
+      "descriptionLabel": "Description",
+      "descriptionPlaceholder": "Please describe your experience with this staff member...",
+      "anonymousLabel": "Submit Anonymously? (yes/no)",
+      "anonymousPlaceholder": "yes or no (default: no)"
+    },
+    "submitted": {
+      "title": "✅ Report Submitted",
+      "description": "Your report has been submitted successfully and is now waiting for admin approval. We'll notify you once it's been reviewed.",
+      "anonymous": "\\n\\n🔒 Your report was submitted anonymously.",
+      "roleUpdated": "\\n\\n⭐ **Staff Rating Updated**\\n{roleName}\\nRating: {rating}/5.00 ({totalReports} reports)"
+    },
+    "dm": {
+      "approved": "✅ Your staff report about {staff} in **{server}** was approved.\\n\\n**Rating:** {rating}/5\\n**Category:** {category}\\n**Feedback:** {description}\\n\\nThank you for helping us keep the team accountable.",
+      "rejected": "❌ Your staff report about {staff} in **{server}** was not approved.\\n\\nYou can reach out to the admin team if you have more context to share."
+    },
+    "categories": {
+      "helpful": "👍 Helpful",
+      "unhelpful": "👎 Unhelpful",
+      "abuse": "⚠️ Abuse of Power",
+      "slow_response": "⏰ Slow Response",
+      "excellent": "⭐ Excellent Service",
+      "rude": "😠 Rude Behavior"
+    },
+    "errors": {
+      "noStaffSelected": "❌ Please select a staff member to report.",
+      "invalidRating": "❌ **Invalid Rating**\\n\\nRating must be a number between 1 and 5.",
+      "invalidCategory": "❌ **Invalid Category**\\n\\nPlease use one of: helpful, unhelpful, abuse, slow_response, excellent, rude",
+      "emptyDescription": "❌ **Description Required**\\n\\nPlease provide a description of your experience.",
+      "cannotReportSelf": "❌ You cannot report yourself!",
+      "notStaff": "❌ The selected member is not a staff member.",
+      "onCooldown": "❌ **Rating Cooldown**\\n\\nYou must wait {time} {unit} before rating this staff member again.\\n\\nLast rated: {lastRated}",
+      "submitFailed": "❌ **Failed to Submit Report**\\n\\nError: {error}\\n\\nPlease try again later.",
+      "notConfigured": "❌ Staff rating system is not configured for this server.",
+      "noStaffConfigured": "❌ Staff roles are not configured for this server. Please ask an admin to configure staff permissions first.",
+      "noStaffAvailable": "❌ No staff members could be found right now. Please try again later or contact a server admin.",
+      "missingRating": "❌ Please select a rating before continuing.",
+      "missingCategory": "❌ Please select a category before continuing."
+    }
+  },
+  "customSupporterRole": {
+    "create": {
+      "title": "💎 Create Custom Supporter Role",
+      "editTitle": "💎 Edit Custom Supporter Role",
+      "nameLabel": "Role Name",
+      "namePlaceholder": "Enter your custom role name...",
+      "colorLabel": "Role Color (Hex/Decimal/Name)",
+      "colorPlaceholder": "#FF5733 or 16729395 or red (optional)",
+      "iconLabel": "Role Icon (Emoji or Image URL)",
+      "iconPlaceholder": "🔥 or https://example.com/icon.png (optional)"
+    },
+    "existing": {
+      "title": "💎 Custom Supporter Role",
+      "description": "You already have a custom role: **{roleName}**\\n\\nChoose an action:",
+      "currentRole": "📋 Current Role"
+    },
+    "created": {
+      "title": "✅ Custom Supporter Role Created!",
+      "description": "Your custom role **{roleName}** has been created and assigned to you!{iconWarning}",
+      "iconWarningBoost": "\\n\\n⚠️ **Custom Icon Not Available:** This server needs Level 2 Server Boost to use custom role icons (images). You can use an emoji instead!",
+      "iconWarningGeneric": "\\n\\n⚠️ **Note:** Icon could not be set, but role was created successfully.",
+      "roleDetails": "🎨 Role Details",
+      "roleDetailsValue": "**Name:** {name}\\n**Color:** {color}\\n**Icon:** {icon}",
+      "role": "💎 Role",
+      "iconStatusSet": "Set",
+      "iconStatusNone": "None",
+      "iconStatusFailed": "Failed (role created without icon)",
+      "iconStatusInvalid": "Invalid format (role created without icon)"
+    },
+    "updated": {
+      "title": "✅ Custom Supporter Role Updated!",
+      "description": "Your custom role **{roleName}** has been updated!{iconWarning}",
+      "iconWarningBoost": "\\n\\n⚠️ **Custom Icon Not Available:** This server needs Level 2 Server Boost to use custom role icons (images). You can use an emoji instead!",
+      "iconWarningGeneric": "\\n\\n⚠️ **Note:** Icon could not be set, but role was updated successfully.",
+      "roleDetails": "🎨 Role Details",
+      "roleDetailsValue": "**Name:** {name}\\n**Color:** {color}\\n**Icon:** {icon}",
+      "role": "💎 Role",
+      "iconStatusUnchanged": "Unchanged",
+      "iconStatusUpdated": "Updated",
+      "iconStatusRemoved": "Removed",
+      "iconStatusFailed": "Failed (role updated without icon)",
+      "iconStatusInvalid": "Invalid format (role updated without icon)"
+    },
+    "deleted": {
+      "title": "✅ Custom Supporter Role Deleted",
+      "description": "Your custom role **{roleName}** has been deleted."
+    },
+    "buttons": {
+      "edit": "✏️ Edit Role",
+      "delete": "🗑️ Delete Role"
+    },
+    "errors": {
+      "noRole": "❌ You don't have a custom role to edit.",
+      "noRoleDelete": "❌ You don't have a custom role to delete.",
+      "invalidName": "❌ **Invalid Role Name**\\n\\nRole name must be between 1 and 100 characters.",
+      "boostRequired": "❌ **Custom Icon Not Available**\\n\\nThis server needs **Level 2 Server Boost** to use custom role icons (images).\\n\\n💡 **Tip:** You can use an **emoji** instead (like 🔥, ⭐, or any custom emoji) which doesn't require server boosts.",
+      "boostRequiredCreate": "❌ **Server Boost Required**\\n\\nThis server needs **Level 2 Server Boost** to create custom supporter roles with certain features.\\n\\n💡 **What you can do:**\\n- Ask server administrators to boost the server to Level 2\\n- Or contact server staff for assistance\\n\\n**Error details:** {error}",
+      "createFailed": "❌ **Failed to Create Role**\\n\\nError: {error}\\n\\nPlease make sure:\\n- The bot has permission to create roles\\n- The bot has permission to manage roles\\n- Role position constraints are valid",
+      "updateFailed": "❌ **Failed to Update Role**\\n\\nError: {error}\\n\\nPlease make sure:\\n- The bot has permission to manage roles\\n- Role constraints are valid",
+      "deleteFailed": "❌ Failed to delete role: {error}",
+      "failed": "❌ Failed to open role creation form: {error}",
+      "editFailed": "❌ Failed to open edit form: {error}"
+    }
+  }
+}

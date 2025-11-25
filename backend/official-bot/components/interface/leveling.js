@@ -4,6 +4,7 @@ import { hasPermission, getPermissionDeniedMessage } from "../permissions.js";
 import db from "../../../../database/database.js";
 import logger from "../../../logger.js";
 import { getLevelRequirement, determineLevel, sendLevelChangeDM, sendLevelUpNotification } from "../leveling.js";
+import { translate } from "../../../i18n.js";
 
 const PROGRESS_BAR_SLOTS = 10;
 
@@ -58,24 +59,9 @@ async function refreshMemberLevelData(serverId, discordMemberId) {
         updates.level = recalculatedLevel;
     }
 
-        if (Object.keys(updates).length > 0) {
-            const updatedStats = await db.updateMemberLevelStats(levelData.member_id, updates);
-            if (updatedStats) {
-                if (recalculatedLevel > previousLevel && levelData.discord_member_id) {
-                    await sendLevelUpNotification(guildId, levelData.discord_member_id, serverName, recalculatedLevel);
-                    if (notificationsEnabled) {
-                        await sendLevelChangeDM(guildId, levelData.discord_member_id, serverName, recalculatedLevel);
-                    }
-                }
-                return {
-                    ...levelData,
-                    ...updatedStats,
-                    level: recalculatedLevel
-                };
-            }
-        }
-
-        if ((levelData.level ?? 1) !== recalculatedLevel) {
+    if (Object.keys(updates).length > 0) {
+        const updatedStats = await db.updateMemberLevelStats(levelData.member_id, updates);
+        if (updatedStats) {
             if (recalculatedLevel > previousLevel && levelData.discord_member_id) {
                 await sendLevelUpNotification(guildId, levelData.discord_member_id, serverName, recalculatedLevel);
                 if (notificationsEnabled) {
@@ -84,9 +70,24 @@ async function refreshMemberLevelData(serverId, discordMemberId) {
             }
             return {
                 ...levelData,
+                ...updatedStats,
                 level: recalculatedLevel
             };
         }
+    }
+
+    if ((levelData.level ?? 1) !== recalculatedLevel) {
+        if (recalculatedLevel > previousLevel && levelData.discord_member_id) {
+            await sendLevelUpNotification(guildId, levelData.discord_member_id, serverName, recalculatedLevel);
+            if (notificationsEnabled) {
+                await sendLevelChangeDM(guildId, levelData.discord_member_id, serverName, recalculatedLevel);
+            }
+        }
+        return {
+            ...levelData,
+            level: recalculatedLevel
+        };
+    }
 
     return levelData;
 }
@@ -99,11 +100,12 @@ async function getServerForInteraction(interaction) {
     return await db.getServerByDiscordId(botConfig.id, interaction.guild.id);
 }
 
-async function buildLevelingEmbeds(server, memberLevelData, sortType = 'xp', guildId = null) {
+async function buildLevelingEmbeds(server, memberLevelData, sortType = 'xp', guildId = null, userId = null) {
     const actualGuildId = guildId || server.discord_server_id;
+    const actualUserId = userId || memberLevelData?.discord_member_id;
     const embedConfig = await getEmbedConfig(actualGuildId);
 
-    const memberDisplayName = memberLevelData?.server_display_name || memberLevelData?.display_name || memberLevelData?.username || 'Unknown';
+    const memberDisplayName = memberLevelData?.server_display_name || memberLevelData?.display_name || memberLevelData?.username || await translate('leveling.profile.unknown', actualGuildId, actualUserId);
     const currentXP = memberLevelData?.experience ?? 0;
     const calculatedLevel = await determineLevel(currentXP, actualGuildId);
 
@@ -115,28 +117,44 @@ async function buildLevelingEmbeds(server, memberLevelData, sortType = 'xp', gui
     const xpIntoLevel = Math.max(0, currentXP - currentLevelRequirement);
     const progressRatio = xpRange > 0 ? Math.max(0, Math.min(1, xpIntoLevel / xpRange)) : 0;
     const progressBar = buildProgressBar(progressRatio);
-    const xpProgressText = `${formatNumber(Math.round(currentXP))} / ${formatNumber(Math.round(nextLevelRequirement))} XP`;
+    const xpLabel = await translate('leveling.profile.xp', actualGuildId, actualUserId);
+    const xpProgressText = `${formatNumber(Math.round(currentXP))} / ${formatNumber(Math.round(nextLevelRequirement))} ${xpLabel}`;
+
+    const levelLabel = await translate('leveling.profile.level', actualGuildId, actualUserId);
+    const experienceLabel = await translate('leveling.profile.experience', actualGuildId, actualUserId);
+    const progressLabel = await translate('leveling.profile.progress', actualGuildId, actualUserId);
+    const chatTotalLabel = await translate('leveling.profile.chatTotal', actualGuildId, actualUserId);
+    const voiceMinutesLabel = await translate('leveling.profile.voiceMinutes', actualGuildId, actualUserId);
+    const voiceActiveLabel = await translate('leveling.profile.voiceActive', actualGuildId, actualUserId);
+    const voiceAfkLabel = await translate('leveling.profile.voiceAfk', actualGuildId, actualUserId);
+    const rankLabel = await translate('leveling.profile.rank', actualGuildId, actualUserId);
+    const unrankedText = await translate('leveling.profile.unranked', actualGuildId, actualUserId);
+    const minLabel = await translate('leveling.profile.minutes', actualGuildId, actualUserId);
 
     const profileLines = [];
-    profileLines.push(`• **Level:** ${currentLevel}`);
-    profileLines.push(`• **Experience:** ${formatNumber(Math.round(currentXP))} XP`);
-    profileLines.push(`• **Progress:** ${progressBar} (${xpProgressText})`);
-    profileLines.push(`• **Chat Total:** ${formatNumber(memberLevelData?.chat_total ?? 0)}`);
+    profileLines.push(`• **${levelLabel}:** ${currentLevel}`);
+    profileLines.push(`• **${experienceLabel}:** ${formatNumber(Math.round(currentXP))} ${xpLabel}`);
+    profileLines.push(`• **${progressLabel}:** ${progressBar} (${xpProgressText})`);
+    profileLines.push(`• **${chatTotalLabel}:** ${formatNumber(memberLevelData?.chat_total ?? 0)}`);
     const voiceTotal = memberLevelData?.voice_minutes_total ?? 0;
     const voiceActive = memberLevelData?.voice_minutes_active ?? 0;
     const voiceAfk = memberLevelData?.voice_minutes_afk ?? 0;
-    profileLines.push(`• **Voice Minutes (Total):** ${formatNumber(voiceTotal)}`);
-    profileLines.push(`• ├ Active: ${formatNumber(voiceActive)}`);
-    profileLines.push(`• └ AFK: ${formatNumber(voiceAfk)}`);
-    profileLines.push(`• **Rank:** ${memberLevelData?.rank ? `#${memberLevelData.rank}` : "Unranked"}`);
+    profileLines.push(`• **${voiceMinutesLabel}:** ${formatNumber(voiceTotal)} ${minLabel}`);
+    profileLines.push(`• ├ ${voiceActiveLabel}: ${formatNumber(voiceActive)} ${minLabel}`);
+    profileLines.push(`• └ ${voiceAfkLabel}: ${formatNumber(voiceAfk)} ${minLabel}`);
+    profileLines.push(`• **${rankLabel}:** ${memberLevelData?.rank ? `#${memberLevelData.rank}` : unrankedText}`);
+
+    const profileTitle = await translate('leveling.profile.title', actualGuildId, actualUserId);
+    const yourProgressLabel = await translate('leveling.profile.yourProgress', actualGuildId, actualUserId);
+    const statsDescription = await translate('leveling.profile.description', actualGuildId, actualUserId, { member: memberDisplayName });
 
     const profileEmbed = new EmbedBuilder()
         .setColor(embedConfig.COLOR)
-        .setTitle("📈 Your Leveling Stats")
-        .setDescription(`Stats for **${memberDisplayName}**`)
+        .setTitle(profileTitle)
+        .setDescription(statsDescription)
         .addFields(
             {
-                name: "Your Progress",
+                name: yourProgressLabel,
                 value: profileLines.join("\n"),
                 inline: false
             }
@@ -149,20 +167,20 @@ async function buildLevelingEmbeds(server, memberLevelData, sortType = 'xp', gui
     let leaderboardTitle;
     switch (sortType) {
         case 'voice_total':
-            leaderboardTitle = "🎤 Top Voice (Total • Top 3)";
+            leaderboardTitle = await translate('leveling.leaderboard.topVoiceTotal', actualGuildId, actualUserId);
             break;
         case 'voice_active':
-            leaderboardTitle = "🎤 Top Voice (Active • Top 3)";
+            leaderboardTitle = await translate('leveling.leaderboard.topVoiceActive', actualGuildId, actualUserId);
             break;
         case 'voice_afk':
-            leaderboardTitle = "🎤 Top Voice (AFK • Top 3)";
+            leaderboardTitle = await translate('leveling.leaderboard.topVoiceAfk', actualGuildId, actualUserId);
             break;
         case 'chat':
-            leaderboardTitle = "💬 Top Chat (Top 3)";
+            leaderboardTitle = await translate('leveling.leaderboard.topChat', actualGuildId, actualUserId);
             break;
         case 'xp':
         default:
-            leaderboardTitle = "⭐ Top XP (Top 3)";
+            leaderboardTitle = await translate('leveling.leaderboard.topXp', actualGuildId, actualUserId);
             break;
     }
 
@@ -176,7 +194,8 @@ async function buildLevelingEmbeds(server, memberLevelData, sortType = 'xp', gui
         for (let i = 0; i < Math.min(3, leaderboard.length); i++) {
             const entry = leaderboard[i];
             const position = i + 1;
-            const name = entry.server_display_name || entry.display_name || entry.username || entry.discord_member_id || `Member ${position}`;
+            const memberText = await translate('leveling.leaderboard.member', actualGuildId, actualUserId, { position });
+            const name = entry.server_display_name || entry.display_name || entry.username || entry.discord_member_id || memberText;
             const xp = entry.experience || 0;
             const calculatedLevel = await determineLevel(xp, actualGuildId);
             const avatar = entry.avatar || null;
@@ -198,25 +217,32 @@ async function buildLevelingEmbeds(server, memberLevelData, sortType = 'xp', gui
                     const totalMinutes = entry.voice_minutes_total || 0;
                     const activeMinutes = entry.voice_minutes_active || 0;
                     const afkMinutes = entry.voice_minutes_afk || 0;
-                    value = `${medal} **${name}**\n${formatNumber(totalMinutes)} min total (Active ${formatNumber(activeMinutes)} • AFK ${formatNumber(afkMinutes)})`;
+                    const minTotalText = await translate('leveling.leaderboard.minTotal', actualGuildId, actualUserId);
+                    const activeLabel = await translate('leveling.profile.voiceActive', actualGuildId, actualUserId);
+                    const afkLabel = await translate('leveling.profile.voiceAfk', actualGuildId, actualUserId);
+                    value = `${medal} **${name}**\n${formatNumber(totalMinutes)} ${minTotalText} (${activeLabel} ${formatNumber(activeMinutes)} • ${afkLabel} ${formatNumber(afkMinutes)})`;
                     break;
                 }
                 case 'voice_active': {
                     const activeMinutes = entry.voice_minutes_active || 0;
-                    value = `${medal} **${name}**\n${formatNumber(activeMinutes)} min active`;
+                    const minActiveText = await translate('leveling.leaderboard.minActive', actualGuildId, actualUserId);
+                    value = `${medal} **${name}**\n${formatNumber(activeMinutes)} ${minActiveText}`;
                     break;
                 }
                 case 'voice_afk': {
                     const afkMinutes = entry.voice_minutes_afk || 0;
-                    value = `${medal} **${name}**\n${formatNumber(afkMinutes)} min AFK`;
+                    const minAfkText = await translate('leveling.leaderboard.minAfk', actualGuildId, actualUserId);
+                    value = `${medal} **${name}**\n${formatNumber(afkMinutes)} ${minAfkText}`;
                     break;
                 }
-                case 'chat':
-                    value = `${medal} **${name}**\n${formatNumber(entry.chat_total || 0)} messages`;
+                case 'chat': {
+                    const messagesText = await translate('leveling.leaderboard.messages', actualGuildId, actualUserId);
+                    value = `${medal} **${name}**\n${formatNumber(entry.chat_total || 0)} ${messagesText}`;
                     break;
+                }
                 case 'xp':
                 default:
-                    value = `${medal} **${name}**\n${formatNumber(Math.round(xp))} XP`;
+                    value = `${medal} **${name}**\n${formatNumber(Math.round(xp))} ${xpLabel}`;
                     break;
             }
 
@@ -227,52 +253,59 @@ async function buildLevelingEmbeds(server, memberLevelData, sortType = 'xp', gui
             });
         }
     } else {
-        leaderboardEmbed.setDescription("No leveling data available yet.");
+        const noDataText = await translate('leveling.leaderboard.noData', actualGuildId, actualUserId);
+        leaderboardEmbed.setDescription(noDataText);
     }
 
     return { profileEmbed, leaderboardEmbed };
 }
 
-function createLeaderboardButtons(selectedType = 'xp') {
+async function createLeaderboardButtons(selectedType = 'xp', guildId = null, userId = null) {
+    const topXpLabel = await translate('leveling.buttons.topXp', guildId, userId);
+    const voiceTotalLabel = await translate('leveling.buttons.voiceTotal', guildId, userId);
+    const voiceActiveLabel = await translate('leveling.buttons.voiceActive', guildId, userId);
+    const voiceAfkLabel = await translate('leveling.buttons.voiceAfk', guildId, userId);
+    const topChatLabel = await translate('leveling.buttons.topChat', guildId, userId);
+
     const buttons = [
         new ButtonBuilder()
             .setCustomId('leaderboard_xp')
-            .setLabel('⭐ Top XP')
+            .setLabel(topXpLabel)
             .setStyle(selectedType === 'xp' ? ButtonStyle.Primary : ButtonStyle.Secondary),
         new ButtonBuilder()
             .setCustomId('leaderboard_voice_total')
-            .setLabel('🎤 Voice Total')
+            .setLabel(voiceTotalLabel)
             .setStyle(selectedType === 'voice_total' ? ButtonStyle.Primary : ButtonStyle.Secondary),
         new ButtonBuilder()
             .setCustomId('leaderboard_voice_active')
-            .setLabel('🎤 Voice Active')
+            .setLabel(voiceActiveLabel)
             .setStyle(selectedType === 'voice_active' ? ButtonStyle.Primary : ButtonStyle.Secondary),
         new ButtonBuilder()
             .setCustomId('leaderboard_voice_afk')
-            .setLabel('🎤 Voice AFK')
+            .setLabel(voiceAfkLabel)
             .setStyle(selectedType === 'voice_afk' ? ButtonStyle.Primary : ButtonStyle.Secondary),
         new ButtonBuilder()
             .setCustomId('leaderboard_chat')
-            .setLabel('💬 Top Chat')
+            .setLabel(topChatLabel)
             .setStyle(selectedType === 'chat' ? ButtonStyle.Primary : ButtonStyle.Secondary)
     ];
 
     return new ActionRowBuilder().addComponents(...buttons);
 }
 
-function createDmToggleRow(dmEnabled = true) {
-    const toggleButton = new ButtonBuilder()
-        .setCustomId('leveling_dm_toggle')
-        .setLabel(dmEnabled ? '🔔 DM On' : '🔕 DM Off')
-        .setStyle(dmEnabled ? ButtonStyle.Success : ButtonStyle.Secondary);
+async function createMenuRow() {
+    const menuButton = new ButtonBuilder()
+        .setCustomId('bot_menu')
+        .setLabel('📋 Menu')
+        .setStyle(ButtonStyle.Secondary);
 
-    return new ActionRowBuilder().addComponents(toggleButton);
+    return new ActionRowBuilder().addComponents(menuButton);
 }
 
 export async function handleLevelingButton(interaction) {
     try {
         if (!(await hasPermission(interaction.member, "leveling"))) {
-            const errorMessage = await getPermissionDeniedMessage(interaction.guild, 'leveling');
+            const errorMessage = await getPermissionDeniedMessage(interaction.guild, 'leveling', interaction.user.id);
             await interaction.reply({
                 content: errorMessage,
                 flags: 64
@@ -282,8 +315,9 @@ export async function handleLevelingButton(interaction) {
 
         const server = await getServerForInteraction(interaction);
         if (!server) {
+            const errorMsg = await translate('leveling.errors.notRegistered', interaction.guild.id, interaction.user.id);
             await interaction.reply({
-                content: "⚠️ This server is not registered with the bot. Please run a sync first.",
+                content: errorMsg,
                 flags: 64
             });
             return;
@@ -291,8 +325,9 @@ export async function handleLevelingButton(interaction) {
 
         const guildMember = interaction.member || await interaction.guild.members.fetch(interaction.user.id).catch(() => null);
         if (!guildMember) {
+            const errorMsg = await translate('leveling.errors.memberNotFound', interaction.guild.id, interaction.user.id);
             await interaction.reply({
-                content: "❌ Failed to fetch member information. Please try again.",
+                content: errorMsg,
                 flags: 64
             });
             return;
@@ -300,8 +335,9 @@ export async function handleLevelingButton(interaction) {
 
         const dbMember = await db.upsertMember(server.id, guildMember);
         if (!dbMember) {
+            const errorMsg = await translate('leveling.errors.createRecordFailed', interaction.guild.id, interaction.user.id);
             await interaction.reply({
-                content: "❌ Failed to create member record. Please try again.",
+                content: errorMsg,
                 flags: 64
             });
             return;
@@ -314,19 +350,19 @@ export async function handleLevelingButton(interaction) {
         memberLevelData = await db.getMemberLevelByDiscordId(server.id, interaction.user.id);
 
         const sortType = 'xp';
-        const { profileEmbed, leaderboardEmbed } = await buildLevelingEmbeds(server, memberLevelData, sortType, interaction.guild.id);
-        const buttons = createLeaderboardButtons(sortType);
-        const dmRow = createDmToggleRow(!(memberLevelData?.dm_notifications_enabled === false || memberLevelData?.dm_notifications_enabled === 0));
+        const { profileEmbed, leaderboardEmbed } = await buildLevelingEmbeds(server, memberLevelData, sortType, interaction.guild.id, interaction.user.id);
+        const buttons = await createLeaderboardButtons(sortType, interaction.guild.id, interaction.user.id);
+        const menuRow = await createMenuRow();
 
-        await interaction.reply({
+        await interaction.update({
             embeds: [profileEmbed, leaderboardEmbed],
-            components: [buttons, dmRow],
-            flags: 64
+            components: [buttons, menuRow]
         });
     } catch (error) {
         await logger.log(`❌ Leveling interface error: ${error.message}`);
+        const errorMsg = await translate('leveling.errors.loadFailed', interaction.guild?.id, interaction.user?.id, { error: error.message });
         await interaction.reply({
-            content: `❌ Failed to load leveling information: ${error.message}`,
+            content: errorMsg,
             flags: 64
         }).catch(() => null);
     }
@@ -335,7 +371,7 @@ export async function handleLevelingButton(interaction) {
 export async function handleLeaderboardButton(interaction) {
     try {
         if (!(await hasPermission(interaction.member, "leveling"))) {
-            const errorMessage = await getPermissionDeniedMessage(interaction.guild, 'leveling');
+            const errorMessage = await getPermissionDeniedMessage(interaction.guild, 'leveling', interaction.user.id);
             await interaction.update({
                 content: errorMessage,
                 components: [],
@@ -350,12 +386,13 @@ export async function handleLeaderboardButton(interaction) {
 
         const server = await getServerForInteraction(interaction);
         if (!server) {
+            const errorMsg = await translate('leveling.errors.notRegistered', interaction.guild.id, interaction.user.id);
             await interaction.update({
-                content: "⚠️ This server is not registered with the bot. Please run a sync first.",
+                content: errorMsg,
                 components: [],
                 flags: 64
             }).catch(() => interaction.reply({
-                content: "⚠️ This server is not registered with the bot. Please run a sync first.",
+                content: errorMsg,
                 flags: 64
             }));
             return;
@@ -367,114 +404,21 @@ export async function handleLeaderboardButton(interaction) {
         await db.recalculateServerMemberRanks(server.id);
 
         const memberLevelData = await db.getMemberLevelByDiscordId(server.id, interaction.user.id);
-        const { profileEmbed, leaderboardEmbed } = await buildLevelingEmbeds(server, memberLevelData, sortType, interaction.guild.id);
-        const buttons = createLeaderboardButtons(sortType);
-        const dmRow = createDmToggleRow(!(memberLevelData?.dm_notifications_enabled === false || memberLevelData?.dm_notifications_enabled === 0));
+        const { profileEmbed, leaderboardEmbed } = await buildLevelingEmbeds(server, memberLevelData, sortType, interaction.guild.id, interaction.user.id);
+        const buttons = await createLeaderboardButtons(sortType, interaction.guild.id, interaction.user.id);
+        const menuRow = await createMenuRow();
 
         await interaction.update({
             embeds: [profileEmbed, leaderboardEmbed],
-            components: [buttons, dmRow],
-            flags: 64
+            components: [buttons, menuRow]
         });
     } catch (error) {
         await logger.log(`❌ Leaderboard button error: ${error.message}`);
+        const errorMsg = await translate('leveling.errors.leaderboardFailed', interaction.guild?.id, interaction.user?.id, { error: error.message });
         await interaction.update({
-            content: `❌ Failed to load leaderboard: ${error.message}`,
+            content: errorMsg,
             flags: 64
         }).catch(() => null);
     }
 }
 
-export async function handleDmToggleButton(interaction) {
-    try {
-        if (!(await hasPermission(interaction.member, "leveling"))) {
-            const errorMessage = await getPermissionDeniedMessage(interaction.guild, 'leveling');
-            await interaction.update({
-                content: errorMessage,
-                components: [],
-                embeds: [],
-                flags: 64
-            }).catch(() => interaction.reply({
-                content: errorMessage,
-                flags: 64
-            }).catch(() => null));
-            return;
-        }
-
-        const server = await getServerForInteraction(interaction);
-        if (!server) {
-            await interaction.reply({
-                content: "⚠️ This server is not registered with the bot. Please run a sync first.",
-                flags: 64
-            }).catch(() => null);
-            return;
-        }
-
-        const guildMember = interaction.member || await interaction.guild.members.fetch(interaction.user.id).catch(() => null);
-        if (!guildMember) {
-            await interaction.reply({
-                content: "❌ Failed to fetch member information. Please try again.",
-                flags: 64
-            }).catch(() => null);
-            return;
-        }
-
-        const dbMember = await db.upsertMember(server.id, guildMember);
-        if (!dbMember) {
-            await interaction.reply({
-                content: "❌ Failed to create member record. Please try again.",
-                flags: 64
-            }).catch(() => null);
-            return;
-        }
-
-        await db.ensureMemberLevel(dbMember.id);
-
-        let memberLevelData = await db.getMemberLevelByDiscordId(server.id, interaction.user.id);
-        if (!memberLevelData) {
-            await interaction.reply({
-                content: "⚠️ No leveling data found for this member.",
-                flags: 64
-            }).catch(() => null);
-            return;
-        }
-
-        const currentlyEnabled = !(memberLevelData.dm_notifications_enabled === false || memberLevelData.dm_notifications_enabled === 0);
-        await db.setMemberLevelDMPreference(memberLevelData.member_id, !currentlyEnabled);
-
-        memberLevelData = await db.getMemberLevelByDiscordId(server.id, interaction.user.id);
-
-        let sortType = 'xp';
-        const leaderboardRow = interaction.message?.components?.[0];
-        if (leaderboardRow && Array.isArray(leaderboardRow.components)) {
-            for (const component of leaderboardRow.components) {
-                if (component.style === ButtonStyle.Primary && typeof component.customId === 'string' && component.customId.startsWith('leaderboard_')) {
-                    sortType = component.customId.replace('leaderboard_', '');
-                    break;
-                }
-            }
-        }
-
-        const { profileEmbed, leaderboardEmbed } = await buildLevelingEmbeds(server, memberLevelData, sortType, interaction.guild.id);
-        const buttons = createLeaderboardButtons(sortType);
-        const dmRow = createDmToggleRow(!(memberLevelData?.dm_notifications_enabled === false || memberLevelData?.dm_notifications_enabled === 0));
-
-        await interaction.update({
-            embeds: [profileEmbed, leaderboardEmbed],
-            components: [buttons, dmRow],
-            flags: 64
-        });
-    } catch (error) {
-        await logger.log(`❌ Leveling DM toggle error: ${error.message}`);
-        if (interaction.replied || interaction.deferred) {
-            await interaction.editReply({
-                content: `❌ Failed to update DM notifications: ${error.message}`
-            }).catch(() => null);
-        } else {
-            await interaction.reply({
-                content: `❌ Failed to update DM notifications: ${error.message}`,
-                flags: 64
-            }).catch(() => null);
-        }
-    }
-}

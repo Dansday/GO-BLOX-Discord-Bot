@@ -33,6 +33,7 @@ services:
       DATABASE_URL: mysql://${DB_USER}:${DB_PASSWORD}@database:3306/${DB_NAME}
       CONTROL_PANEL_PORT: ${CONTROL_PANEL_PORT:-8080}
       SESSION_SECRET: ${SESSION_SECRET}
+      TIMEZONE: ${TIMEZONE}
     ports:
       - "${CONTROL_PANEL_PORT:-8080}:${CONTROL_PANEL_PORT:-8080}"
     volumes:

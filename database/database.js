@@ -4,9 +4,10 @@ import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
 import dotenv from 'dotenv';
 import logger from '../backend/logger.js';
-import { toMySQLDateTime, getNowInTimezone, parseMySQLDateTime } from '../backend/utils.js';
+import { toMySQLDateTime, parseMySQLDateTime } from '../backend/utils.js';
 
 dotenv.config();
+
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -67,7 +68,8 @@ function getPool() {
             ...connectionConfig,
             waitForConnections: true,
             connectionLimit: 10,
-            queueLimit: 0
+            queueLimit: 0,
+            dateStrings: true
         });
     }
     return pool;
@@ -108,7 +110,7 @@ async function runMigration() {
         }
 
         logger.log('✅ Database schema created successfully!');
-        logger.log('📊 Tables created: panel, panel_logs, bots, servers, server_categories, server_channels, server_roles, server_members, server_member_levels, server_member_roles, server_members_afk, server_settings, server_giveaways, server_giveaway_entries, bot_logs');
+        logger.log('📊 Tables created: panel, panel_logs, bots, servers, server_categories, server_channels, server_roles, server_members, server_member_levels, server_member_roles, server_members_afk, server_settings, server_giveaways, server_giveaway_entries, server_staff_ratings, server_staff_reports, server_feedback, bot_logs');
         logger.log('📈 Indexes created: all indexes');
 
     } catch (error) {
@@ -143,6 +145,9 @@ async function setupDatabase() {
         { name: 'server_settings', required: true },
         { name: 'server_giveaways', required: true },
         { name: 'server_giveaway_entries', required: true },
+        { name: 'server_staff_ratings', required: true },
+        { name: 'server_staff_reports', required: true },
+        { name: 'server_feedback', required: true },
         { name: 'bot_logs', required: true }
     ];
 
@@ -185,66 +190,6 @@ async function setupDatabase() {
             logger.log('📄 Please run the SQL schema manually in your MySQL client');
             throw new Error(`Missing tables: ${missingTables.join(', ')}`);
         }
-    }
-
-    try {
-        const columnsResult = await query(
-            `SELECT COLUMN_NAME FROM information_schema.COLUMNS 
-             WHERE TABLE_SCHEMA = ? AND TABLE_NAME = 'server_members' AND COLUMN_NAME IN ('is_booster', 'booster_since')`,
-            [connectionConfig.database]
-        );
-
-        const existingColumns = columnsResult.map(row => row.COLUMN_NAME);
-
-        if (!existingColumns.includes('is_booster')) {
-            logger.log('🔧 Adding is_booster column to server_members table...');
-            await query('ALTER TABLE server_members ADD COLUMN is_booster BOOLEAN DEFAULT FALSE');
-            logger.log('✅ Added is_booster column');
-        }
-
-        if (!existingColumns.includes('booster_since')) {
-            logger.log('🔧 Adding booster_since column to server_members table...');
-            await query('ALTER TABLE server_members ADD COLUMN booster_since TIMESTAMP NULL');
-            logger.log('✅ Added booster_since column');
-        }
-
-        const serverDisplayNameCheck = await query(
-            `SELECT COLUMN_NAME FROM information_schema.COLUMNS 
-             WHERE TABLE_SCHEMA = ? AND TABLE_NAME = 'server_members' AND COLUMN_NAME = 'server_display_name'`,
-            [connectionConfig.database]
-        );
-
-        if (!serverDisplayNameCheck || serverDisplayNameCheck.length === 0) {
-            logger.log('🔧 Adding server_display_name column to server_members table...');
-            await query('ALTER TABLE server_members ADD COLUMN server_display_name TEXT');
-            logger.log('✅ Added server_display_name column');
-        }
-
-        const dmPreferenceCheck = await query(
-            `SELECT COLUMN_NAME FROM information_schema.COLUMNS 
-             WHERE TABLE_SCHEMA = ? AND TABLE_NAME = 'server_member_levels' AND COLUMN_NAME = 'dm_notifications_enabled'`,
-            [connectionConfig.database]
-        );
-
-        if (!dmPreferenceCheck || dmPreferenceCheck.length === 0) {
-            logger.log('🔧 Adding dm_notifications_enabled column to server_member_levels table...');
-            await query('ALTER TABLE server_member_levels ADD COLUMN dm_notifications_enabled BOOLEAN DEFAULT TRUE AFTER level');
-            logger.log('✅ Added dm_notifications_enabled column');
-        }
-
-        const isWinnerCheck = await query(
-            `SELECT COLUMN_NAME FROM information_schema.COLUMNS 
-             WHERE TABLE_SCHEMA = ? AND TABLE_NAME = 'server_giveaway_entries' AND COLUMN_NAME = 'is_winner'`,
-            [connectionConfig.database]
-        );
-
-        if (!isWinnerCheck || isWinnerCheck.length === 0) {
-            logger.log('🔧 Adding is_winner column to server_giveaway_entries table...');
-            await query('ALTER TABLE server_giveaway_entries ADD COLUMN is_winner BOOLEAN DEFAULT FALSE');
-            logger.log('✅ Added is_winner column');
-        }
-    } catch (err) {
-        logger.log(`⚠️  Error checking/adding columns: ${err.message}`);
     }
 
     logger.log('✅ All database tables verified');
@@ -297,7 +242,14 @@ export async function getBot(botId) {
     await initializeDatabase();
     return await retryOnConnectionError(async () => {
         const result = await query('SELECT * FROM bots WHERE id = ? LIMIT 1', [botId]);
-        return result[0] || null;
+        if (!result[0]) return null;
+
+        const bot = result[0];
+        if (bot.uptime_started_at) {
+            bot.uptime_started_at = parseMySQLDateTime(bot.uptime_started_at);
+        }
+
+        return bot;
     });
 }
 
@@ -310,10 +262,11 @@ export async function createBot(botData) {
 
         const connection = await getPool().getConnection();
         try {
+            const now = toMySQLDateTime();
             const [result] = await connection.execute(
                 `INSERT INTO bots (
-                    name, token, application_id, bot_type, bot_icon, port, secret_key, connect_to, panel_id
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+                    name, token, application_id, bot_type, bot_icon, port, secret_key, connect_to, panel_id, created_at, updated_at
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
                 [
                     botData.name || `Bot#${botNumber}`,
                     botData.token,
@@ -323,7 +276,9 @@ export async function createBot(botData) {
                     botData.port !== undefined ? botData.port : (botData.bot_type === 'official' ? 7777 : null),
                     botData.secret_key || null,
                     botData.connect_to || null,
-                    botData.panel_id || null
+                    botData.panel_id || null,
+                    now,
+                    now
                 ]
             );
 
@@ -426,11 +381,12 @@ export async function upsertServer(botId, guild) {
             }
         }
 
+        const now = toMySQLDateTime();
         await query(
             `INSERT INTO servers (
                 bot_id, discord_server_id, name, total_members, total_channels,
-                total_boosters, boost_level, server_icon, updated_at
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                total_boosters, boost_level, server_icon, created_at, updated_at
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             ON DUPLICATE KEY UPDATE
                 name = VALUES(name),
                 total_members = VALUES(total_members),
@@ -442,7 +398,7 @@ export async function upsertServer(botId, guild) {
             [
                 botId, guild.id, guild.name, guild.memberCount || 0,
                 guild.channels?.cache?.size || 0, guild.premiumSubscriptionCount || 0,
-                boostLevel, iconUrl, toMySQLDateTime()
+                boostLevel, iconUrl, now, now
             ]
         );
 
@@ -459,10 +415,11 @@ export async function upsertServer(botId, guild) {
 
 export async function upsertCategory(serverId, categoryData) {
     try {
+        const now = toMySQLDateTime();
         await query(
             `INSERT INTO server_categories (
-                server_id, discord_category_id, name, position, updated_at
-            ) VALUES (?, ?, ?, ?, ?)
+                server_id, discord_category_id, name, position, created_at, updated_at
+            ) VALUES (?, ?, ?, ?, ?, ?)
             ON DUPLICATE KEY UPDATE
                 name = VALUES(name),
                 position = VALUES(position),
@@ -470,7 +427,7 @@ export async function upsertCategory(serverId, categoryData) {
             [
                 serverId, categoryData.id, categoryData.name,
                 categoryData.position !== undefined ? categoryData.position : null,
-                toMySQLDateTime()
+                now, now
             ]
         );
 
@@ -548,10 +505,11 @@ export async function upsertChannel(serverId, channelData, categoryMap = null) {
             categoryId = categoryMap.get(channelData.parent_id) || null;
         }
 
+        const now = toMySQLDateTime();
         await query(
             `INSERT INTO server_channels (
-                server_id, discord_channel_id, name, type, category_id, position, updated_at
-            ) VALUES (?, ?, ?, ?, ?, ?, ?)
+                server_id, discord_channel_id, name, type, category_id, position, created_at, updated_at
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
             ON DUPLICATE KEY UPDATE
                 name = VALUES(name),
                 type = VALUES(type),
@@ -561,7 +519,7 @@ export async function upsertChannel(serverId, channelData, categoryMap = null) {
             [
                 serverId, channelData.id, channelData.name, channelData.type,
                 categoryId, channelData.position !== undefined ? channelData.position : null,
-                toMySQLDateTime()
+                now, now
             ]
         );
 
@@ -654,10 +612,11 @@ export async function getRoles(serverId) {
 
 export async function upsertRole(serverId, roleData) {
     try {
+        const now = toMySQLDateTime();
         await query(
             `INSERT INTO server_roles (
-                server_id, discord_role_id, name, position, color, permissions, updated_at
-            ) VALUES (?, ?, ?, ?, ?, ?, ?)
+                server_id, discord_role_id, name, position, color, permissions, created_at, updated_at
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
             ON DUPLICATE KEY UPDATE
                 name = VALUES(name),
                 position = VALUES(position),
@@ -667,7 +626,7 @@ export async function upsertRole(serverId, roleData) {
             [
                 serverId, roleData.id, roleData.name, roleData.position,
                 roleData.hexColor, roleData.permissions?.bitfield?.toString() || null,
-                toMySQLDateTime()
+                now, now
             ]
         );
 
@@ -745,10 +704,11 @@ export async function upsertMember(serverId, memberData) {
         const isBooster = memberData.premiumSince !== null && memberData.premiumSince !== undefined;
         const boosterSince = memberData.premiumSince ? toMySQLDateTime(memberData.premiumSince) : null;
 
+        const now = toMySQLDateTime();
         await query(
             `INSERT INTO server_members (
-                server_id, discord_member_id, username, display_name, server_display_name, avatar, profile_created_at, member_since, is_booster, booster_since, updated_at
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                server_id, discord_member_id, username, display_name, server_display_name, avatar, profile_created_at, member_since, is_booster, booster_since, created_at, updated_at
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             ON DUPLICATE KEY UPDATE
                 username = VALUES(username),
                 display_name = VALUES(display_name),
@@ -761,7 +721,7 @@ export async function upsertMember(serverId, memberData) {
                 updated_at = VALUES(updated_at)`,
             [
                 serverId, user?.id || memberData.id, username, displayName, serverDisplayName,
-                avatarUrl, profileCreatedAt, memberSince, isBooster, boosterSince, toMySQLDateTime()
+                avatarUrl, profileCreatedAt, memberSince, isBooster, boosterSince, now, now
             ]
         );
 
@@ -782,7 +742,20 @@ export async function getMemberByDiscordId(serverId, discordMemberId) {
         'SELECT * FROM server_members WHERE server_id = ? AND discord_member_id = ? LIMIT 1',
         [serverId, discordMemberId]
     );
-    return result[0] || null;
+    if (!result[0]) return null;
+
+    const member = result[0];
+    if (member.profile_created_at) {
+        member.profile_created_at = parseMySQLDateTime(member.profile_created_at);
+    }
+    if (member.member_since) {
+        member.member_since = parseMySQLDateTime(member.member_since);
+    }
+    if (member.booster_since) {
+        member.booster_since = parseMySQLDateTime(member.booster_since);
+    }
+
+    return member;
 }
 
 export async function syncMemberRoles(memberId, discordRoleIds, serverId) {
@@ -829,10 +802,11 @@ export async function syncMemberRoles(memberId, discordRoleIds, serverId) {
         const rolesToRemove = Array.from(existingRoleIds).filter(roleId => !roleIdsToAdd.includes(roleId));
 
         if (rolesToAdd.length > 0) {
-            const placeholders = rolesToAdd.map(() => '(?, ?, ?)').join(', ');
-            const values = rolesToAdd.flatMap(roleId => [memberId, roleId, false]);
+            const now = toMySQLDateTime();
+            const placeholders = rolesToAdd.map(() => '(?, ?, ?, ?)').join(', ');
+            const values = rolesToAdd.flatMap(roleId => [memberId, roleId, false, now]);
             await query(
-                `INSERT INTO server_member_roles (member_id, role_id, is_custom) VALUES ${placeholders}`,
+                `INSERT INTO server_member_roles (member_id, role_id, is_custom, created_at) VALUES ${placeholders}`,
                 values
             );
         }
@@ -893,16 +867,27 @@ export async function getMemberLevel(memberId) {
         'SELECT * FROM server_member_levels WHERE member_id = ? LIMIT 1',
         [memberId]
     );
-    return result[0] || null;
+    if (!result[0]) return null;
+
+    const levelData = result[0];
+    if (levelData.voice_rewarded_at) {
+        levelData.voice_rewarded_at = parseMySQLDateTime(levelData.voice_rewarded_at);
+    }
+    if (levelData.chat_rewarded_at) {
+        levelData.chat_rewarded_at = parseMySQLDateTime(levelData.chat_rewarded_at);
+    }
+
+    return levelData;
 }
 
 export async function ensureMemberLevel(memberId) {
     await initializeDatabase();
+    const now = toMySQLDateTime();
     await query(
-        `INSERT INTO server_member_levels (member_id)
-         VALUES (?)
+        `INSERT INTO server_member_levels (member_id, created_at, updated_at)
+         VALUES (?, ?, ?)
          ON DUPLICATE KEY UPDATE member_id = VALUES(member_id)`,
-        [memberId]
+        [memberId, now, now]
     );
     return await getMemberLevel(memberId);
 }
@@ -985,6 +970,34 @@ export async function updateMemberLevelStats(memberId, updates = {}) {
     );
 
     return await getMemberLevel(memberId);
+}
+
+export async function setMemberLanguage(serverId, discordMemberId, language = 'en') {
+    await initializeDatabase();
+    if (!serverId || !discordMemberId || !language) {
+        throw new Error('serverId, discordMemberId, and language are required');
+    }
+
+    await query(
+        'UPDATE server_members SET language = ? WHERE server_id = ? AND discord_member_id = ?',
+        [language, serverId, discordMemberId]
+    );
+
+    return true;
+}
+
+export async function getMemberLanguage(serverId, discordMemberId) {
+    await initializeDatabase();
+    if (!serverId || !discordMemberId) {
+        return 'en';
+    }
+
+    const result = await query(
+        'SELECT language FROM server_members WHERE server_id = ? AND discord_member_id = ? LIMIT 1',
+        [serverId, discordMemberId]
+    );
+
+    return result[0]?.language || 'en';
 }
 
 export async function setMemberLevelDMPreference(memberId, enabled = true) {
@@ -1545,7 +1558,8 @@ async function createPanel(passwordHash) {
 
     const connection = await getPool().getConnection();
     try {
-        const [result] = await connection.execute('INSERT INTO panel (password_hash) VALUES (?)', [passwordHash]);
+        const now = toMySQLDateTime();
+        const [result] = await connection.execute('INSERT INTO panel (password_hash, created_at, updated_at) VALUES (?, ?, ?)', [passwordHash, now, now]);
         const panels = await query('SELECT * FROM panel WHERE id = ?', [result.insertId]);
         return panels[0];
     } finally {
@@ -1640,12 +1654,12 @@ async function upsertServerSettings(serverId, componentName, settings) {
         const now = toMySQLDateTime();
 
         await query(
-            `INSERT INTO server_settings (server_id, component_name, settings, updated_at)
-             VALUES (?, ?, ?, ?)
+            `INSERT INTO server_settings (server_id, component_name, settings, created_at, updated_at)
+             VALUES (?, ?, ?, ?, ?)
              ON DUPLICATE KEY UPDATE
                  settings = VALUES(settings),
                  updated_at = VALUES(updated_at)`,
-            [serverId, componentName, JSON.stringify(settings), now]
+            [serverId, componentName, JSON.stringify(settings), now, now]
         );
 
         const resultSettings = await query(
@@ -1685,8 +1699,8 @@ export async function insertBotLog(botId, message) {
 
     try {
         await query(
-            'INSERT INTO bot_logs (bot_id, message) VALUES (?, ?)',
-            [botId, message]
+            'INSERT INTO bot_logs (bot_id, message, created_at) VALUES (?, ?, ?)',
+            [botId, message, toMySQLDateTime()]
         );
 
         const now = Date.now();
@@ -1728,7 +1742,7 @@ export async function purgeOldBotLogs(retentionDays = BOT_LOG_RETENTION_DAYS) {
     await initializeDatabase();
     const days = Number.isFinite(retentionDays) && retentionDays > 0 ? retentionDays : BOT_LOG_RETENTION_DAYS;
     const cutoff = new Date(Date.now() - days * 24 * 60 * 60 * 1000);
-    const cutoffStr = cutoff.toISOString().slice(0, 19).replace('T', ' ');
+    const cutoffStr = toMySQLDateTime(cutoff);
 
     const result = await query(
         'DELETE FROM bot_logs WHERE created_at < ?',
@@ -1751,9 +1765,20 @@ export async function getAFKStatus(serverId, discordMemberId) {
         return null;
     }
     const afkData = result[0];
+    let timestamp;
+    if (afkData.created_at) {
+        if (afkData.created_at instanceof Date) {
+            timestamp = afkData.created_at.getTime();
+        } else {
+            const parsedDate = parseMySQLDateTime(afkData.created_at);
+            timestamp = parsedDate ? parsedDate.getTime() : Date.now();
+        }
+    } else {
+        timestamp = Date.now();
+    }
     return {
         message: afkData.message || 'Away',
-        timestamp: parseMySQLDateTime(afkData.created_at)?.getTime() || getNowInTimezone().getTime(),
+        timestamp: timestamp,
         serverDisplayName: afkData.server_display_name
     };
 }
@@ -1772,16 +1797,19 @@ export async function setAFKStatus(serverId, discordMemberId, afkData) {
 
         const memberId = memberResult[0].id;
 
+        const now = toMySQLDateTime();
         await query(
             `INSERT INTO server_members_afk (
-                member_id, message
-            ) VALUES (?, ?)
+                member_id, message, created_at, updated_at
+            ) VALUES (?, ?, ?, ?)
             ON DUPLICATE KEY UPDATE
                 message = VALUES(message),
                 updated_at = VALUES(updated_at)`,
             [
                 memberId,
-                afkData.message || 'Away'
+                afkData.message || 'Away',
+                now,
+                now
             ]
         );
 
@@ -1850,18 +1878,17 @@ export async function serversNeedSync(botId) {
 export async function createGiveaway(giveawayData) {
     await initializeDatabase();
 
-    const nowInTimezone = getNowInTimezone();
-    const endsAtInTimezone = new Date(nowInTimezone.getTime() + giveawayData.duration_minutes * 60 * 1000);
-    const endsAt = toMySQLDateTime(endsAtInTimezone);
+    const now = new Date();
+    const endsAt = toMySQLDateTime(new Date(now.getTime() + giveawayData.duration_minutes * 60 * 1000));
+    const createdAt = toMySQLDateTime();
 
     const result = await query(
         `INSERT INTO server_giveaways (
-                    server_id, member_id, title, prize,
+                    member_id, title, prize,
                     duration_minutes, allowed_roles, multiple_entries_allowed, winner_count,
-                    status, ends_at
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+                    status, ends_at, created_at, updated_at
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         [
-            giveawayData.server_id,
             giveawayData.member_id,
             giveawayData.title,
             giveawayData.prize,
@@ -1870,27 +1897,14 @@ export async function createGiveaway(giveawayData) {
             giveawayData.multiple_entries_allowed || false,
             giveawayData.winner_count || 1,
             'active',
-            endsAt
+            endsAt,
+            createdAt,
+            createdAt
         ]
     );
 
     const insertedId = result.insertId;
-    const giveaway = await query(
-        'SELECT * FROM server_giveaways WHERE id = ?',
-        [insertedId]
-    );
-
-    if (giveaway[0] && giveaway[0].allowed_roles) {
-        try {
-            giveaway[0].allowed_roles = typeof giveaway[0].allowed_roles === 'string'
-                ? JSON.parse(giveaway[0].allowed_roles)
-                : giveaway[0].allowed_roles;
-        } catch (e) {
-            giveaway[0].allowed_roles = [];
-        }
-    }
-
-    return giveaway[0];
+    return await getGiveawayById(insertedId);
 }
 
 export async function updateGiveawayMessageId(giveawayId, discordMessageId) {
@@ -1905,15 +1919,18 @@ export async function getEndedGiveaways() {
     await initializeDatabase();
 
     const result = await query(
-        'SELECT * FROM server_giveaways WHERE status = ? AND winners_announced = ?',
+        `SELECT g.*, sm.server_id 
+         FROM server_giveaways g
+         INNER JOIN server_members sm ON g.member_id = sm.id
+         WHERE g.status = ? AND g.winners_announced = ?`,
         ['active', false]
     );
 
-    const nowInTimezone = getNowInTimezone();
+    const now = new Date();
 
     const endedGiveaways = result.filter(row => {
         const endsAt = parseMySQLDateTime(row.ends_at);
-        return endsAt && endsAt <= nowInTimezone;
+        return endsAt && endsAt <= now;
     });
 
     return endedGiveaways.map(row => {
@@ -1933,11 +1950,16 @@ export async function getEndedGiveaways() {
 export async function getGiveawayById(giveawayId) {
     await initializeDatabase();
     const result = await query(
-        'SELECT * FROM server_giveaways WHERE id = ?',
+        `SELECT g.*, sm.server_id 
+         FROM server_giveaways g
+         INNER JOIN server_members sm ON g.member_id = sm.id
+         WHERE g.id = ?`,
         [giveawayId]
     );
 
-    if (result[0] && result[0].allowed_roles) {
+    if (!result[0]) return null;
+
+    if (result[0].allowed_roles) {
         try {
             result[0].allowed_roles = typeof result[0].allowed_roles === 'string'
                 ? JSON.parse(result[0].allowed_roles)
@@ -1947,17 +1969,25 @@ export async function getGiveawayById(giveawayId) {
         }
     }
 
-    return result[0] || null;
+    if (result[0].ends_at) {
+        result[0].ends_at = parseMySQLDateTime(result[0].ends_at);
+    }
+
+    return result[0];
 }
 
 export async function getActiveGiveawayByMember(serverId, memberId) {
     await initializeDatabase();
     const result = await query(
-        'SELECT * FROM server_giveaways WHERE server_id = ? AND member_id = ? AND status = ?',
+        `SELECT g.* FROM server_giveaways g
+         INNER JOIN server_members sm ON g.member_id = sm.id
+         WHERE sm.server_id = ? AND g.member_id = ? AND g.status = ?`,
         [serverId, memberId, 'active']
     );
 
-    if (result[0] && result[0].allowed_roles) {
+    if (!result[0]) return null;
+
+    if (result[0].allowed_roles) {
         try {
             result[0].allowed_roles = typeof result[0].allowed_roles === 'string'
                 ? JSON.parse(result[0].allowed_roles)
@@ -1967,7 +1997,11 @@ export async function getActiveGiveawayByMember(serverId, memberId) {
         }
     }
 
-    return result[0] || null;
+    if (result[0].ends_at) {
+        result[0].ends_at = parseMySQLDateTime(result[0].ends_at);
+    }
+
+    return result[0];
 }
 
 export async function addGiveawayEntry(giveawayId, memberId, increment = true) {
@@ -2083,14 +2117,6 @@ export async function markGiveawayEndedForce(giveawayId) {
     );
 }
 
-export async function cancelGiveaway(giveawayId) {
-    await initializeDatabase();
-    await query(
-        'UPDATE server_giveaways SET status = ? WHERE id = ?',
-        ['cancelled', giveawayId]
-    );
-}
-
 export async function markGiveawayWinners(giveawayId, winnerMemberIds) {
     await initializeDatabase();
     if (!winnerMemberIds || winnerMemberIds.length === 0) {
@@ -2104,6 +2130,225 @@ export async function markGiveawayWinners(giveawayId, winnerMemberIds) {
          WHERE giveaway_id = ? AND member_id IN (${placeholders})`,
         [giveawayId, ...winnerMemberIds]
     );
+}
+
+export async function getStaffRating(serverId, staffMemberId) {
+    await initializeDatabase();
+    const result = await query(
+        `SELECT sr.* FROM server_staff_ratings sr
+         INNER JOIN server_members sm ON sr.staff_member_id = sm.id
+         WHERE sm.server_id = ? AND sr.staff_member_id = ?`,
+        [serverId, staffMemberId]
+    );
+    return result[0] || null;
+}
+
+export async function upsertStaffRating(serverId, staffMemberId, ratingValue, totalReports) {
+    await initializeDatabase();
+    const now = toMySQLDateTime();
+    const existing = await getStaffRating(serverId, staffMemberId);
+    if (existing) {
+        await query(
+            `UPDATE server_staff_ratings
+             SET current_rating = ?, total_reports = ?, updated_at = ?
+             WHERE staff_member_id = ?`,
+            [ratingValue, totalReports, now, staffMemberId]
+        );
+    } else {
+        await query(
+            `INSERT INTO server_staff_ratings
+             (staff_member_id, current_rating, total_reports, created_at, updated_at)
+             VALUES (?, ?, ?, ?, ?)`,
+            [staffMemberId, ratingValue, totalReports, now, now]
+        );
+    }
+    return await getStaffRating(serverId, staffMemberId);
+}
+
+export async function createStaffRatingReport(serverId, reporterMemberId, reportedStaffId, rating, category, description, isAnonymous) {
+    await initializeDatabase();
+    const now = toMySQLDateTime();
+    const result = await query(
+        `INSERT INTO server_staff_reports
+         (reporter_member_id, reported_staff_id, rating, category, description, is_anonymous, status, reported_at)
+         VALUES (?, ?, ?, ?, ?, ?, 'pending', ?)`,
+        [reporterMemberId, reportedStaffId, rating, category, description, isAnonymous ? 1 : 0, now]
+    );
+    return result.insertId;
+}
+
+export async function getLastStaffRatingReport(serverId, reporterMemberId, reportedStaffId) {
+    await initializeDatabase();
+    const result = await query(
+        `SELECT sr.* FROM server_staff_reports sr
+         INNER JOIN server_members sm ON sr.reporter_member_id = sm.id
+         WHERE sm.server_id = ? AND sr.reporter_member_id = ? AND sr.reported_staff_id = ?
+         ORDER BY sr.reported_at DESC
+         LIMIT 1`,
+        [serverId, reporterMemberId, reportedStaffId]
+    );
+    return result[0] || null;
+}
+
+export async function getStaffRatingAggregate(serverId, staffMemberId) {
+    await initializeDatabase();
+    const result = await query(
+        `SELECT
+            COUNT(*) as total_reports,
+            AVG(rating) as average_rating
+         FROM server_staff_reports sr
+         INNER JOIN server_members sm ON sr.reported_staff_id = sm.id
+         WHERE sm.server_id = ? AND sr.reported_staff_id = ? AND sr.status = 'approved'`,
+        [serverId, staffMemberId]
+    );
+    const row = result[0] || { total_reports: 0, average_rating: 0 };
+    return {
+        total_reports: row.total_reports || 0,
+        average_rating: row.average_rating || 0
+    };
+}
+
+export async function getStaffReportById(serverId, reportId) {
+    await initializeDatabase();
+    const result = await query(
+        `SELECT 
+            sr.*,
+            reporter.discord_member_id AS reporter_discord_id,
+            staff.discord_member_id AS staff_discord_id
+         FROM server_staff_reports sr
+         INNER JOIN server_members reporter ON sr.reporter_member_id = reporter.id
+         INNER JOIN server_members staff ON sr.reported_staff_id = staff.id
+         WHERE reporter.server_id = ? AND sr.id = ?
+         LIMIT 1`,
+        [serverId, reportId]
+    );
+    return result[0] || null;
+}
+
+export async function updateStaffReportStatus(reportId, status) {
+    await initializeDatabase();
+    await query(
+        `UPDATE server_staff_reports
+         SET status = ?
+         WHERE id = ?`,
+        [status, reportId]
+    );
+}
+
+export async function createFeedback(serverId, memberId, description, isAnonymous) {
+    await initializeDatabase();
+    const now = toMySQLDateTime();
+    const result = await query(
+        `INSERT INTO server_feedback
+         (member_id, description, is_anonymous, submitted_at)
+         VALUES (?, ?, ?, ?)`,
+        [memberId, description, isAnonymous ? 1 : 0, now]
+    );
+    return result.insertId;
+}
+
+export async function getFeedback(serverId, feedbackId) {
+    await initializeDatabase();
+    const result = await query(
+        `SELECT f.* FROM server_feedback f
+         INNER JOIN server_members sm ON f.member_id = sm.id
+         WHERE sm.server_id = ? AND f.id = ?`,
+        [serverId, feedbackId]
+    );
+    return result[0] || null;
+}
+
+export async function getFeedbackByServer(serverId, limit = 100, offset = 0) {
+    await initializeDatabase();
+    const result = await query(
+        `SELECT f.* FROM server_feedback f
+         INNER JOIN server_members sm ON f.member_id = sm.id
+         WHERE sm.server_id = ?
+         ORDER BY f.submitted_at DESC
+         LIMIT ? OFFSET ?`,
+        [serverId, limit, offset]
+    );
+    return result;
+}
+
+export async function getFeedbackCount(serverId) {
+    await initializeDatabase();
+    const result = await query(
+        `SELECT COUNT(*) as count FROM server_feedback f
+         INNER JOIN server_members sm ON f.member_id = sm.id
+         WHERE sm.server_id = ?`,
+        [serverId]
+    );
+    return result[0]?.count || 0;
+}
+
+export async function markMemberRatingRole(serverId, staffMemberId, discordRoleId) {
+    await initializeDatabase();
+    if (!discordRoleId) {
+        return;
+    }
+    await query(
+        'UPDATE server_member_roles SET is_rating = FALSE WHERE member_id = ?',
+        [staffMemberId]
+    );
+    const roles = await query(
+        'SELECT id FROM server_roles WHERE server_id = ? AND discord_role_id = ? LIMIT 1',
+        [serverId, discordRoleId]
+    );
+    if (!roles[0]) {
+        return;
+    }
+    const now = toMySQLDateTime();
+    await query(
+        `INSERT INTO server_member_roles (member_id, role_id, is_custom, is_rating, created_at)
+         VALUES (?, ?, FALSE, TRUE, ?)
+         ON DUPLICATE KEY UPDATE is_rating = VALUES(is_rating)`,
+        [staffMemberId, roles[0].id, now]
+    );
+}
+
+export async function clearMemberRatingRole(staffMemberId) {
+    await initializeDatabase();
+    await query(
+        'UPDATE server_member_roles SET is_rating = FALSE WHERE member_id = ?',
+        [staffMemberId]
+    );
+}
+
+export async function getAllStaffRatings(serverId) {
+    await initializeDatabase();
+    const result = await query(
+        `SELECT 
+            ssr.id,
+            ssr.staff_member_id,
+            ssr.current_rating,
+            ssr.total_reports,
+            sr.discord_role_id as rating_role_id,
+            ssr.created_at,
+            ssr.updated_at
+         FROM server_staff_ratings ssr
+         INNER JOIN server_members sm ON ssr.staff_member_id = sm.id
+         INNER JOIN server_member_roles smr ON ssr.staff_member_id = smr.member_id AND smr.is_rating = TRUE
+         INNER JOIN server_roles sr ON smr.role_id = sr.id
+         WHERE sm.server_id = ? AND ssr.current_rating > 0
+         ORDER BY ssr.current_rating DESC, ssr.created_at ASC`,
+        [serverId]
+    );
+    return result || [];
+}
+
+export async function getStaffRatingRole(serverId, staffMemberId) {
+    await initializeDatabase();
+    const result = await query(
+        `SELECT sr.discord_role_id
+         FROM server_member_roles smr
+         INNER JOIN server_roles sr ON smr.role_id = sr.id
+         INNER JOIN server_members sm ON smr.member_id = sm.id
+         WHERE sm.server_id = ? AND smr.member_id = ? AND smr.is_rating = TRUE
+         LIMIT 1`,
+        [serverId, staffMemberId]
+    );
+    return result[0]?.discord_role_id || null;
 }
 
 export default {
@@ -2132,6 +2377,8 @@ export default {
     ensureMemberLevel,
     updateMemberLevelStats,
     setMemberLevelDMPreference,
+    setMemberLanguage,
+    getMemberLanguage,
     recalculateServerMemberRanks,
     getMemberLevelByDiscordId,
     getMembersWithInVoiceFlag,
@@ -2166,6 +2413,20 @@ export default {
     getRandomGiveawayWinners,
     markGiveawayEnded,
     markGiveawayEndedForce,
-    cancelGiveaway,
-    markGiveawayWinners
+    markGiveawayWinners,
+    getStaffRating,
+    upsertStaffRating,
+    createStaffRatingReport,
+    getLastStaffRatingReport,
+    getStaffRatingAggregate,
+    getStaffReportById,
+    updateStaffReportStatus,
+    markMemberRatingRole,
+    clearMemberRatingRole,
+    getAllStaffRatings,
+    getStaffRatingRole,
+    createFeedback,
+    getFeedback,
+    getFeedbackByServer,
+    getFeedbackCount
 };

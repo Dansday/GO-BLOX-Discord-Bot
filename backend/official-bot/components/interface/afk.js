@@ -3,14 +3,14 @@ import { getEmbedConfig, getBotConfig } from '../../../config.js';
 import logger from '../../../logger.js';
 import { hasPermission, getPermissionDeniedMessage } from '../permissions.js';
 import db from '../../../../database/database.js';
-import { getNowInTimezone } from '../../../utils.js';
+import { translate } from '../../../i18n.js';
 
 function stripAfkPrefix(name) {
     if (!name || typeof name !== 'string') return '';
     return name.replace(/^\s*(\[AFK\]\s*)+/gi, '').trim();
 }
 
-export async function getAFKStatus(userId, guildId) {
+async function getAFKStatus(userId, guildId) {
     try {
         const botConfig = getBotConfig();
         if (!botConfig || !botConfig.id) {
@@ -89,7 +89,7 @@ async function setAFK(member, message, shouldDeafen = true) {
     }
 }
 
-export async function removeAFK(member, reason = '') {
+async function removeAFK(member, reason = '') {
     try {
         const botConfig = getBotConfig();
         if (!botConfig || !botConfig.id) {
@@ -151,18 +151,18 @@ export async function removeAFK(member, reason = '') {
 
         await db.removeAFKStatus(serverData.id, userId);
 
-        const duration = Math.floor((getNowInTimezone().getTime() - afkData.timestamp) / 1000);
-        const minutes = Math.floor(duration / 60);
-        const hours = Math.floor(minutes / 60);
+            const duration = Math.floor((Date.now() - afkData.timestamp) / 1000);
+            const minutes = Math.floor(duration / 60);
+            const hours = Math.floor(minutes / 60);
 
-        let durationText = '';
-        if (hours > 0) {
-            durationText = `${hours}h ${minutes % 60}m`;
-        } else if (minutes > 0) {
-            durationText = `${minutes}m`;
-        } else {
-            durationText = `${duration}s`;
-        }
+            let durationText = '';
+            if (hours > 0) {
+                durationText = `${hours}h ${minutes % 60}m`;
+            } else if (minutes > 0) {
+                durationText = `${minutes}m`;
+            } else {
+                durationText = `${duration}s`;
+            }
 
         await logger.log(`✅ Removed AFK status for ${member.id} - Was AFK for ${durationText}${reason ? ` - ${reason}` : ''}`);
 
@@ -178,7 +178,7 @@ export async function handleAFKButton(interaction) {
         const member = interaction.member;
 
         if (!(await hasPermission(member, 'afk'))) {
-            const errorMessage = await getPermissionDeniedMessage(interaction.guild, 'afk');
+            const errorMessage = await getPermissionDeniedMessage(interaction.guild, 'afk', interaction.user.id);
             await interaction.reply({
                 content: errorMessage,
                 flags: 64
@@ -190,14 +190,20 @@ export async function handleAFKButton(interaction) {
 
         if (afkData) {
 
+            const removeButtonLabel = await translate('afk.buttons.remove', interaction.guild.id, interaction.user.id);
             const removeButton = new ButtonBuilder()
                 .setCustomId('afk_remove')
-                .setLabel('🔄 Remove AFK')
-                .setStyle(ButtonStyle.Primary);
+                .setLabel(removeButtonLabel)
+                .setStyle(ButtonStyle.Danger);
 
-            const buttonRow = new ActionRowBuilder().addComponents(removeButton);
+            const menuButton = new ButtonBuilder()
+                .setCustomId('bot_menu')
+                .setLabel('📋 Menu')
+                .setStyle(ButtonStyle.Secondary);
 
-            const duration = Math.floor((getNowInTimezone().getTime() - afkData.timestamp) / 1000);
+            const buttonRow = new ActionRowBuilder().addComponents(removeButton, menuButton);
+
+            const duration = Math.floor((Date.now() - afkData.timestamp) / 1000);
             const minutes = Math.floor(duration / 60);
             const hours = Math.floor(minutes / 60);
 
@@ -211,44 +217,52 @@ export async function handleAFKButton(interaction) {
             }
 
             const embedConfig = await getEmbedConfig(interaction.guild.id);
+            const currentTitle = await translate('afk.current.title', interaction.guild.id, interaction.user.id);
+            const currentDescription = await translate('afk.current.description', interaction.guild.id, interaction.user.id, { message: afkData.message, duration: durationText });
+            const howToRemoveName = await translate('afk.current.howToRemove', interaction.guild.id, interaction.user.id);
+            const howToRemoveValue = await translate('afk.current.howToRemoveValue', interaction.guild.id, interaction.user.id);
             const embed = new EmbedBuilder()
                 .setColor(embedConfig.COLOR)
-                .setTitle('⏸️ You are currently AFK')
-                .setDescription(`**Status:** ${afkData.message}\n**Duration:** ${durationText}`)
+                .setTitle(currentTitle)
+                .setDescription(currentDescription)
                 .addFields({
-                    name: '💡 How to remove',
-                    value: '• Click the button below to remove AFK\n• Send any message (auto-removes AFK and unmutes)\n• AFK removal will automatically unmute you if bot muted you',
+                    name: howToRemoveName,
+                    value: howToRemoveValue,
                     inline: false
                 })
                 .setTimestamp()
                 .setFooter({ text: embedConfig.FOOTER });
 
-            await interaction.reply({
+            await interaction.update({
                 embeds: [embed],
-                components: [buttonRow],
-                flags: 64
+                components: [buttonRow]
             });
             await logger.log(`⏸️ AFK status shown to ${member.id}`);
             return;
         }
 
+        const modalTitle = await translate('afk.title', interaction.guild.id, interaction.user.id);
         const modal = new ModalBuilder()
             .setCustomId('afk_set')
-            .setTitle('⏸️ Set AFK Status');
+            .setTitle(modalTitle);
 
+        const messageLabel = await translate('afk.modal.messageLabel', interaction.guild.id, interaction.user.id);
+        const messagePlaceholder = await translate('afk.modal.messagePlaceholder', interaction.guild.id, interaction.user.id);
         const messageInput = new TextInputBuilder()
             .setCustomId('afk_message')
-            .setLabel('AFK Message (Optional)')
+            .setLabel(messageLabel)
             .setStyle(TextInputStyle.Short)
-            .setPlaceholder('e.g., Taking a break, Studying, etc.')
+            .setPlaceholder(messagePlaceholder)
             .setRequired(false)
             .setMaxLength(100);
 
+        const deafenLabel = await translate('afk.modal.deafenLabel', interaction.guild.id, interaction.user.id);
+        const deafenPlaceholder = await translate('afk.modal.deafenPlaceholder', interaction.guild.id, interaction.user.id);
         const deafenInput = new TextInputBuilder()
             .setCustomId('afk_deafen')
-            .setLabel('Deafen in Voice? (yes/no, default: yes)')
+            .setLabel(deafenLabel)
             .setStyle(TextInputStyle.Short)
-            .setPlaceholder('yes or no (leave empty for yes)')
+            .setPlaceholder(deafenPlaceholder)
             .setRequired(false)
             .setMaxLength(3);
 
@@ -261,8 +275,9 @@ export async function handleAFKButton(interaction) {
 
     } catch (error) {
         await logger.log(`❌ Error showing AFK modal: ${error.message}`);
+        const errorMsg = await translate('afk.errors.failed', interaction.guild.id, interaction.user.id, { error: error.message });
         await interaction.reply({
-            content: `❌ Failed to open AFK form: ${error.message}`,
+            content: errorMsg,
             flags: 64
         });
     }
@@ -275,7 +290,7 @@ export async function handleAFKModal(interaction) {
         const member = interaction.member;
 
         if (!(await hasPermission(member, 'afk'))) {
-            const errorMessage = await getPermissionDeniedMessage(interaction.guild, 'afk');
+            const errorMessage = await getPermissionDeniedMessage(interaction.guild, 'afk', interaction.user.id);
             await interaction.editReply({
                 content: errorMessage
             }).catch(() => null);
@@ -289,18 +304,27 @@ export async function handleAFKModal(interaction) {
 
         await setAFK(member, afkMessage, shouldDeafen);
 
-        const voiceInfo = member.voice.channel
-            ? (shouldDeafen ? 'You will be muted and deafened in voice.' : 'You will be muted in voice (not deafened).')
-            : '';
+        let voiceInfo = '';
+        if (member.voice.channel) {
+            if (shouldDeafen) {
+                voiceInfo = await translate('afk.set.voiceMutedDeafened', interaction.guild.id, interaction.user.id);
+            } else {
+                voiceInfo = await translate('afk.set.voiceMutedOnly', interaction.guild.id, interaction.user.id);
+            }
+        }
 
         const embedConfig = await getEmbedConfig(interaction.guild.id);
+        const setTitle = await translate('afk.set.title', interaction.guild.id, interaction.user.id);
+        const setDescription = await translate('afk.set.description', interaction.guild.id, interaction.user.id, { message: afkMessage, voiceInfo });
+        const howToRemoveName = await translate('afk.set.howToRemove', interaction.guild.id, interaction.user.id);
+        const howToRemoveValue = await translate('afk.set.howToRemoveValue', interaction.guild.id, interaction.user.id);
         const embed = new EmbedBuilder()
             .setColor(embedConfig.COLOR)
-            .setTitle('✅ AFK Status Set!')
-            .setDescription(`You're now marked as AFK: **${afkMessage}**${voiceInfo ? `\n\n${voiceInfo}` : ''}`)
+            .setTitle(setTitle)
+            .setDescription(setDescription)
             .addFields({
-                name: '💡 How to remove',
-                value: '• Send any message (auto-removes AFK and unmutes)\n• Click AFK button and remove (will unmute if bot muted you)\n• Removing AFK automatically unmutes you if you were muted by the bot',
+                name: howToRemoveName,
+                value: howToRemoveValue,
                 inline: false
             })
             .setTimestamp()
@@ -314,8 +338,9 @@ export async function handleAFKModal(interaction) {
 
     } catch (error) {
         await logger.log(`❌ Error setting AFK: ${error.message}`);
+        const errorMsg = await translate('afk.errors.setFailed', interaction.guild.id, interaction.user.id, { error: error.message });
         await interaction.editReply({
-            content: `❌ **Failed to Set AFK**\n\nError: ${error.message}\n\nPlease try again later.`
+            content: errorMsg
         });
     }
 }
@@ -325,7 +350,7 @@ export async function handleRemoveAFKButton(interaction) {
         const member = interaction.member;
 
         if (!(await hasPermission(member, 'afk'))) {
-            const errorMessage = await getPermissionDeniedMessage(interaction.guild, 'afk');
+            const errorMessage = await getPermissionDeniedMessage(interaction.guild, 'afk', interaction.user.id);
             await interaction.update({
                 content: errorMessage,
                 components: [],
@@ -341,18 +366,21 @@ export async function handleRemoveAFKButton(interaction) {
         const wasAFK = await removeAFK(member, 'Manually removed');
 
         if (!wasAFK) {
+            const errorMsg = await translate('afk.errors.notAFK', interaction.guild.id, interaction.user.id);
             await interaction.reply({
-                content: '❌ You are not currently AFK.',
+                content: errorMsg,
                 flags: 64
             });
             return;
         }
 
         const embedConfig = await getEmbedConfig(interaction.guild.id);
+        const removedTitle = await translate('afk.removed.title', interaction.guild.id, interaction.user.id);
+        const removedDescription = await translate('afk.removed.description', interaction.guild.id, interaction.user.id);
         const embed = new EmbedBuilder()
             .setColor(embedConfig.COLOR)
-            .setTitle('✅ AFK Status Removed!')
-            .setDescription('Welcome back! Your AFK status has been removed.')
+            .setTitle(removedTitle)
+            .setDescription(removedDescription)
             .setTimestamp()
             .setFooter({ text: embedConfig.FOOTER });
 
@@ -365,8 +393,9 @@ export async function handleRemoveAFKButton(interaction) {
 
     } catch (error) {
         await logger.log(`❌ Error removing AFK: ${error.message}`);
+        const errorMsg = await translate('afk.errors.removeFailed', interaction.guild.id, interaction.user.id, { error: error.message });
         await interaction.reply({
-            content: `❌ **Failed to Remove AFK**\n\nError: ${error.message}\n\nPlease try again later.`,
+            content: errorMsg,
             flags: 64
         });
     }
@@ -413,7 +442,8 @@ export function init(client) {
                 await removeAFK(member, 'Sent a message');
 
                 try {
-                    const welcomeMsg = await message.channel.send(`✅ Welcome back, ${member}! Your AFK status has been removed.`);
+                    const welcomeMsgText = await translate('afk.messages.welcomeBack', member.guild.id, member.id, { member: member.toString() });
+                    const welcomeMsg = await message.channel.send(welcomeMsgText);
                     setTimeout(() => welcomeMsg.delete().catch(() => { }), 5000);
                 } catch (err) {
 
@@ -431,7 +461,7 @@ export function init(client) {
                     if (mentionedAFKData) {
                         try {
 
-                            const duration = Math.floor((getNowInTimezone().getTime() - mentionedAFKData.timestamp) / 1000);
+                            const duration = Math.floor((Date.now() - mentionedAFKData.timestamp) / 1000);
                             const minutes = Math.floor(duration / 60);
                             const hours = Math.floor(minutes / 60);
 
@@ -444,18 +474,24 @@ export function init(client) {
                                 durationText = `${duration}s`;
                             }
 
-                            let afkMessage = `⏸️ ${mentionedMember} is currently AFK`;
+                            let afkMessage;
                             if (mentionedAFKData.message && mentionedAFKData.message !== 'Away') {
-                                afkMessage += `: **${mentionedAFKData.message}**`;
+                                afkMessage = `⏸️ ${mentionedMember.toString()} is currently AFK: **${mentionedAFKData.message}** (for ${durationText})`;
+                            } else {
+                                afkMessage = `⏸️ ${mentionedMember.toString()} is currently AFK (for ${durationText})`;
                             }
-                            afkMessage += ` (for ${durationText})`;
 
                             const afkNotice = await message.reply(afkMessage);
                             setTimeout(() => afkNotice.delete().catch(() => { }), 10000);
 
                             try {
-                                const dmMessage = `📬 You were mentioned by ${senderDisplayName} in **${message.guild.name}** (#${message.channel.name})\n\n**Message:** ${message.content.substring(0, 200)}${message.content.length > 200 ? '...' : ''}`;
-                                await mentionedMember.send(dmMessage);
+                                const dmMessageText = await translate('afk.messages.dmMentioned', member.guild.id, mentionedMember.id, { 
+                                    sender: senderDisplayName, 
+                                    server: message.guild.name, 
+                                    channel: message.channel.name,
+                                    message: message.content.substring(0, 200) + (message.content.length > 200 ? '...' : '')
+                                });
+                                await mentionedMember.send(dmMessageText);
                             } catch (dmErr) {
                                 await logger.log(`⚠️ Could not DM ${mentionedMember.id} about mention: ${dmErr.message}`);
                             }

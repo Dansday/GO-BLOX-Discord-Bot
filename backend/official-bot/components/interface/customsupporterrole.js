@@ -3,6 +3,7 @@ import { getEmbedConfig, CUSTOM_SUPPORTER_ROLE, getBotConfig } from '../../../co
 import logger from '../../../logger.js';
 import { hasPermission, getPermissionDeniedMessage } from '../permissions.js';
 import db from '../../../../database/database.js';
+import { translate } from '../../../i18n.js';
 
 
 const supporterRoles = new Map();
@@ -166,7 +167,7 @@ export async function handleCustomSupporterRoleButton(interaction) {
         const member = interaction.member;
 
         if (!(await hasPermission(member, 'custom_supporter_role'))) {
-            const errorMessage = await getPermissionDeniedMessage(interaction.guild, 'custom_supporter_role');
+            const errorMessage = await getPermissionDeniedMessage(interaction.guild, 'custom_supporter_role', interaction.user.id);
             await interaction.reply({
                 content: errorMessage,
                 flags: 64
@@ -177,64 +178,80 @@ export async function handleCustomSupporterRoleButton(interaction) {
         const { has, role: existingRole } = await hasSupporterRole(member);
 
         if (has && existingRole) {
+            const editLabel = await translate('customSupporterRole.buttons.edit', interaction.guild.id, interaction.user.id);
+            const deleteLabel = await translate('customSupporterRole.buttons.delete', interaction.guild.id, interaction.user.id);
             const editButton = new ButtonBuilder()
                 .setCustomId('custom_supporter_role_edit')
-                .setLabel('✏️ Edit Role')
+                .setLabel(editLabel)
                 .setStyle(ButtonStyle.Primary);
 
             const deleteButton = new ButtonBuilder()
                 .setCustomId('custom_supporter_role_delete')
-                .setLabel('🗑️ Delete Role')
+                .setLabel(deleteLabel)
                 .setStyle(ButtonStyle.Danger);
 
-            const buttonRow = new ActionRowBuilder().addComponents(editButton, deleteButton);
+            const menuButton = new ButtonBuilder()
+                .setCustomId('bot_menu')
+                .setLabel('📋 Menu')
+                .setStyle(ButtonStyle.Secondary);
+
+            const buttonRow = new ActionRowBuilder().addComponents(editButton, deleteButton, menuButton);
 
             const embedConfig = await getEmbedConfig(interaction.guild.id);
+            const title = await translate('customSupporterRole.existing.title', interaction.guild.id, interaction.user.id);
+            const description = await translate('customSupporterRole.existing.description', interaction.guild.id, interaction.user.id, { roleName: existingRole.name });
+            const currentRoleLabel = await translate('customSupporterRole.existing.currentRole', interaction.guild.id, interaction.user.id);
             const embed = new EmbedBuilder()
                 .setColor(embedConfig.COLOR)
-                .setTitle('💎 Custom Supporter Role')
-                .setDescription(`You already have a custom role: **${existingRole.name}**\n\nChoose an action:`)
+                .setTitle(title)
+                .setDescription(description)
                 .addFields({
-                    name: '📋 Current Role',
+                    name: currentRoleLabel,
                     value: `<@&${existingRole.id}>`,
                     inline: false
                 })
                 .setTimestamp();
 
-            await interaction.reply({
+            await interaction.update({
                 embeds: [embed],
-                components: [buttonRow],
-                flags: 64
+                components: [buttonRow]
             });
             await logger.log(`💎 Supporter role options shown to ${member.user.tag} (${member.user.id})`);
             return;
         }
 
+        const modalTitle = await translate('customSupporterRole.create.title', interaction.guild.id, interaction.user.id);
         const modal = new ModalBuilder()
             .setCustomId('custom_supporter_role_create')
-            .setTitle('💎 Create Custom Supporter Role');
+            .setTitle(modalTitle);
 
+        const nameLabel = await translate('customSupporterRole.create.nameLabel', interaction.guild.id, interaction.user.id);
+        const namePlaceholder = await translate('customSupporterRole.create.namePlaceholder', interaction.guild.id, interaction.user.id);
         const nameInput = new TextInputBuilder()
             .setCustomId('role_name')
-            .setLabel('Role Name')
+            .setLabel(nameLabel)
             .setStyle(TextInputStyle.Short)
-            .setPlaceholder('Enter your custom role name...')
+            .setPlaceholder(namePlaceholder)
             .setRequired(true)
             .setMaxLength(100);
 
+        const colorLabel = await translate('customSupporterRole.create.colorLabel', interaction.guild.id, interaction.user.id);
+        const colorPlaceholder = await translate('customSupporterRole.create.colorPlaceholder', interaction.guild.id, interaction.user.id);
         const colorInput = new TextInputBuilder()
             .setCustomId('role_color')
-            .setLabel('Role Color (Hex/Decimal/Name)')
+            .setLabel(colorLabel)
             .setStyle(TextInputStyle.Short)
-            .setPlaceholder('#FF5733 or 16729395 or red (optional)')
+            .setPlaceholder(colorPlaceholder)
             .setRequired(false)
             .setMaxLength(20);
 
+        const iconLabel = await translate('customSupporterRole.create.iconLabel', interaction.guild.id, interaction.user.id);
+        const iconPlaceholder = await translate('customSupporterRole.create.iconPlaceholder', interaction.guild.id, interaction.user.id);
         const iconInput = new TextInputBuilder()
             .setCustomId('role_icon')
-            .setLabel('Role Icon (Emoji or Image URL)')
+            .setLabel(iconLabel)
             .setStyle(TextInputStyle.Short)
-            .setPlaceholder('🔥 or https://example.com/icon.png (optional)')
+            .setPlaceholder(iconPlaceholder)
             .setRequired(false)
             .setMaxLength(500);
 
@@ -249,8 +266,9 @@ export async function handleCustomSupporterRoleButton(interaction) {
 
     } catch (error) {
         await logger.log(`❌ Error showing supporter role modal: ${error.message}`);
+        const errorMsg = await translate('customSupporterRole.errors.failed', interaction.guild.id, interaction.user.id, { error: error.message });
         await interaction.reply({
-            content: `❌ Failed to open role creation form: ${error.message}`,
+            content: errorMsg,
             flags: 64
         });
     }
@@ -261,7 +279,7 @@ export async function handleEditCustomSupporterRole(interaction) {
         const member = interaction.member;
 
         if (!(await hasPermission(member, 'custom_supporter_role'))) {
-            const errorMessage = await getPermissionDeniedMessage(interaction.guild, 'custom_supporter_role');
+            const errorMessage = await getPermissionDeniedMessage(interaction.guild, 'custom_supporter_role', interaction.user.id);
             await interaction.update({
                 content: errorMessage,
                 components: [],
@@ -277,16 +295,18 @@ export async function handleEditCustomSupporterRole(interaction) {
         const { has, role: existingRole } = await hasSupporterRole(member);
 
         if (!has || !existingRole) {
+            const errorMsg = await translate('customSupporterRole.errors.noRole', interaction.guild.id, interaction.user.id);
             await interaction.reply({
-                content: '❌ You don\'t have a custom role to edit.',
+                content: errorMsg,
                 flags: 64
             });
             return;
         }
 
+        const editModalTitle = await translate('customSupporterRole.create.editTitle', interaction.guild.id, interaction.user.id);
         const modal = new ModalBuilder()
             .setCustomId('custom_supporter_role_create')
-            .setTitle('💎 Edit Custom Supporter Role');
+            .setTitle(editModalTitle);
 
         const currentName = existingRole.name;
         const currentColor = existingRole.hexColor;
@@ -337,8 +357,9 @@ export async function handleEditCustomSupporterRole(interaction) {
 
     } catch (error) {
         await logger.log(`❌ Error showing edit modal: ${error.message}`);
+        const errorMsg = await translate('customSupporterRole.errors.editFailed', interaction.guild.id, interaction.user.id, { error: error.message });
         await interaction.reply({
-            content: `❌ Failed to open edit form: ${error.message}`,
+            content: errorMsg,
             flags: 64
         });
     }
@@ -351,7 +372,7 @@ export async function handleDeleteCustomSupporterRole(interaction) {
         const member = interaction.member;
 
         if (!(await hasPermission(member, 'custom_supporter_role'))) {
-            const errorMessage = await getPermissionDeniedMessage(interaction.guild, 'custom_supporter_role');
+            const errorMessage = await getPermissionDeniedMessage(interaction.guild, 'custom_supporter_role', interaction.user.id);
             await interaction.editReply({
                 content: errorMessage
             }).catch(() => null);
@@ -361,8 +382,9 @@ export async function handleDeleteCustomSupporterRole(interaction) {
         const { has, role: existingRole } = await hasSupporterRole(member);
 
         if (!has || !existingRole) {
+            const errorMsg = await translate('customSupporterRole.errors.noRoleDelete', interaction.guild.id, interaction.user.id);
             await interaction.editReply({
-                content: '❌ You don\'t have a custom role to delete.'
+                content: errorMsg
             });
             return;
         }
@@ -377,23 +399,26 @@ export async function handleDeleteCustomSupporterRole(interaction) {
         supporterRoles.delete(member.id);
 
         const embedConfig = await getEmbedConfig(interaction.guild.id);
+        const deletedTitle = await translate('customSupporterRole.deleted.title', interaction.guild.id, interaction.user.id);
+        const deletedDescription = await translate('customSupporterRole.deleted.description', interaction.guild.id, interaction.user.id, { roleName });
         const successEmbed = new EmbedBuilder()
             .setColor(embedConfig.COLOR)
-            .setTitle('✅ Custom Supporter Role Deleted')
-            .setDescription(`Your custom role **${roleName}** has been deleted.`)
+            .setTitle(deletedTitle)
+            .setDescription(deletedDescription)
             .setTimestamp()
             .setFooter({ text: embedConfig.FOOTER });
 
         await interaction.editReply({
-            embeds: [successEmbed]
+            embeds: [successEmbed],
         });
 
         await logger.log(`🗑️ Deleted custom supporter role "${roleName}" (${roleId}) for ${member.user.tag} (${member.user.id})`);
 
     } catch (error) {
         await logger.log(`❌ Error deleting supporter role: ${error.message}`);
+        const errorMsg = await translate('customSupporterRole.errors.deleteFailed', interaction.guild.id, interaction.user.id, { error: error.message });
         await interaction.editReply({
-            content: `❌ Failed to delete role: ${error.message}`
+            content: errorMsg
         });
     }
 }
@@ -406,7 +431,7 @@ export async function handleCustomSupporterRoleModal(interaction) {
         const guild = interaction.guild;
 
         if (!(await hasPermission(member, 'custom_supporter_role'))) {
-            const errorMessage = await getPermissionDeniedMessage(interaction.guild, 'custom_supporter_role');
+            const errorMessage = await getPermissionDeniedMessage(interaction.guild, 'custom_supporter_role', interaction.user.id);
             await interaction.editReply({
                 content: errorMessage
             }).catch(() => null);
@@ -424,8 +449,9 @@ export async function handleCustomSupporterRoleModal(interaction) {
                 const iconInput = interaction.fields.getTextInputValue('role_icon')?.trim() || '';
 
                 if (!roleName || roleName.length < 1 || roleName.length > 100) {
+                    const errorMsg = await translate('customSupporterRole.errors.invalidName', interaction.guild.id, interaction.user.id);
                     await interaction.editReply({
-                        content: '❌ **Invalid Role Name**\n\nRole name must be between 1 and 100 characters.'
+                        content: errorMsg
                     });
                     return;
                 }
@@ -500,33 +526,47 @@ export async function handleCustomSupporterRoleModal(interaction) {
                     }
                 }
 
-                let iconStatusText = 'Unchanged';
-                if (iconStatus === 'updated') iconStatusText = 'Updated';
-                else if (iconStatus === 'removed') iconStatusText = 'Removed';
-                else if (iconStatus === 'failed') iconStatusText = `Failed (role updated without icon)`;
-                else if (iconStatus === 'invalid') iconStatusText = 'Invalid format (role updated without icon)';
+                let iconStatusKey = 'customSupporterRole.updated.iconStatusUnchanged';
+                if (iconStatus === 'updated') iconStatusKey = 'customSupporterRole.updated.iconStatusUpdated';
+                else if (iconStatus === 'removed') iconStatusKey = 'customSupporterRole.updated.iconStatusRemoved';
+                else if (iconStatus === 'failed') iconStatusKey = 'customSupporterRole.updated.iconStatusFailed';
+                else if (iconStatus === 'invalid') iconStatusKey = 'customSupporterRole.updated.iconStatusInvalid';
+                const iconStatusText = await translate(iconStatusKey, interaction.guild.id, interaction.user.id);
 
-                const embedConfig = await getEmbedConfig(interaction.guild.id);
-                let updateDescription = `Your custom role **${roleName}** has been updated!`;
+                let iconWarningText = '';
                 if (iconError) {
                     if (iconError.includes('boost')) {
-                        updateDescription += '\n\n⚠️ **Custom Icon Not Available:** This server needs Level 2 Server Boost to use custom role icons (images). You can use an emoji instead!';
+                        iconWarningText = await translate('customSupporterRole.updated.iconWarningBoost', interaction.guild.id, interaction.user.id);
                     } else {
-                        updateDescription += '\n\n⚠️ **Note:** Icon could not be set, but role was updated successfully.';
+                        iconWarningText = await translate('customSupporterRole.updated.iconWarningGeneric', interaction.guild.id, interaction.user.id);
                     }
                 }
+
+                const embedConfig = await getEmbedConfig(interaction.guild.id);
+                const updateDescription = await translate('customSupporterRole.updated.description', interaction.guild.id, interaction.user.id, {
+                    roleName,
+                    iconWarning: iconWarningText
+                });
+                const updatedTitle = await translate('customSupporterRole.updated.title', interaction.guild.id, interaction.user.id);
+                const roleDetailsLabel = await translate('customSupporterRole.updated.roleDetails', interaction.guild.id, interaction.user.id);
+                const roleDetailsValue = await translate('customSupporterRole.updated.roleDetailsValue', interaction.guild.id, interaction.user.id, {
+                    name: roleName,
+                    color: colorInput || 'Unchanged',
+                    icon: iconStatusText
+                });
+                const roleLabel = await translate('customSupporterRole.updated.role', interaction.guild.id, interaction.user.id);
                 const successEmbed = new EmbedBuilder()
                     .setColor(embedConfig.COLOR)
-                    .setTitle('✅ Custom Supporter Role Updated!')
+                    .setTitle(updatedTitle)
                     .setDescription(updateDescription)
                     .addFields([
                         {
-                            name: '🎨 Role Details',
-                            value: `**Name:** ${roleName}\n**Color:** ${colorInput || 'Unchanged'}\n**Icon:** ${iconStatusText}`,
+                            name: roleDetailsLabel,
+                            value: roleDetailsValue,
                             inline: false
                         },
                         {
-                            name: '💎 Role',
+                            name: roleLabel,
                             value: `<@&${existingRole.id}>`,
                             inline: true
                         }
@@ -546,8 +586,9 @@ export async function handleCustomSupporterRoleModal(interaction) {
                 await logger.log(`❌ Stack: ${err.stack}`);
 
                 try {
+                    const errorMsg = await translate('customSupporterRole.errors.updateFailed', interaction.guild.id, interaction.user.id, { error: err.message });
                     await interaction.editReply({
-                        content: `❌ **Failed to Update Role**\n\nError: ${err.message}\n\nPlease make sure:\n- The bot has permission to manage roles\n- Role constraints are valid`
+                        content: errorMsg
                     });
                 } catch (editErr) {
 
@@ -561,8 +602,9 @@ export async function handleCustomSupporterRoleModal(interaction) {
         const iconInput = interaction.fields.getTextInputValue('role_icon')?.trim() || '';
 
         if (!roleName || roleName.length < 1 || roleName.length > 100) {
+            const errorMsg = await translate('customSupporterRole.errors.invalidName', interaction.guild.id, interaction.user.id);
             await interaction.editReply({
-                content: '❌ **Invalid Role Name**\n\nRole name must be between 1 and 100 characters.'
+                content: errorMsg
             });
             return;
         }
@@ -584,10 +626,9 @@ export async function handleCustomSupporterRoleModal(interaction) {
                 const premiumTier = guild.premiumTier;
                 if (premiumTier < 2) {
 
+                    const errorMsg = await translate('customSupporterRole.errors.boostRequired', interaction.guild.id, interaction.user.id);
                     await interaction.editReply({
-                        content: '❌ **Custom Icon Not Available**\n\n' +
-                            'This server needs **Level 2 Server Boost** to use custom role icons (images).\n\n' +
-                            '💡 **Tip:** You can use an **emoji** instead (like 🔥, ⭐, or any custom emoji) which doesn\'t require server boosts.'
+                        content: errorMsg
                     });
                     return;
                 }
@@ -656,32 +697,47 @@ export async function handleCustomSupporterRoleModal(interaction) {
 
         supporterRoles.set(member.id, newRole.id);
 
-        let iconStatusText = 'None';
-        if (iconStatus === 'success') iconStatusText = 'Set';
-        else if (iconStatus === 'failed') iconStatusText = 'Failed (role created without icon)';
-        else if (iconStatus === 'invalid') iconStatusText = 'Invalid format (role created without icon)';
+        let iconStatusKey = 'customSupporterRole.created.iconStatusNone';
+        if (iconStatus === 'success') iconStatusKey = 'customSupporterRole.created.iconStatusSet';
+        else if (iconStatus === 'failed') iconStatusKey = 'customSupporterRole.created.iconStatusFailed';
+        else if (iconStatus === 'invalid') iconStatusKey = 'customSupporterRole.created.iconStatusInvalid';
+        const iconStatusText = await translate(iconStatusKey, interaction.guild.id, interaction.user.id);
 
-        const embedConfigForCreate = await getEmbedConfig(interaction.guild.id);
-        let description = `Your custom role **${roleName}** has been created and assigned to you!`;
+        let iconWarningText = '';
         if (iconError) {
             if (iconError.includes('boost')) {
-                description += '\n\n⚠️ **Custom Icon Not Available:** This server needs Level 2 Server Boost to use custom role icons (images). You can use an emoji instead!';
+                iconWarningText = await translate('customSupporterRole.created.iconWarningBoost', interaction.guild.id, interaction.user.id);
             } else {
-                description += '\n\n⚠️ **Note:** Icon could not be set, but role was created successfully.';
+                iconWarningText = await translate('customSupporterRole.created.iconWarningGeneric', interaction.guild.id, interaction.user.id);
             }
         }
+
+        const embedConfigForCreate = await getEmbedConfig(interaction.guild.id);
+        const successTitle = await translate('customSupporterRole.created.title', interaction.guild.id, interaction.user.id);
+        const description = await translate('customSupporterRole.created.description', interaction.guild.id, interaction.user.id, {
+            roleName,
+            iconWarning: iconWarningText
+        });
+        const roleDetailsLabel = await translate('customSupporterRole.created.roleDetails', interaction.guild.id, interaction.user.id);
+        const roleDetailsValue = await translate('customSupporterRole.created.roleDetailsValue', interaction.guild.id, interaction.user.id, {
+            name: roleName,
+            color: colorInput || 'Default',
+            icon: iconStatusText
+        });
+        const roleLabel = await translate('customSupporterRole.created.role', interaction.guild.id, interaction.user.id);
+
         const successEmbed = new EmbedBuilder()
             .setColor(embedConfigForCreate.COLOR)
-            .setTitle('✅ Custom Supporter Role Created!')
+            .setTitle(successTitle)
             .setDescription(description)
             .addFields([
                 {
-                    name: '🎨 Role Details',
-                    value: `**Name:** ${roleName}\n**Color:** ${colorInput || 'Default'}\n**Icon:** ${iconStatusText}`,
+                    name: roleDetailsLabel,
+                    value: roleDetailsValue,
                     inline: false
                 },
                 {
-                    name: '💎 Role',
+                    name: roleLabel,
                     value: `<@&${newRole.id}>`,
                     inline: true
                 }
