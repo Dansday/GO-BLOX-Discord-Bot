@@ -1,4 +1,5 @@
-import { STAFF_RATING } from '../../config.js';
+import { EmbedBuilder } from 'discord.js';
+import { STAFF_RATING, getEmbedConfig } from '../../config.js';
 import logger from '../../logger.js';
 import db from '../../../database/database.js';
 
@@ -35,6 +36,47 @@ async function updateAllRatingRolePositions(guild, serverId) {
             await role.setPosition(targetPosition).catch(() => null);
         }
     }
+}
+
+function truncateFeedback(text) {
+    if (!text) {
+        return '—';
+    }
+    if (text.length > 1024) {
+        return `${text.slice(0, 1021)}...`;
+    }
+    return text;
+}
+
+function buildRatingChannelEmbed(staffDiscordId, ratingValue, totalReports, embedConfig, channelContext = {}) {
+    const categoryValue = channelContext.category ?? '—';
+    const feedbackValue = truncateFeedback(channelContext.feedback);
+
+    const embed = new EmbedBuilder()
+        .setColor(embedConfig?.COLOR)
+        .setTitle('⭐ Staff Rating Update')
+        .setDescription(`<@${staffDiscordId}> received a new rating.`)
+        .addFields(
+            {
+                name: 'Rating',
+                value: `**${ratingValue.toFixed(1)}/5.0** (${totalReports} reports)`
+            },
+            {
+                name: 'Category',
+                value: categoryValue
+            },
+            {
+                name: 'Feedback',
+                value: feedbackValue
+            }
+        )
+        .setTimestamp();
+
+    if (embedConfig?.FOOTER) {
+        embed.setFooter({ text: embedConfig.FOOTER });
+    }
+
+    return embed;
 }
 
 async function ensureRatingRole(guild, serverId, member, ratingValue, ratingRecord) {
@@ -110,15 +152,19 @@ export async function updateStaffRatingRole(guild, serverId, staffMemberId, staf
         if (!member.roles.cache.has(role.id)) {
             await member.roles.add(role.id, 'Staff rating updated');
         }
-        if (!options.skipChannelMessage) {
-            const ratingChannelId = await STAFF_RATING.getRatingChannel(guild.id);
-            if (ratingChannelId) {
-                const channel = guild.channels.cache.get(ratingChannelId) || await guild.channels.fetch(ratingChannelId).catch(() => null);
-                if (channel && channel.isTextBased()) {
-                    await channel.send({
-                        content: `⭐ **Staff Rating Updated**\n<@${staffDiscordId}> now has a **${clamped.toFixed(1)}/5.0** rating (${totalReports} reports)`
-                    }).catch(() => null);
-                }
+        let embedConfig = null;
+        try {
+            embedConfig = await getEmbedConfig(guild.id);
+        } catch (error) {
+            await logger.log(`⚠️ Failed to load embed config for rating channel: ${error.message}`);
+        }
+
+        const ratingChannelId = await STAFF_RATING.getRatingChannel(guild.id);
+        if (ratingChannelId) {
+            const channel = guild.channels.cache.get(ratingChannelId) || await guild.channels.fetch(ratingChannelId).catch(() => null);
+            if (channel && channel.isTextBased()) {
+                const ratingEmbed = buildRatingChannelEmbed(staffDiscordId, clamped, totalReports, embedConfig, options.channelContext);
+                await channel.send({ embeds: [ratingEmbed] }).catch(() => null);
             }
         }
         await member.send({

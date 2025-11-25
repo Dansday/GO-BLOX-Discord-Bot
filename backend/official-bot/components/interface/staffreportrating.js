@@ -9,12 +9,12 @@ import { parseMySQLDateTime } from '../../../utils.js';
 
 const VALID_CATEGORIES = ['excellent', 'helpful', 'slow_response', 'unhelpful', 'rude', 'abuse'];
 const CATEGORY_LABELS_EN = {
-    excellent: '⭐ Excellent Service',
     helpful: '👍 Helpful',
-    slow_response: '⏰ Slow Response',
     unhelpful: '👎 Unhelpful',
-    rude: '😠 Rude Behavior',
-    abuse: '⚠️ Abuse of Power'
+    abuse: '⚠️ Abuse of Power',
+    slow_response: '⏰ Slow Response',
+    excellent: '⭐ Excellent Service',
+    rude: '😠 Rude Behavior'
 };
 
 async function getCategoryLabel(guildId, userId, category) {
@@ -22,8 +22,8 @@ async function getCategoryLabel(guildId, userId, category) {
     return await translate(key, guildId, userId);
 }
 
-function getPublicCategoryLabel(category) {
-    return CATEGORY_LABELS_EN[category] || category;
+function getCategoryLabelEnglish(category) {
+    return CATEGORY_LABELS_EN[category] ?? category;
 }
 
 async function buildStaffReportComponents(guild, userId, staffUserId, selectedRating, selectedCategory) {
@@ -38,7 +38,7 @@ async function buildStaffReportComponents(guild, userId, staffUserId, selectedRa
         }))
     );
 
-    const ratingOptions = ['1', '2', '3', '4', '5'].map(value => ({
+    const ratingOptions = ['5', '4', '3', '2', '1'].map(value => ({
         label: `⭐ ${value}`,
         value,
         default: selectedRating === value
@@ -126,7 +126,7 @@ async function buildStaffOptions(interaction) {
 
         for (const roleId of staffRoleIds) {
             const role = guild.roles.cache.get(roleId);
-            if (!role) continue;
+        if (!role) continue;
             role.members.forEach(member => {
                 if (!member.user.bot) {
                     staffMembers.set(member.id, member);
@@ -496,9 +496,9 @@ export async function handleStaffReportContinue(interaction) {
         await interaction.reply({
             content: errorMsg,
             flags: 64
-        }).catch(() => null);
-    }
-}
+                    }).catch(() => null);
+                }
+            }
 
 export async function handleStaffReportModal(interaction) {
     try {
@@ -639,7 +639,7 @@ export async function handleStaffReportModal(interaction) {
         });
 
         const reportChannelId = await STAFF_RATING.getReportChannel(guild.id);
-        const categoryLabel = getPublicCategoryLabel(category);
+        const categoryLabel = await getCategoryLabel(interaction.guild.id, interaction.user.id, category);
         if (reportChannelId) {
             const reportChannel = guild.channels.cache.get(reportChannelId) || await guild.channels.fetch(reportChannelId).catch(() => null);
             if (reportChannel && reportChannel.isTextBased()) {
@@ -675,7 +675,7 @@ export async function handleStaffReportModal(interaction) {
                 await reportChannel.send({
                     embeds: [logEmbed],
                     components: [new ActionRowBuilder().addComponents(approveButton, rejectButton)]
-                }).catch(() => null);
+        }).catch(() => null);
             }
         }
 
@@ -691,7 +691,7 @@ export async function handleStaffReportModal(interaction) {
     }
 }
 
-async function notifyReporterOfDecision(guild, report, translationKey) {
+async function notifyReporterOfDecision(guild, report, translationKey, categoryLabel) {
     if (!report?.reporter_discord_id) {
         return;
     }
@@ -699,7 +699,6 @@ async function notifyReporterOfDecision(guild, report, translationKey) {
     if (!reporterUser) {
         return;
     }
-    const categoryLabel = await getCategoryLabel(guild.id, reporterUser.id, report.category);
     const content = await translate(translationKey, guild.id, reporterUser.id, {
         staff: `<@${report.staff_discord_id}>`,
         rating: report.rating,
@@ -710,52 +709,6 @@ async function notifyReporterOfDecision(guild, report, translationKey) {
     await reporterUser.send({
         content
     }).catch(() => null);
-}
-
-async function sendRatingChannelLog(guild, embedConfig, actorUserId, report, aggregate) {
-    const ratingChannelId = await STAFF_RATING.getRatingChannel(guild.id);
-    if (!ratingChannelId) {
-        return;
-    }
-    const channel = guild.channels.cache.get(ratingChannelId) || await guild.channels.fetch(ratingChannelId).catch(() => null);
-    if (!channel || !channel.isTextBased()) {
-        return;
-    }
-    const ratingValue = Number(aggregate?.average_rating) || report.rating;
-    const totalReports = Number(aggregate?.total_reports) || 1;
-    const title = '⭐ Staff Rating Update';
-    const description = `<@${report.staff_discord_id}> received a new rating.`;
-    const categoryLabel = getPublicCategoryLabel(report.category);
-
-    const ratingEmbed = new EmbedBuilder()
-        .setColor(embedConfig.COLOR)
-        .setTitle(title)
-        .setDescription(description)
-        .addFields(
-            {
-                name: 'Rating',
-                value: `**${ratingValue.toFixed(1)}/5.0** (${totalReports} reports)`
-            },
-            {
-                name: 'Category',
-                value: categoryLabel
-            },
-            {
-                name: 'Feedback',
-                value: truncateDescription(report.description)
-            }
-        )
-        .setFooter({ text: embedConfig.FOOTER })
-        .setTimestamp();
-
-    try {
-        await channel.send({
-            content: `⭐ **Staff Rating Updated**\n<@${report.staff_discord_id}> now has a **${ratingValue.toFixed(1)}/5.0** rating (${totalReports} reports).`,
-            embeds: [ratingEmbed]
-        });
-    } catch (error) {
-        await logger.log(`⚠️ Failed to send staff rating update: ${error.message}`);
-    }
 }
 
 async function handleStaffReportDecision(interaction, decision) {
@@ -806,7 +759,8 @@ async function handleStaffReportDecision(interaction, decision) {
         }
 
         const embedConfig = await getEmbedConfig(guild.id);
-        const categoryLabel = getPublicCategoryLabel(report.category);
+        const categoryLabel = await getCategoryLabel(guild.id, interaction.user.id, report.category);
+        const categoryLabelEnglish = getCategoryLabelEnglish(report.category);
         const reporterDisplay = report.is_anonymous ? 'Anonymous' : `<@${report.reporter_discord_id}>`;
 
         let statusText = 'Pending admin approval';
@@ -821,16 +775,20 @@ async function handleStaffReportDecision(interaction, decision) {
             await updateStaffRatingRole(guild, server.id, report.reported_staff_id, report.staff_discord_id, {
                 rating: aggregate.average_rating || report.rating,
                 total_reports: aggregate.total_reports
-            }, { skipChannelMessage: true });
-            await sendRatingChannelLog(guild, embedConfig, interaction.user.id, report, aggregate);
-            await notifyReporterOfDecision(guild, report, 'staffReport.dm.approved');
+            }, {
+                channelContext: {
+                    category: categoryLabelEnglish,
+                    feedback: report.description
+                }
+            });
+            await notifyReporterOfDecision(guild, report, 'staffReport.dm.approved', categoryLabel);
             statusText = `Approved by <@${interaction.user.id}>`;
             title = '✅ Staff Report Approved';
             replyMessage = `✅ Report #${report.id} approved.`;
             color = 0x22c55e;
         } else {
             await db.updateStaffReportStatus(report.id, 'rejected');
-            await notifyReporterOfDecision(guild, report, 'staffReport.dm.rejected');
+            await notifyReporterOfDecision(guild, report, 'staffReport.dm.rejected', categoryLabel);
             statusText = `Rejected by <@${interaction.user.id}>`;
             title = '❌ Staff Report Rejected';
             replyMessage = `❌ Report #${report.id} rejected.`;

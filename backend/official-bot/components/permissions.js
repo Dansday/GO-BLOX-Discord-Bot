@@ -70,6 +70,16 @@ export async function getRequiredRolesForAction(guild, action) {
         const perms = await getGuildPermissions(guild.id);
         const roleNames = [];
 
+        if (action === 'setup') {
+            if (perms.ADMIN_ROLES && perms.ADMIN_ROLES.length > 0) {
+                perms.ADMIN_ROLES.forEach(roleId => {
+                    const role = guild.roles.cache.get(roleId);
+                    if (role) roleNames.push(role.name);
+                });
+            }
+            return roleNames.length > 0 ? roleNames : ['Admin'];
+        }
+
         if (action === 'send_message') {
             if (perms.STAFF_ROLES && perms.STAFF_ROLES.length > 0) {
                 perms.STAFF_ROLES.forEach(roleId => {
@@ -157,7 +167,8 @@ export async function getPermissionDeniedMessage(guild, action, userId = null) {
         'giveaway': 'Giveaway',
         'settings': 'Settings',
         'staff_report': 'Staff Report',
-        'menu': 'Menu'
+        'menu': 'Menu',
+        'setup': 'Setup'
     };
 
     const actionName = actionNames[action] || action;
