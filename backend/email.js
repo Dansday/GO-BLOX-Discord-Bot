@@ -56,45 +56,45 @@ export async function sendOTPEmail(email, otpCode) {
                     body { 
                         font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
                         line-height: 1.6; 
-                        color: #1f2937; 
-                        background-color: #f3f4f6;
+                        color: #000000; 
+                        background-color: #ffffff;
                     }
                     .email-wrapper { 
                         max-width: 600px; 
                         margin: 0 auto; 
                         background-color: #ffffff;
+                        border: 1px solid #e0e0e0;
                     }
                     .header { 
-                        background: linear-gradient(135deg, #dc2626 0%, #b91c1c 100%);
-                        color: white; 
+                        background-color: #dc2626;
+                        color: #ffffff; 
                         padding: 40px 30px; 
                         text-align: center; 
-                        border-radius: 8px 8px 0 0;
                     }
                     .header h1 {
                         font-size: 28px;
                         font-weight: 700;
                         margin-bottom: 8px;
                         letter-spacing: -0.5px;
+                        color: #ffffff;
                     }
                     .header p {
                         font-size: 14px;
-                        opacity: 0.95;
+                        color: #ffffff;
                         font-weight: 300;
                     }
                     .content { 
-                        background: #ffffff; 
+                        background-color: #ffffff; 
                         padding: 40px 30px; 
-                        border-radius: 0 0 8px 8px;
                     }
                     .content p {
                         font-size: 16px;
-                        color: #4b5563;
+                        color: #000000;
                         margin-bottom: 16px;
                     }
                     .content p:first-child {
                         font-size: 18px;
-                        color: #1f2937;
+                        color: #000000;
                         font-weight: 500;
                         margin-bottom: 20px;
                     }
@@ -104,29 +104,29 @@ export async function sendOTPEmail(email, otpCode) {
                     }
                     .otp-label {
                         font-size: 14px;
-                        color: #6b7280;
+                        color: #666666;
                         margin-bottom: 12px;
                         font-weight: 500;
                         text-transform: uppercase;
                         letter-spacing: 1px;
                     }
                     .otp-code { 
-                        background: linear-gradient(135deg, #1f2937 0%, #111827 100%);
+                        background-color: #000000;
                         color: #ffffff; 
                         font-size: 36px; 
                         font-weight: 700; 
                         text-align: center; 
                         padding: 24px 32px; 
                         margin: 0 auto;
-                        border-radius: 12px; 
+                        border-radius: 8px; 
                         letter-spacing: 12px; 
                         display: inline-block;
-                        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+                        border: 2px solid #000000;
                         font-family: 'Courier New', monospace;
                     }
                     .expiry-notice {
-                        background-color: #fef3c7;
-                        border-left: 4px solid #f59e0b;
+                        background-color: #fff3cd;
+                        border: 2px solid #ffc107;
                         padding: 16px;
                         margin: 24px 0;
                         border-radius: 4px;
@@ -134,30 +134,30 @@ export async function sendOTPEmail(email, otpCode) {
                     .expiry-notice p {
                         margin: 0;
                         font-size: 14px;
-                        color: #92400e;
+                        color: #856404;
                     }
                     .security-notice {
-                        background-color: #f3f4f6;
+                        background-color: #ffffff;
                         padding: 16px;
                         margin: 24px 0;
                         border-radius: 8px;
-                        border: 1px solid #e5e7eb;
+                        border: 2px solid #cccccc;
                     }
                     .security-notice p {
                         margin: 0;
                         font-size: 14px;
-                        color: #6b7280;
+                        color: #000000;
                         line-height: 1.5;
                     }
                     .footer { 
                         text-align: center; 
                         padding: 30px;
-                        background-color: #f9fafb;
-                        border-top: 1px solid #e5e7eb;
+                        background-color: #f5f5f5;
+                        border-top: 1px solid #e0e0e0;
                     }
                     .footer p {
                         font-size: 13px;
-                        color: #9ca3af;
+                        color: #666666;
                         margin: 4px 0;
                     }
                     .footer .brand {
@@ -176,34 +176,32 @@ export async function sendOTPEmail(email, otpCode) {
                     }
                 </style>
             </head>
-            <body>
-                <div style="padding: 20px;">
-                    <div class="email-wrapper">
-                        <div class="header">
-                            <h1>🔐 Verification Code</h1>
-                            <p>Dansthorized Bot Control Panel</p>
+            <body style="background-color: #ffffff; padding: 20px;">
+                <div class="email-wrapper">
+                    <div class="header">
+                        <h1>🔐 Verification Code</h1>
+                        <p>Dansthorized Bot Control Panel</p>
+                    </div>
+                    <div class="content">
+                        <p>Hello,</p>
+                        <p>You've requested a verification code to access your account. Use the code below to complete your verification:</p>
+                        
+                        <div class="otp-container">
+                            <div class="otp-label">Your Verification Code</div>
+                            <div class="otp-code">${otpCode}</div>
                         </div>
-                        <div class="content">
-                            <p>Hello,</p>
-                            <p>You've requested a verification code to access your account. Use the code below to complete your verification:</p>
-                            
-                            <div class="otp-container">
-                                <div class="otp-label">Your Verification Code</div>
-                                <div class="otp-code">${otpCode}</div>
-                            </div>
-                            
-                            <div class="expiry-notice">
-                                <p><strong>⏰ Important:</strong> This code will expire in 10 minutes for security reasons.</p>
-                            </div>
-                            
-                            <div class="security-notice">
-                                <p><strong>🔒 Security Notice:</strong> If you didn't request this verification code, please ignore this email. Your account remains secure and no changes have been made.</p>
-                            </div>
+                        
+                        <div class="expiry-notice">
+                            <p><strong>⏰ Important:</strong> This code will expire in 10 minutes for security reasons.</p>
                         </div>
-                        <div class="footer">
-                            <p>© ${new Date().getFullYear()} <span class="brand">${fromName}</span>. All rights reserved.</p>
-                            <p>This is an automated message, please do not reply to this email.</p>
+                        
+                        <div class="security-notice">
+                            <p><strong>🔒 Security Notice:</strong> If you didn't request this verification code, please ignore this email. Your account remains secure and no changes have been made.</p>
                         </div>
+                    </div>
+                    <div class="footer">
+                        <p>© ${new Date().getFullYear()} <span class="brand">${fromName}</span>. All rights reserved.</p>
+                        <p>This is an automated message, please do not reply to this email.</p>
                     </div>
                 </div>
             </body>
@@ -242,54 +240,54 @@ export async function sendVerificationSuccessEmail(email, username) {
                     body { 
                         font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
                         line-height: 1.6; 
-                        color: #1f2937; 
-                        background-color: #f3f4f6;
+                        color: #000000; 
+                        background-color: #ffffff;
                     }
                     .email-wrapper { 
                         max-width: 600px; 
                         margin: 0 auto; 
                         background-color: #ffffff;
+                        border: 1px solid #e0e0e0;
                     }
                     .header { 
-                        background: linear-gradient(135deg, #10b981 0%, #059669 100%);
-                        color: white; 
+                        background-color: #10b981;
+                        color: #ffffff; 
                         padding: 40px 30px; 
                         text-align: center; 
-                        border-radius: 8px 8px 0 0;
                     }
                     .header h1 {
                         font-size: 28px;
                         font-weight: 700;
                         margin-bottom: 8px;
                         letter-spacing: -0.5px;
+                        color: #ffffff;
                     }
                     .header p {
                         font-size: 14px;
-                        opacity: 0.95;
+                        color: #ffffff;
                         font-weight: 300;
                     }
                     .content { 
-                        background: #ffffff; 
+                        background-color: #ffffff; 
                         padding: 40px 30px; 
-                        border-radius: 0 0 8px 8px;
                     }
                     .content p {
                         font-size: 16px;
-                        color: #4b5563;
+                        color: #000000;
                         margin-bottom: 16px;
                     }
                     .content p:first-child {
                         font-size: 18px;
-                        color: #1f2937;
+                        color: #000000;
                         font-weight: 500;
                         margin-bottom: 20px;
                     }
                     .success-box {
-                        background: linear-gradient(135deg, #d1fae5 0%, #a7f3d0 100%);
+                        background-color: #d4edda;
                         border: 2px solid #10b981;
                         padding: 24px;
                         margin: 30px 0;
-                        border-radius: 12px;
+                        border-radius: 8px;
                         text-align: center;
                     }
                     .success-box .icon {
@@ -299,31 +297,32 @@ export async function sendVerificationSuccessEmail(email, username) {
                     .success-box p {
                         margin: 0;
                         font-size: 18px;
-                        color: #065f46;
+                        color: #155724;
                         font-weight: 600;
                     }
                     .info-box {
-                        background-color: #f3f4f6;
+                        background-color: #ffffff;
                         padding: 20px;
                         margin: 24px 0;
                         border-radius: 8px;
-                        border-left: 4px solid #3b82f6;
+                        border: 2px solid #0066cc;
+                        border-left: 4px solid #0066cc;
                     }
                     .info-box p {
                         margin: 0;
                         font-size: 14px;
-                        color: #1e40af;
+                        color: #000000;
                         line-height: 1.6;
                     }
                     .footer { 
                         text-align: center; 
                         padding: 30px;
-                        background-color: #f9fafb;
-                        border-top: 1px solid #e5e7eb;
+                        background-color: #f5f5f5;
+                        border-top: 1px solid #e0e0e0;
                     }
                     .footer p {
                         font-size: 13px;
-                        color: #9ca3af;
+                        color: #666666;
                         margin: 4px 0;
                     }
                     .footer .brand {
@@ -337,30 +336,28 @@ export async function sendVerificationSuccessEmail(email, username) {
                     }
                 </style>
             </head>
-            <body>
-                <div style="padding: 20px;">
-                    <div class="email-wrapper">
-                        <div class="header">
-                            <h1>✅ Email Verified</h1>
-                            <p>Dansthorized Bot Control Panel</p>
-                        </div>
-                        <div class="content">
-                            <p>Hello ${username},</p>
-                            <p>Your email has been successfully verified!</p>
+            <body style="background-color: #ffffff; padding: 20px;">
+                <div class="email-wrapper">
+                    <div class="header">
+                        <h1>✅ Email Verified</h1>
+                        <p>Dansthorized Bot Control Panel</p>
+                    </div>
+                    <div class="content">
+                        <p>Hello ${username},</p>
+                        <p>Your email has been successfully verified!</p>
 
-                            <div class="success-box">
-                                <div class="icon">🎉</div>
-                                <p>Your account is now active and ready to use.</p>
-                            </div>
+                        <div class="success-box">
+                            <div class="icon">🎉</div>
+                            <p>Your account is now active and ready to use.</p>
+                        </div>
 
-                            <div class="info-box">
-                                <p><strong>What's next?</strong><br>You can now access the dashboard and manage your bots. If you have any questions or need assistance, feel free to reach out.</p>
-                            </div>
+                        <div class="info-box">
+                            <p><strong>What's next?</strong><br>You can now access the dashboard and manage your bots. If you have any questions or need assistance, feel free to reach out.</p>
                         </div>
-                        <div class="footer">
-                            <p>© ${new Date().getFullYear()} <span class="brand">${fromName}</span>. All rights reserved.</p>
-                            <p>This is an automated message, please do not reply to this email.</p>
-                        </div>
+                    </div>
+                    <div class="footer">
+                        <p>© ${new Date().getFullYear()} <span class="brand">${fromName}</span>. All rights reserved.</p>
+                        <p>This is an automated message, please do not reply to this email.</p>
                     </div>
                 </div>
             </body>
