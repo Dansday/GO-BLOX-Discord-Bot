@@ -1056,12 +1056,15 @@ export async function init() {
                 return res.status(400).json({ success: false, error: 'Bot webhook not configured' });
             }
 
-            let finalImageUrl = image_url;
-            if (finalImageUrl && finalImageUrl.startsWith('/uploads/')) {
-
-                const protocol = req.protocol || 'http';
-                const host = req.get('host') || `localhost:${CONTROL_PANEL.PORT}`;
-                finalImageUrl = `${protocol}://${host}${finalImageUrl}`;
+            let finalImageUrl = image_url ? image_url.trim() : null;
+            if (finalImageUrl) {
+                if (finalImageUrl.startsWith('/uploads/')) {
+                    const protocol = req.protocol || 'http';
+                    const host = req.get('host') || `localhost:${CONTROL_PANEL.PORT}`;
+                    finalImageUrl = `${protocol}://${host}${finalImageUrl}`;
+                } else if (!finalImageUrl.startsWith('http://') && !finalImageUrl.startsWith('https://') && !finalImageUrl.startsWith('data:')) {
+                    finalImageUrl = null;
+                }
             }
 
             const validChannelIds = (channel_ids || []).filter(id => id != null && id !== '' && id !== undefined);

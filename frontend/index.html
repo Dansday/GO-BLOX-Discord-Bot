@@ -6647,7 +6647,6 @@
                     </div>
                 `;
 
-
                 const originalConfirmMultiselectChannels = window.confirmMultiselectChannels;
                 window.confirmMultiselectChannels = async function () {
                     if (currentChannelField === 'embed_channels') {
@@ -6798,7 +6797,6 @@
                 window.removeEmbedChannel = removeEmbedChannel;
                 window.removeEmbedRole = removeEmbedRole;
 
-
                 const colorPicker = document.getElementById('embed_color_picker');
                 const colorInput = document.getElementById('embed_color');
                 if (colorPicker && colorInput) {
@@ -6813,7 +6811,6 @@
                         updateEmbedPreview();
                     });
                 }
-
 
                 function updateCharacterCounter(fieldId, counterId, maxLength) {
                     const field = document.getElementById(fieldId);
@@ -6835,7 +6832,6 @@
                     }
                 }
 
-
                 function updateTotalEmbedCounter() {
                     const titleField = document.getElementById('embed_title');
                     const descField = document.getElementById('embed_description');
@@ -6852,7 +6848,6 @@
 
                     totalCounter.textContent = `${totalLength}/${maxTotal}`;
 
-
                     if (totalLength >= maxTotal) {
                         totalCounter.classList.add('text-red-400');
                         totalCounter.classList.remove('text-gray-400', 'text-yellow-400');
@@ -6864,7 +6859,6 @@
                         totalCounter.classList.add('text-gray-400');
                     }
                 }
-
 
                 const titleField = document.getElementById('embed_title');
                 const descField = document.getElementById('embed_description');
@@ -6897,9 +6891,7 @@
                     updateCharacterCounter('footer', 'footer_counter', 2048);
                 }
 
-
                 updateTotalEmbedCounter();
-
 
                 ['embed_image', 'embed_color'].forEach(id => {
                     const el = document.getElementById(id);
@@ -6907,7 +6899,6 @@
                         el.addEventListener('input', updateEmbedPreview);
                     }
                 });
-
 
                 const imageFileInput = document.getElementById('embed_image_file');
                 if (imageFileInput) {
@@ -6980,9 +6971,7 @@
                     });
                 }
 
-
                 switchImageMode('url');
-
 
                 const form = document.getElementById('embedBuilderForm');
                 if (form) {
@@ -7053,8 +7042,6 @@
             const imageUrl = uploadedImageUrl || imageUrlInput;
             const colorInput = document.getElementById('embed_color')?.value;
             const footerInput = document.getElementById('embed_footer')?.value;
-
-
             const defaultColor = embedDefaultColor;
             let embedColor = defaultColor;
 
@@ -7079,7 +7066,6 @@
                 }
             }
 
-
             const hasContent = title.trim() || description.trim() || imageUrl.trim() || (footerInput && footerInput.trim()) || embedDefaultFooter;
 
             if (!hasContent) {
@@ -7090,8 +7076,6 @@
             const borderColor = embedColor;
             const footerText = footerInput || embedDefaultFooter;
             const footerTextWithPlaceholders = replaceFooterPlaceholders(footerText);
-
-
             const displayTitle = title.length > 256 ? title.substring(0, 253) + '...' : title;
             const displayDescription = description.length > 4096 ? description.substring(0, 4093) + '...' : description;
             const displayFooter = footerTextWithPlaceholders.length > 2048 ? footerTextWithPlaceholders.substring(0, 2045) + '...' : footerTextWithPlaceholders;
@@ -7139,16 +7123,14 @@
                     }
                 }
 
-                const imageUrlInput = document.getElementById('embed_image').value || '';
-                const uploadedImageUrl = document.getElementById('embed_uploaded_image_url').value || '';
+                const imageUrlInput = (document.getElementById('embed_image').value || '').trim();
+                const uploadedImageUrl = (document.getElementById('embed_uploaded_image_url').value || '').trim();
                 let imageUrl = uploadedImageUrl || imageUrlInput || null;
                 let uploadedImagePath = null;
-
 
                 if (uploadedImageUrl) {
                     uploadedImagePath = uploadedImageUrl.replace(/^.*\/uploads\/embed-images/, '');
                 }
-
 
                 if (imageUrl && imageUrl.startsWith('data:')) {
                     if (imageUrl.length > 1000000) {
@@ -7159,6 +7141,12 @@
                     }
                 }
 
+                if (imageUrl && !imageUrl.startsWith('data:') && !imageUrl.startsWith('http://') && !imageUrl.startsWith('https://') && !imageUrl.startsWith('/uploads/')) {
+                    showMessage('Image URL must be a valid HTTP/HTTPS URL or uploaded image.', 'error');
+                    submitBtn.disabled = false;
+                    loadingIcon.classList.add('hidden');
+                    return;
+                }
 
                 const title = document.getElementById('embed_title').value;
                 const description = document.getElementById('embed_description').value || '';

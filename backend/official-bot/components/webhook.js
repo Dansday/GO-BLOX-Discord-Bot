@@ -105,7 +105,12 @@ async function handleSendEmbed(payload) {
                 }
             }
         } else if (image_url) {
-            embed.setImage(image_url);
+            const trimmedUrl = image_url.trim();
+            if (trimmedUrl && (trimmedUrl.startsWith('http://') || trimmedUrl.startsWith('https://') || trimmedUrl.startsWith('data:'))) {
+                embed.setImage(trimmedUrl);
+            } else {
+                await logger.log(`⚠️  Invalid image URL format: ${image_url}`);
+            }
         }
 
         let content = '';
