@@ -1258,7 +1258,7 @@ export async function init() {
         }
     });
 
-    app.get('/api/bots/:id/logs', requireAuth, async (req, res) => {
+    app.get('/api/bots/:id/logs', requireAdmin, async (req, res) => {
         const botId = parseInt(req.params.id, 10);
         if (Number.isNaN(botId)) {
             return res.status(400).json({ error: 'Invalid bot ID' });

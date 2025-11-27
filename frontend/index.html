@@ -1962,6 +1962,9 @@
         async function loadBotLogs(isInitial = false) {
             if (!botLogsBotId) return;
             if (botLogsLoading) return;
+            if (currentAccountType !== 'admin') {
+                return;
+            }
             botLogsLoading = true;
             if (isInitial) {
                 updateBotLogsMeta('Loading logs...');
@@ -1973,6 +1976,16 @@
                 });
                 if (response.status === 401) {
                     await checkAuthStatus();
+                    return;
+                }
+                if (response.status === 403) {
+                    const terminal = document.getElementById('botLogTerminal');
+                    if (terminal) {
+                        terminal.innerHTML = '<p class="text-red-400">Admin access required to view bot logs</p>';
+                    }
+                    updateBotLogsMeta('Access denied');
+                    botLogsLoading = false;
+                    setBotLogsLoadingState(false);
                     return;
                 }
                 if (!response.ok) {
@@ -2000,6 +2013,9 @@
         }
         function startBotLogPolling(botId) {
             if (!botId) return;
+            if (currentAccountType !== 'admin') {
+                return;
+            }
             stopBotLogPolling();
             botLogsBotId = botId;
             botLogs = [];
