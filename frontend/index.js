@@ -71,7 +71,6 @@ async function startBotById(botId, bot) {
             return { success: false, error: `Unknown bot type: ${bot.bot_type}` };
         }
 
-
         const scriptPath = join(botPath, botScript);
         const botProcess = spawn('node', [scriptPath], {
             cwd: botPath,
@@ -570,7 +569,7 @@ export async function init() {
     let securityUtils = null;
     async function getSecurityUtils() {
         if (!securityUtils) {
-            securityUtils = await import('./backend/utils.js');
+            securityUtils = await import('../backend/utils.js');
         }
         return securityUtils;
     }
@@ -1591,8 +1590,8 @@ export async function init() {
             return res.status(400).json({ error: 'Invalid bot ID' });
         }
 
-        const limitParam = sanitizeInteger(req.query.limit, 1, 500);
-        const offsetParam = sanitizeInteger(req.query.offset, 0, null);
+        const limitParam = utils.sanitizeInteger(req.query.limit, 1, 500);
+        const offsetParam = utils.sanitizeInteger(req.query.offset, 0, null);
 
         const limit = limitParam || 200;
         const offset = offsetParam || 0;
