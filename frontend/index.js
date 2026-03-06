@@ -8,7 +8,7 @@ import bcrypt from 'bcrypt';
 import { CONTROL_PANEL } from './config.js';
 import logger from '../backend/logger.js';
 import db, { initializeDatabase } from '../database/database.js';
-import { parseMySQLDateTime, toMySQLDateTime, getNowInTimezone, getDateTimeFromSQL, getDateTimeFromJSDate, addMinutesToNow, addDaysToNow, getCurrentDateTime } from '../backend/utils.js';
+import { parseMySQLDateTime, getNowInTimezone, getDateTimeFromSQL, getDateTimeFromJSDate, addMinutesToNow, addDaysToNow, getCurrentDateTime } from '../backend/utils.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -70,7 +70,6 @@ async function startBotById(botId, bot) {
         } else {
             return { success: false, error: `Unknown bot type: ${bot.bot_type}` };
         }
-
 
         const scriptPath = join(botPath, botScript);
         const botProcess = spawn('node', [scriptPath], {
@@ -464,6 +463,14 @@ export async function init() {
     app = express();
     app.use(express.json({ limit: '10mb' }));
 
+    app.use((req, res, next) => {
+        res.setHeader('X-Content-Type-Options', 'nosniff');
+        res.setHeader('X-Frame-Options', 'DENY');
+        res.setHeader('X-XSS-Protection', '1; mode=block');
+        res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
+        next();
+    });
+
     if (!process.env.SESSION_SECRET) {
         throw new Error('Missing SESSION_SECRET environment variable');
     }
@@ -475,9 +482,43 @@ export async function init() {
         cookie: {
             secure: false,
             httpOnly: true,
+            sameSite: 'strict',
             maxAge: 24 * 60 * 60 * 1000
         }
     }));
+
+    const rateLimitStore = new Map();
+    const RATE_LIMIT_WINDOW = 15 * 60 * 1000;
+    const MAX_LOGIN_ATTEMPTS = 5;
+    const MAX_REGISTER_ATTEMPTS = 3;
+
+    function checkRateLimit(ip, endpoint, maxAttempts) {
+        const key = `${ip}:${endpoint}`;
+        const now = Date.now();
+        const attempts = rateLimitStore.get(key) || { count: 0, resetTime: now + RATE_LIMIT_WINDOW };
+
+        if (now > attempts.resetTime) {
+            attempts.count = 0;
+            attempts.resetTime = now + RATE_LIMIT_WINDOW;
+        }
+
+        if (attempts.count >= maxAttempts) {
+            return { allowed: false, remaining: 0, resetTime: attempts.resetTime };
+        }
+
+        attempts.count++;
+        rateLimitStore.set(key, attempts);
+
+        if (Math.random() < 0.01) {
+            for (const [k, v] of rateLimitStore.entries()) {
+                if (now > v.resetTime) {
+                    rateLimitStore.delete(k);
+                }
+            }
+        }
+
+        return { allowed: true, remaining: maxAttempts - attempts.count, resetTime: attempts.resetTime };
+    }
 
     app.use((req, res, next) => {
         const path = req.path.toLowerCase();
@@ -503,8 +544,82 @@ export async function init() {
             'unknown';
     }
 
-    function getUserAgent(req) {
-        return req.headers['user-agent'] || 'unknown';
+    async function getAccountForLogging(req) {
+        if (req.session && req.session.authenticated && req.session.panel_account_id) {
+            try {
+                const account = await db.getPanelAccountById(req.session.panel_account_id);
+                return account;
+            } catch (err) {
+                return null;
+            }
+        }
+        return null;
+    }
+
+    async function logPanelActivity(req, message) {
+        try {
+            const account = await getAccountForLogging(req);
+            const accountId = account ? account.id : null;
+            await db.insertPanelLog(accountId, message);
+        } catch (err) {
+            console.error('Failed to log panel activity:', err);
+        }
+    }
+
+    let securityUtils = null;
+    async function getSecurityUtils() {
+        if (!securityUtils) {
+            securityUtils = await import('../backend/utils.js');
+        }
+        return securityUtils;
+    }
+
+    async function sanitizeAccountId(id) {
+        const utils = await getSecurityUtils();
+        return utils.sanitizeInteger(id, 1, null);
+    }
+
+    async function validateRegistrationInputs(username, email, password) {
+        const utils = await getSecurityUtils();
+        const errors = [];
+
+        const sanitizedUsername = utils.sanitizeUsername(username);
+        if (!sanitizedUsername || sanitizedUsername.length < 3) {
+            errors.push('Username must be at least 3 characters long');
+        } else if (!/^[a-zA-Z]+$/.test(sanitizedUsername)) {
+            errors.push('Username can only contain uppercase and lowercase letters');
+        } else {
+            const usernameValidation = utils.validateInputLength(sanitizedUsername, 'Username', 3, 50);
+            if (!usernameValidation.valid) {
+                errors.push(usernameValidation.error);
+            }
+        }
+
+        const sanitizedEmail = utils.sanitizeEmail(email);
+        if (!sanitizedEmail || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(sanitizedEmail)) {
+            errors.push('Valid email is required');
+        } else {
+            const emailValidation = utils.validateInputLength(sanitizedEmail, 'Email', 5, 255);
+            if (!emailValidation.valid) {
+                errors.push(emailValidation.error);
+            }
+        }
+
+        if (!password || typeof password !== 'string') {
+            errors.push('Password is required');
+        } else {
+            const passwordValidation = utils.validateInputLength(password, 'Password', 6, 128);
+            if (!passwordValidation.valid) {
+                errors.push(passwordValidation.error);
+            }
+        }
+
+        return {
+            valid: errors.length === 0,
+            errors,
+            sanitizedUsername: sanitizedUsername || '',
+            sanitizedEmail: sanitizedEmail || ''
+        };
     }
 
     async function requireAuth(req, res, next) {
@@ -518,8 +633,13 @@ export async function init() {
         if (req.session && req.session.authenticated && req.session.panel_account_id) {
             try {
                 const account = await db.getPanelAccountById(req.session.panel_account_id);
-                if (account && account.account_type === 'admin') {
-                    return next();
+                if (account) {
+                    if (account.is_frozen) {
+                        return res.status(403).json({ error: 'Your account has been frozen. Access denied.' });
+                    }
+                    if (account.account_type === 'admin') {
+                        return next();
+                    }
                 }
             } catch (error) {
                 logger.log(`❌ Error checking admin status: ${error.message}`);
@@ -530,37 +650,29 @@ export async function init() {
 
     app.post('/api/panel/register', async (req, res) => {
         try {
+            const clientIp = getClientIp(req);
+            const rateLimit = checkRateLimit(clientIp, 'register', MAX_REGISTER_ATTEMPTS);
+
+            if (!rateLimit.allowed) {
+                const resetTime = new Date(rateLimit.resetTime).toISOString();
+                return res.status(429).json({
+                    success: false,
+                    error: 'Too many registration attempts. Please try again later.',
+                    resetTime: resetTime
+                });
+            }
+
             const { username, email, password } = req.body;
+            const validation = await validateRegistrationInputs(username, email, password);
 
-            if (!username || username.length < 3) {
+            if (!validation.valid) {
                 return res.status(400).json({
                     success: false,
-                    error: 'Username must be at least 3 characters long'
+                    error: validation.errors[0]
                 });
             }
 
-            if (!/^[a-zA-Z]+$/.test(username)) {
-                return res.status(400).json({
-                    success: false,
-                    error: 'Username can only contain uppercase and lowercase letters'
-                });
-            }
-
-            if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-                return res.status(400).json({
-                    success: false,
-                    error: 'Valid email is required'
-                });
-            }
-
-            if (!password || password.length < 6) {
-                return res.status(400).json({
-                    success: false,
-                    error: 'Password must be at least 6 characters long'
-                });
-            }
-
-            const existingUsername = await db.getPanelAccountByUsername(username);
+            const existingUsername = await db.getPanelAccountByUsername(validation.sanitizedUsername);
             if (existingUsername) {
                 return res.status(400).json({
                     success: false,
@@ -568,7 +680,7 @@ export async function init() {
                 });
             }
 
-            const existingAccount = await db.getPanelAccountByEmail(email);
+            const existingAccount = await db.getPanelAccountByEmail(validation.sanitizedEmail);
             if (existingAccount) {
                 return res.status(400).json({
                     success: false,
@@ -589,19 +701,20 @@ export async function init() {
             const otpExpiresAt = addMinutesToNow(10);
 
             const account = await db.createPanelAccount({
-                username,
-                email,
+                username: validation.sanitizedUsername,
+                email: validation.sanitizedEmail,
                 password_hash: passwordHash,
                 account_type: 'admin',
                 email_verified: false,
                 otp_code: otpCode,
                 otp_expires_at: otpExpiresAt,
-                panel_id: (await db.getPanel()).id
+                panel_id: (await db.getPanel()).id,
+                ip_address: clientIp
             });
 
             const { sendOTPEmail } = await import('../backend/email.js');
             try {
-                await sendOTPEmail(email, otpCode);
+                await sendOTPEmail(validation.sanitizedEmail, otpCode);
             } catch (emailError) {
                 logger.log(`❌ Failed to send OTP email: ${emailError.message}`);
                 logger.log(`❌ Email error details: ${emailError.stack || emailError.toString()}`);
@@ -622,14 +735,25 @@ export async function init() {
         try {
             const { account_id, otp_code } = req.body;
 
-            if (!account_id || !otp_code) {
+            const utils = await getSecurityUtils();
+            const sanitizedAccountId = await sanitizeAccountId(account_id);
+            const sanitizedOtpCode = utils.sanitizeString(otp_code, 6);
+
+            if (!sanitizedAccountId || !sanitizedOtpCode || sanitizedOtpCode.length !== 6) {
                 return res.status(400).json({
                     success: false,
-                    error: 'Account ID and OTP code are required'
+                    error: 'Account ID and valid OTP code are required'
                 });
             }
 
-            const account = await db.getPanelAccountById(account_id);
+            if (!/^\d{6}$/.test(sanitizedOtpCode)) {
+                return res.status(400).json({
+                    success: false,
+                    error: 'OTP code must be 6 digits'
+                });
+            }
+
+            const account = await db.getPanelAccountById(sanitizedAccountId);
             if (!account) {
                 return res.status(404).json({
                     success: false,
@@ -644,13 +768,8 @@ export async function init() {
                 });
             }
 
-            if (!account.otp_code || account.otp_code !== otp_code) {
-                await db.createPanelLog({
-                    panel_account_id: account.id,
-                    ip_address: getClientIp(req),
-                    user_agent: getUserAgent(req),
-                    success: false
-                });
+            if (!account.otp_code || account.otp_code !== sanitizedOtpCode) {
+                await db.insertPanelLog(account.id, `Failed OTP verification for ${account.username} (IP: ${getClientIp(req)})`);
                 return res.status(401).json({
                     success: false,
                     error: 'Invalid OTP code'
@@ -668,10 +787,12 @@ export async function init() {
                 }
             }
 
+            const clientIp = getClientIp(req);
             await db.updatePanelAccount(account.id, {
                 email_verified: true,
                 otp_code: null,
-                otp_expires_at: null
+                otp_expires_at: null,
+                ip_address: clientIp
             });
 
             req.session.authenticated = true;
@@ -689,12 +810,7 @@ export async function init() {
                 });
             });
 
-            await db.createPanelLog({
-                panel_account_id: account.id,
-                ip_address: getClientIp(req),
-                user_agent: getUserAgent(req),
-                success: true
-            });
+            await db.insertPanelLog(account.id, `Email verified and logged in: ${account.username} (IP: ${clientIp})`);
 
             const { sendVerificationSuccessEmail } = await import('../backend/email.js');
             try {
@@ -713,15 +829,16 @@ export async function init() {
     app.post('/api/panel/resend-otp', async (req, res) => {
         try {
             const { account_id } = req.body;
+            const sanitizedAccountId = await sanitizeAccountId(account_id);
 
-            if (!account_id) {
+            if (!sanitizedAccountId) {
                 return res.status(400).json({
                     success: false,
-                    error: 'Account ID is required'
+                    error: 'Valid account ID is required'
                 });
             }
 
-            const account = await db.getPanelAccountById(account_id);
+            const account = await db.getPanelAccountById(sanitizedAccountId);
             if (!account) {
                 return res.status(404).json({
                     success: false,
@@ -765,6 +882,18 @@ export async function init() {
 
     app.post('/api/panel/login', async (req, res) => {
         try {
+            const clientIp = getClientIp(req);
+            const rateLimit = checkRateLimit(clientIp, 'login', MAX_LOGIN_ATTEMPTS);
+
+            if (!rateLimit.allowed) {
+                const resetTime = new Date(rateLimit.resetTime).toISOString();
+                return res.status(429).json({
+                    success: false,
+                    error: 'Too many login attempts. Please try again later.',
+                    resetTime: resetTime
+                });
+            }
+
             const { username_or_email, password } = req.body;
 
             if (!username_or_email || !password) {
@@ -774,18 +903,43 @@ export async function init() {
                 });
             }
 
-            let account = await db.getPanelAccountByEmail(username_or_email);
-            if (!account) {
-                account = await db.getPanelAccountByUsername(username_or_email);
+            const utils = await getSecurityUtils();
+            let sanitizedInput = utils.sanitizeString(username_or_email, 255);
+
+            let account = null;
+            if (sanitizedInput.includes('@')) {
+                const sanitizedEmail = utils.sanitizeEmail(sanitizedInput);
+                if (sanitizedEmail && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(sanitizedEmail)) {
+                    account = await db.getPanelAccountByEmail(sanitizedEmail);
+                }
             }
 
             if (!account) {
-                await db.createPanelLog({
-                    panel_account_id: null,
-                    ip_address: getClientIp(req),
-                    user_agent: getUserAgent(req),
-                    success: false
+                const sanitizedUsername = utils.sanitizeUsername(sanitizedInput);
+                if (sanitizedUsername && sanitizedUsername.length >= 3) {
+                    account = await db.getPanelAccountByUsername(sanitizedUsername);
+                }
+            }
+
+            if (typeof password !== 'string') {
+                await db.insertPanelLog(null, `Failed login attempt: Invalid password format (IP: ${clientIp})`);
+                return res.status(400).json({
+                    success: false,
+                    error: 'Invalid password format'
                 });
+            }
+
+            const passwordValidation = utils.validateInputLength(password, 'Password', 1, 128);
+            if (!passwordValidation.valid) {
+                await db.insertPanelLog(null, `Failed login attempt: Invalid password length (IP: ${clientIp})`);
+                return res.status(400).json({
+                    success: false,
+                    error: passwordValidation.error
+                });
+            }
+
+            if (!account) {
+                await db.insertPanelLog(null, `Failed login attempt: Account not found (IP: ${clientIp})`);
                 return res.status(401).json({
                     success: false,
                     error: 'Invalid credentials'
@@ -801,21 +955,25 @@ export async function init() {
                 });
             }
 
+            if (account.is_frozen) {
+                await db.insertPanelLog(account.id, `Blocked login attempt: Account frozen for ${account.username} (IP: ${clientIp})`);
+                return res.status(403).json({
+                    success: false,
+                    error: 'This account has been frozen. Please contact an administrator.'
+                });
+            }
+
             const isValid = await bcrypt.compare(password, account.password_hash);
 
-            await db.createPanelLog({
-                panel_account_id: account.id,
-                ip_address: getClientIp(req),
-                user_agent: getUserAgent(req),
-                success: isValid
-            });
-
             if (!isValid) {
+                await db.insertPanelLog(account.id, `Failed login attempt for ${account.username} (IP: ${clientIp})`);
                 return res.status(401).json({
                     success: false,
                     error: 'Invalid credentials'
                 });
             }
+
+            await db.updatePanelAccount(account.id, { ip_address: clientIp });
 
             req.session.authenticated = true;
             req.session.panel_account_id = account.id;
@@ -832,6 +990,8 @@ export async function init() {
                 });
             });
 
+            await db.insertPanelLog(account.id, `Successful login: ${account.username} (IP: ${clientIp})`);
+
             res.json({ success: true, message: 'Login successful', account_type: account.account_type });
         } catch (error) {
             logger.log(`❌ Panel login error: ${error.message}`);
@@ -839,10 +999,20 @@ export async function init() {
         }
     });
 
-    app.post('/api/panel/logout', (req, res) => {
-        req.session.destroy((err) => {
+    app.post('/api/panel/logout', async (req, res) => {
+        const accountId = req.session?.panel_account_id;
+        req.session.destroy(async (err) => {
             if (err) {
                 return res.status(500).json({ success: false, error: 'Failed to logout' });
+            }
+            if (accountId) {
+                try {
+                    const account = await db.getPanelAccountById(accountId);
+                    if (account) {
+                        await db.insertPanelLog(accountId, `Logged out: ${account.username} (IP: ${getClientIp(req)})`);
+                    }
+                } catch (logError) {
+                }
             }
             res.json({ success: true, message: 'Logged out successfully' });
         });
@@ -856,6 +1026,7 @@ export async function init() {
                     return res.json({
                         authenticated: true,
                         account_type: account.account_type,
+                        account_id: account.id,
                         username: account.username,
                         email: account.email
                     });
@@ -885,6 +1056,154 @@ export async function init() {
         }
     });
 
+    app.put('/api/panel/accounts/:id/freeze', requireAdmin, async (req, res) => {
+        try {
+            const accountId = await sanitizeAccountId(req.params.id);
+            if (!accountId) {
+                return res.status(400).json({ success: false, error: 'Invalid account ID' });
+            }
+
+            const account = await db.getPanelAccountById(accountId);
+            if (!account) {
+                return res.status(404).json({ success: false, error: 'Account not found' });
+            }
+
+            if (accountId === req.session.panel_account_id) {
+                return res.status(400).json({ success: false, error: 'You cannot freeze your own account' });
+            }
+
+            await db.updatePanelAccount(accountId, { is_frozen: true });
+
+            const adminAccount = await getAccountForLogging(req);
+            if (adminAccount) {
+                await logPanelActivity(req, `${adminAccount.username} froze account: ${account.username} (ID: ${accountId})`);
+            }
+
+            const { sendAccountFrozenEmail } = await import('../backend/email.js');
+            try {
+                await sendAccountFrozenEmail(account.email, account.username);
+            } catch (emailError) {
+                logger.log(`⚠️  Failed to send account frozen email: ${emailError.message}`);
+            }
+
+            res.json({ success: true, message: 'Account frozen successfully' });
+        } catch (error) {
+            logger.log(`❌ Freeze account error: ${error.message}`);
+            res.status(500).json({ success: false, error: error.message });
+        }
+    });
+
+    app.put('/api/panel/accounts/:id/unfreeze', requireAdmin, async (req, res) => {
+        try {
+            const accountId = await sanitizeAccountId(req.params.id);
+            if (!accountId) {
+                return res.status(400).json({ success: false, error: 'Invalid account ID' });
+            }
+
+            const account = await db.getPanelAccountById(accountId);
+            if (!account) {
+                return res.status(404).json({ success: false, error: 'Account not found' });
+            }
+
+            await db.updatePanelAccount(accountId, { is_frozen: false });
+
+            const adminAccount = await getAccountForLogging(req);
+            if (adminAccount) {
+                await logPanelActivity(req, `${adminAccount.username} unfroze account: ${account.username} (ID: ${accountId})`);
+            }
+
+            const { sendAccountUnfrozenEmail } = await import('../backend/email.js');
+            try {
+                await sendAccountUnfrozenEmail(account.email, account.username);
+            } catch (emailError) {
+                logger.log(`⚠️  Failed to send account unfrozen email: ${emailError.message}`);
+            }
+
+            res.json({ success: true, message: 'Account unfrozen successfully' });
+        } catch (error) {
+            logger.log(`❌ Unfreeze account error: ${error.message}`);
+            res.status(500).json({ success: false, error: error.message });
+        }
+    });
+
+    app.put('/api/panel/accounts/:id/verify', requireAdmin, async (req, res) => {
+        try {
+            const accountId = await sanitizeAccountId(req.params.id);
+            if (!accountId) {
+                return res.status(400).json({ success: false, error: 'Invalid account ID' });
+            }
+
+            const account = await db.getPanelAccountById(accountId);
+            if (!account) {
+                return res.status(404).json({ success: false, error: 'Account not found' });
+            }
+
+            if (account.email_verified) {
+                return res.status(400).json({ success: false, error: 'Account is already verified' });
+            }
+
+            await db.updatePanelAccount(accountId, {
+                email_verified: true,
+                otp_code: null,
+                otp_expires_at: null
+            });
+
+            const adminAccount = await getAccountForLogging(req);
+            if (adminAccount) {
+                await logPanelActivity(req, `${adminAccount.username} manually verified account: ${account.username} (ID: ${accountId})`);
+            }
+
+            const { sendVerificationSuccessEmail } = await import('../backend/email.js');
+            try {
+                await sendVerificationSuccessEmail(account.email, account.username);
+            } catch (emailError) {
+                logger.log(`⚠️  Failed to send verification success email: ${emailError.message}`);
+            }
+
+            res.json({ success: true, message: 'Account verified successfully' });
+        } catch (error) {
+            logger.log(`❌ Verify account error: ${error.message}`);
+            res.status(500).json({ success: false, error: error.message });
+        }
+    });
+
+    app.delete('/api/panel/accounts/:id', requireAdmin, async (req, res) => {
+        try {
+            const accountId = await sanitizeAccountId(req.params.id);
+            if (!accountId) {
+                return res.status(400).json({ success: false, error: 'Invalid account ID' });
+            }
+
+            const account = await db.getPanelAccountById(accountId);
+            if (!account) {
+                return res.status(404).json({ success: false, error: 'Account not found' });
+            }
+
+            if (accountId === req.session.panel_account_id) {
+                return res.status(400).json({ success: false, error: 'You cannot delete your own account' });
+            }
+
+            const { sendAccountDeletedEmail } = await import('../backend/email.js');
+            try {
+                await sendAccountDeletedEmail(account.email, account.username);
+            } catch (emailError) {
+                logger.log(`⚠️  Failed to send account deleted email: ${emailError.message}`);
+            }
+
+            await query('DELETE FROM panel_accounts WHERE id = ?', [accountId]);
+
+            const adminAccount = await getAccountForLogging(req);
+            if (adminAccount) {
+                await logPanelActivity(req, `${adminAccount.username} deleted account: ${account.username} (ID: ${accountId})`);
+            }
+
+            res.json({ success: true, message: 'Account deleted successfully' });
+        } catch (error) {
+            logger.log(`❌ Delete account error: ${error.message}`);
+            res.status(500).json({ success: false, error: error.message });
+        }
+    });
+
     app.post('/api/panel/invite-links', requireAdmin, async (req, res) => {
         try {
             const { account_type } = req.body;
@@ -906,6 +1225,11 @@ export async function init() {
                 created_by: req.session.panel_account_id,
                 expires_at: expiresAt
             });
+
+            const account = await getAccountForLogging(req);
+            if (account) {
+                await logPanelActivity(req, `${account.username} generated invite link for ${account_type} account`);
+            }
 
             const protocol = req.protocol || 'http';
             const host = req.get('host') || `localhost:${CONTROL_PANEL.PORT}`;
@@ -931,7 +1255,17 @@ export async function init() {
     app.get('/api/panel/invite-link/:token', async (req, res) => {
         try {
             const { token } = req.params;
-            const inviteLink = await db.getPanelInviteLinkByToken(token);
+            const utils = await getSecurityUtils();
+            const sanitizedToken = utils.sanitizeString(token, 255);
+
+            if (!sanitizedToken || sanitizedToken.length < 32) {
+                return res.status(400).json({
+                    success: false,
+                    error: 'Invalid token format'
+                });
+            }
+
+            const inviteLink = await db.getPanelInviteLinkByToken(sanitizedToken);
 
             if (!inviteLink) {
                 return res.status(404).json({
@@ -968,43 +1302,32 @@ export async function init() {
     app.post('/api/panel/register-with-token', async (req, res) => {
         try {
             const { token, username, email, password } = req.body;
+            const utils = await getSecurityUtils();
 
-            if (!token || !username || !email || !password) {
+            if (!token || typeof token !== 'string') {
                 return res.status(400).json({
                     success: false,
-                    error: 'Token, username, email, and password are required'
+                    error: 'Token is required'
                 });
             }
 
-            if (username.length < 3) {
+            const sanitizedToken = utils.sanitizeString(token, 255);
+            if (!sanitizedToken || sanitizedToken.length < 32) {
                 return res.status(400).json({
                     success: false,
-                    error: 'Username must be at least 3 characters long'
+                    error: 'Invalid token format'
                 });
             }
 
-            if (!/^[a-zA-Z]+$/.test(username)) {
+            const validation = await validateRegistrationInputs(username, email, password);
+            if (!validation.valid) {
                 return res.status(400).json({
                     success: false,
-                    error: 'Username can only contain uppercase and lowercase letters'
+                    error: validation.errors[0]
                 });
             }
 
-            if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-                return res.status(400).json({
-                    success: false,
-                    error: 'Valid email is required'
-                });
-            }
-
-            if (password.length < 6) {
-                return res.status(400).json({
-                    success: false,
-                    error: 'Password must be at least 6 characters long'
-                });
-            }
-
-            const inviteLink = await db.getPanelInviteLinkByToken(token);
+            const inviteLink = await db.getPanelInviteLinkByToken(sanitizedToken);
             if (!inviteLink) {
                 return res.status(404).json({
                     success: false,
@@ -1030,7 +1353,7 @@ export async function init() {
                 }
             }
 
-            const existingUsername = await db.getPanelAccountByUsername(username);
+            const existingUsername = await db.getPanelAccountByUsername(validation.sanitizedUsername);
             if (existingUsername) {
                 return res.status(400).json({
                     success: false,
@@ -1038,7 +1361,7 @@ export async function init() {
                 });
             }
 
-            const existingAccount = await db.getPanelAccountByEmail(email);
+            const existingAccount = await db.getPanelAccountByEmail(validation.sanitizedEmail);
             if (existingAccount) {
                 return res.status(400).json({
                     success: false,
@@ -1051,6 +1374,7 @@ export async function init() {
                 await db.createPanel();
             }
 
+            const clientIp = getClientIp(req);
             const saltRounds = 12;
             const passwordHash = await bcrypt.hash(password, saltRounds);
 
@@ -1059,14 +1383,15 @@ export async function init() {
             const otpExpiresAt = addMinutesToNow(10);
 
             const account = await db.createPanelAccount({
-                username,
-                email,
+                username: validation.sanitizedUsername,
+                email: validation.sanitizedEmail,
                 password_hash: passwordHash,
                 account_type: inviteLink.account_type,
                 email_verified: false,
                 otp_code: otpCode,
                 otp_expires_at: otpExpiresAt,
-                panel_id: (await db.getPanel()).id
+                panel_id: (await db.getPanel()).id,
+                ip_address: clientIp
             });
 
             await db.updatePanelInviteLink(inviteLink.id, {
@@ -1076,7 +1401,7 @@ export async function init() {
 
             const { sendOTPEmail } = await import('../backend/email.js');
             try {
-                await sendOTPEmail(email, otpCode);
+                await sendOTPEmail(validation.sanitizedEmail, otpCode);
             } catch (emailError) {
                 logger.log(`❌ Failed to send OTP email: ${emailError.message}`);
                 logger.log(`❌ Email error details: ${emailError.stack || emailError.toString()}`);
@@ -1259,16 +1584,17 @@ export async function init() {
     });
 
     app.get('/api/bots/:id/logs', requireAdmin, async (req, res) => {
-        const botId = parseInt(req.params.id, 10);
-        if (Number.isNaN(botId)) {
+        const utils = await getSecurityUtils();
+        const botId = utils.sanitizeInteger(req.params.id, 1, null);
+        if (!botId) {
             return res.status(400).json({ error: 'Invalid bot ID' });
         }
 
-        const limitParam = parseInt(req.query.limit, 10);
-        const offsetParam = parseInt(req.query.offset, 10);
+        const limitParam = utils.sanitizeInteger(req.query.limit, 1, 500);
+        const offsetParam = utils.sanitizeInteger(req.query.offset, 0, null);
 
-        const limit = Number.isNaN(limitParam) ? 200 : Math.min(Math.max(limitParam, 1), 500);
-        const offset = Number.isNaN(offsetParam) || offsetParam < 0 ? 0 : offsetParam;
+        const limit = limitParam || 200;
+        const offset = offsetParam || 0;
 
         try {
             const bot = await db.getBot(botId);
@@ -1294,6 +1620,37 @@ export async function init() {
         } catch (error) {
             logger.log(`❌ Error fetching bot logs: ${error.message}`);
             res.status(500).json({ error: 'Failed to load bot logs' });
+        }
+    });
+
+    app.get('/api/panel/logs', requireAdmin, async (req, res) => {
+        const utils = await getSecurityUtils();
+        const limitParam = utils.sanitizeInteger(req.query.limit, 1, 500);
+        const offsetParam = utils.sanitizeInteger(req.query.offset, 0, null);
+
+        const limit = limitParam || 200;
+        const offset = offsetParam || 0;
+
+        try {
+            const logs = await db.getPanelLogs(limit, offset);
+
+            res.json({
+                logs: logs.map(log => ({
+                    id: log.id,
+                    message: log.message,
+                    created_at: log.created_at,
+                    account_username: log.account_username || 'System',
+                    account_email: log.account_email || null
+                })),
+                pagination: {
+                    limit,
+                    offset,
+                    count: logs.length
+                }
+            });
+        } catch (error) {
+            logger.log(`❌ Error fetching panel logs: ${error.message}`);
+            res.status(500).json({ error: 'Failed to load panel logs' });
         }
     });
 
@@ -1323,6 +1680,13 @@ export async function init() {
                 return res.status(400).json({ error: 'component_name is required' });
             }
             const result = await db.upsertServerSettings(req.params.id, component_name, settings);
+
+            const account = await getAccountForLogging(req);
+            if (account) {
+                const server = await db.getServer(req.params.id);
+                const serverName = server ? server.name : `Server ID: ${req.params.id}`;
+                await logPanelActivity(req, `${account.username} changed ${component_name} configuration on server "${serverName}" (Server ID: ${req.params.id})`);
+            }
             res.json({ success: true, data: result });
         } catch (error) {
             res.status(500).json({ error: error.message });
@@ -1573,7 +1937,7 @@ export async function init() {
                 webhookRes.on('data', (chunk) => {
                     data += chunk;
                 });
-                webhookRes.on('end', () => {
+                webhookRes.on('end', async () => {
                     try {
                         const result = JSON.parse(data);
                         if (webhookRes.statusCode === 200 && result.success) {
@@ -1581,6 +1945,10 @@ export async function init() {
                                 cleanupUploadedImage(30000);
                             } else {
                                 cleanupUploadedImage();
+                            }
+                            const account = await getAccountForLogging(req);
+                            if (account) {
+                                await logPanelActivity(req, `${account.username} used embed builder on server "${server.name || serverId}" (Server ID: ${serverId})`);
                             }
                             res.json({ success: true, message: 'Embed sent successfully' });
                         } else {
@@ -1846,6 +2214,10 @@ export async function init() {
                 panel_id: panel_id || null
             });
 
+            if (account) {
+                await logPanelActivity(req, `${account.username} added ${bot_type} bot: "${name || 'Bot'}" (ID: ${bot.id})`);
+            }
+
             res.json({ success: true, bot });
         } catch (error) {
             logger.log(`❌ Create bot error: ${error.message}`);
@@ -1902,6 +2274,12 @@ export async function init() {
                 logger.log(`⚠️  Failed to update connected selfbots: ${err.message}`);
             }
 
+            const account = await getAccountForLogging(req);
+            if (account) {
+                const mode = is_testing ? 'testing' : 'production';
+                await logPanelActivity(req, `${account.username} changed bot "${bot.name}" (ID: ${bot.id}) to ${mode} mode`);
+            }
+
             res.json({ success: true });
         } catch (error) {
             logger.log(`❌ Update bot mode error: ${error.message}`);
@@ -1911,6 +2289,13 @@ export async function init() {
 
     app.delete('/api/bots/:id', requireAdmin, async (req, res) => {
         try {
+            const bot = await db.getBot(req.params.id);
+            if (bot) {
+                const account = await getAccountForLogging(req);
+                if (account) {
+                    await logPanelActivity(req, `${account.username} removed bot "${bot.name}" (ID: ${bot.id}, Type: ${bot.bot_type})`);
+                }
+            }
             await db.deleteBot(req.params.id);
             res.json({ success: true });
         } catch (error) {
@@ -1932,6 +2317,12 @@ export async function init() {
             }
 
             const result = await startBotById(bot_id, bot);
+            if (result.success) {
+                const account = await getAccountForLogging(req);
+                if (account) {
+                    await logPanelActivity(req, `${account.username} started bot "${bot.name}" (ID: ${bot_id})`);
+                }
+            }
             res.json(result);
         } catch (error) {
             res.json({ success: false, error: error.message });
@@ -1945,7 +2336,14 @@ export async function init() {
         }
 
         try {
+            const bot = await db.getBot(bot_id);
             const result = await stopBotById(bot_id);
+            if (result.success && bot) {
+                const account = await getAccountForLogging(req);
+                if (account) {
+                    await logPanelActivity(req, `${account.username} stopped bot "${bot.name}" (ID: ${bot_id})`);
+                }
+            }
             res.json(result);
         } catch (error) {
             res.json({ success: false, error: error.message });
@@ -1965,6 +2363,12 @@ export async function init() {
             }
 
             const result = await restartBotById(bot_id, bot);
+            if (result.success) {
+                const account = await getAccountForLogging(req);
+                if (account) {
+                    await logPanelActivity(req, `${account.username} restarted bot "${bot.name}" (ID: ${bot_id})`);
+                }
+            }
             res.json(result);
         } catch (error) {
             res.json({ success: false, error: error.message });

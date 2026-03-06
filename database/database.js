@@ -62,6 +62,10 @@ const BOT_LOG_RETENTION_DAYS = 7;
 const BOT_LOG_PURGE_INTERVAL_MS = 6 * 60 * 60 * 1000;
 let lastBotLogPurgeCheck = 0;
 
+const PANEL_LOG_RETENTION_DAYS = 7;
+const PANEL_LOG_PURGE_INTERVAL_MS = 6 * 60 * 60 * 1000;
+let lastPanelLogPurgeCheck = 0;
+
 function getPool() {
     if (!pool) {
         pool = mysql.createPool({
@@ -1590,8 +1594,8 @@ async function createPanelAccount(accountData) {
         const now = toMySQLDateTime();
         const [result] = await connection.execute(
             `INSERT INTO panel_accounts (
-                username, email, password_hash, account_type, email_verified, otp_code, otp_expires_at, panel_id, created_at, updated_at
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+                username, email, password_hash, account_type, email_verified, otp_code, otp_expires_at, panel_id, ip_address, created_at, updated_at
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
             [
                 accountData.username,
                 accountData.email,
@@ -1601,6 +1605,7 @@ async function createPanelAccount(accountData) {
                 accountData.otp_code || null,
                 accountData.otp_expires_at ? toMySQLDateTime(accountData.otp_expires_at) : null,
                 accountData.panel_id || null,
+                accountData.ip_address || null,
                 now,
                 now
             ]
@@ -1641,7 +1646,7 @@ async function updatePanelAccount(accountId, updateData) {
 }
 
 async function getAllPanelAccounts() {
-    return await query('SELECT id, username, email, account_type, email_verified, created_at, updated_at FROM panel_accounts ORDER BY created_at ASC');
+    return await query('SELECT id, username, email, account_type, email_verified, is_frozen, created_at, updated_at FROM panel_accounts ORDER BY created_at ASC');
 }
 
 async function createPanelInviteLink(linkData) {
@@ -1718,34 +1723,61 @@ async function getAllPanelInviteLinks() {
     );
 }
 
-async function createPanelLog(logData) {
-    const connection = await getPool().getConnection();
+export async function insertPanelLog(panelAccountId, message) {
+    await initializeDatabase();
+    if (!message) {
+        throw new Error('message is required to insert panel log');
+    }
+
     try {
-        const [result] = await connection.execute(
-            `INSERT INTO panel_logs (
-                panel_account_id, ip_address, user_agent, success, attempted_at
-            ) VALUES (?, ?, ?, ?, ?)`,
-            [
-                logData.panel_account_id || null,
-                logData.ip_address,
-                logData.user_agent || null,
-                logData.success || false,
-                logData.attempted_at ? toMySQLDateTime(logData.attempted_at) : toMySQLDateTime()
-            ]
+        await query(
+            'INSERT INTO panel_logs (panel_account_id, message, created_at) VALUES (?, ?, ?)',
+            [panelAccountId || null, message, toMySQLDateTime()]
         );
-        const logs = await query('SELECT * FROM panel_logs WHERE id = ?', [result.insertId]);
-        return logs[0];
-    } finally {
-        connection.release();
+
+        const now = Date.now();
+        if (now - lastPanelLogPurgeCheck >= PANEL_LOG_PURGE_INTERVAL_MS) {
+            lastPanelLogPurgeCheck = now;
+            try {
+                await purgeOldPanelLogs(PANEL_LOG_RETENTION_DAYS);
+            } catch (purgeError) {
+                console.error('Error purging old panel logs:', purgeError);
+            }
+        }
+
+        return true;
+    } catch (error) {
+        console.error('Error inserting panel log:', error);
+        throw error;
     }
 }
 
-async function getPanelLogs(limit) {
+export async function getPanelLogs(limit = 100, offset = 0) {
+    await initializeDatabase();
+
     const result = await query(
-        'SELECT * FROM panel_logs ORDER BY attempted_at DESC LIMIT ?',
-        [limit]
+        `SELECT pl.*, pa.username as account_username, pa.email as account_email
+         FROM panel_logs pl
+         LEFT JOIN panel_accounts pa ON pl.panel_account_id = pa.id
+         ORDER BY pl.created_at DESC
+         LIMIT ? OFFSET ?`,
+        [limit, offset]
     );
     return result;
+}
+
+export async function purgeOldPanelLogs(retentionDays = PANEL_LOG_RETENTION_DAYS) {
+    await initializeDatabase();
+    const days = Number.isFinite(retentionDays) && retentionDays > 0 ? retentionDays : PANEL_LOG_RETENTION_DAYS;
+    const cutoff = getNowInTimezone().minus({ days }).toJSDate();
+    const cutoffStr = toMySQLDateTime(cutoff);
+
+    const result = await query(
+        'DELETE FROM panel_logs WHERE created_at < ?',
+        [cutoffStr]
+    );
+
+    return result?.affectedRows || 0;
 }
 
 async function getServerSettings(serverId, componentName = null) {
@@ -2540,8 +2572,9 @@ export default {
     getPanelInviteLinkByToken,
     updatePanelInviteLink,
     getAllPanelInviteLinks,
-    createPanelLog,
+    insertPanelLog,
     getPanelLogs,
+    purgeOldPanelLogs,
     getServerSettings,
     upsertServerSettings,
     getChannelsForServer,

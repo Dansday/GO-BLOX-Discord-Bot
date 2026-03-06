@@ -144,3 +144,56 @@ export function addDaysToNow(days) {
 export function getCurrentDateTime() {
     return DateTime.now().setZone(TIMEZONE).toJSDate();
 }
+
+export function sanitizeString(input, maxLength = 255) {
+    if (typeof input !== 'string') {
+        return '';
+    }
+    let sanitized = input.replace(/[\x00-\x1F\x7F]/g, '');
+    sanitized = sanitized.trim();
+    if (sanitized.length > maxLength) {
+        sanitized = sanitized.substring(0, maxLength);
+    }
+    return sanitized;
+}
+
+export function sanitizeUsername(username) {
+    if (typeof username !== 'string') {
+        return '';
+    }
+    return username.trim().replace(/[^a-zA-Z]/g, '').substring(0, 50);
+}
+
+export function sanitizeEmail(email) {
+    if (typeof email !== 'string') {
+        return '';
+    }
+    return email.trim().toLowerCase().substring(0, 255);
+}
+
+export function sanitizeInteger(input, min = null, max = null) {
+    const num = parseInt(input, 10);
+    if (Number.isNaN(num)) {
+        return null;
+    }
+    if (min !== null && num < min) {
+        return null;
+    }
+    if (max !== null && num > max) {
+        return null;
+    }
+    return num;
+}
+
+export function validateInputLength(input, fieldName, minLength, maxLength) {
+    if (typeof input !== 'string') {
+        return { valid: false, error: `${fieldName} must be a string` };
+    }
+    if (input.length < minLength) {
+        return { valid: false, error: `${fieldName} must be at least ${minLength} characters long` };
+    }
+    if (input.length > maxLength) {
+        return { valid: false, error: `${fieldName} must not exceed ${maxLength} characters` };
+    }
+    return { valid: true };
+}

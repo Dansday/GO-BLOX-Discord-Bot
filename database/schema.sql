@@ -14,6 +14,8 @@ CREATE TABLE IF NOT EXISTS panel_accounts (
     otp_code VARCHAR(6) NULL,
     otp_expires_at DATETIME NULL,
     panel_id INT NULL,
+    ip_address TEXT NULL,
+    is_frozen BOOLEAN DEFAULT FALSE,
     created_at DATETIME NOT NULL,
     updated_at DATETIME NOT NULL,
     FOREIGN KEY (panel_id) REFERENCES panel(id) ON DELETE SET NULL
@@ -35,10 +37,8 @@ CREATE TABLE IF NOT EXISTS panel_invite_links (
 CREATE TABLE IF NOT EXISTS panel_logs (
     id INT PRIMARY KEY AUTO_INCREMENT,
     panel_account_id INT NULL,
-    ip_address TEXT NOT NULL,
-    user_agent TEXT,
-    success BOOLEAN DEFAULT FALSE,
-    attempted_at DATETIME NOT NULL,
+    message TEXT NOT NULL,
+    created_at DATETIME NOT NULL,
     FOREIGN KEY (panel_account_id) REFERENCES panel_accounts(id) ON DELETE SET NULL
 );
 
@@ -296,7 +296,7 @@ CREATE INDEX idx_panel_invite_links_token ON panel_invite_links(token);
 CREATE INDEX idx_panel_invite_links_created_by ON panel_invite_links(created_by);
 CREATE INDEX idx_panel_invite_links_used_by ON panel_invite_links(used_by);
 CREATE INDEX idx_panel_logs_panel_account_id ON panel_logs(panel_account_id);
-CREATE INDEX idx_panel_logs_attempted_at ON panel_logs(attempted_at);
+CREATE INDEX idx_panel_logs_created_at ON panel_logs(created_at);
 CREATE INDEX idx_server_giveaways_member_id ON server_giveaways(member_id);
 CREATE INDEX idx_server_giveaways_status ON server_giveaways(status);
 CREATE INDEX idx_server_giveaways_ends_at ON server_giveaways(ends_at);

@@ -197,6 +197,42 @@
                     <span>Add Your First Bot</span>
                 </button>
             </div>
+
+            <!-- Panel Logs Terminal -->
+            <div id="panelLogsWrapper" class="bg-gray-800 rounded-xl border border-gray-700 p-4 sm:p-6 mt-6 hidden">
+                <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-3">
+                    <div>
+                        <h3 class="text-lg sm:text-xl font-semibold text-white flex items-center gap-2">
+                            <i class="fas fa-terminal text-red-500"></i>
+                            Panel Logs
+                        </h3>
+                        <p class="text-xs text-gray-400 mt-1">
+                            Panel activity logs (latest 200 entries). Entries are automatically removed after 7 days.
+                        </p>
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <button id="panelLogsAutoScrollBtn" onclick="togglePanelLogsAutoScroll()"
+                            class="px-3 sm:px-4 py-2 rounded-lg text-xs sm:text-sm font-medium bg-red-600 text-white transition-all duration-200 transform hover:scale-105 active:scale-95">
+                            Auto Scroll: On
+                        </button>
+                        <button id="panelLogsRefreshBtn" onclick="manualRefreshPanelLogs()"
+                            class="px-3 sm:px-4 py-2 rounded-lg text-xs sm:text-sm font-medium bg-gray-700 text-gray-200 hover:bg-gray-600 transition-all duration-200 transform hover:scale-105 active:scale-95 flex items-center gap-2">
+                            <i class="fas fa-sync-alt text-sm"></i>
+                            <span>Refresh</span>
+                        </button>
+                    </div>
+                </div>
+                <div class="bg-gray-900 border border-gray-700 rounded-xl overflow-hidden">
+                    <div id="panelLogTerminal"
+                        class="h-64 overflow-y-auto bg-black bg-opacity-60 p-3 sm:p-4 font-mono text-xs sm:text-sm text-gray-200 tracking-tight">
+                        <p class="text-gray-500">Loading logs...</p>
+                    </div>
+                </div>
+                <div class="flex items-center justify-between mt-2 text-[0.65rem] sm:text-xs text-gray-500">
+                    <span id="panelLogsStatusText">Auto-refreshing every 5 seconds</span>
+                    <span id="panelLogsUpdatedAt"></span>
+                </div>
+            </div>
         </main>
         <!-- Footer -->
         <footer class="bg-gray-800 border-t border-gray-700 mt-auto">
@@ -1123,10 +1159,14 @@
                         document.getElementById('accountManagementBtn').classList.remove('hidden');
                         document.getElementById('addBotBtn').classList.remove('hidden');
                         document.getElementById('botLogsWrapper').classList.remove('hidden');
+                        document.getElementById('panelLogsWrapper').classList.remove('hidden');
+                        startPanelLogPolling();
                     } else {
                         document.getElementById('accountManagementBtn').classList.add('hidden');
                         document.getElementById('addBotBtn').classList.add('hidden');
                         document.getElementById('botLogsWrapper').classList.add('hidden');
+                        document.getElementById('panelLogsWrapper').classList.add('hidden');
+                        stopPanelLogPolling();
                     }
                     loadBots();
                 } else {
@@ -1136,6 +1176,8 @@
                     document.getElementById('accountManagementBtn').classList.add('hidden');
                     document.getElementById('addBotBtn').classList.add('hidden');
                     document.getElementById('botLogsWrapper').classList.add('hidden');
+                    document.getElementById('panelLogsWrapper').classList.add('hidden');
+                    stopPanelLogPolling();
                     resetAuthButton();
                     document.getElementById('authForm').reset();
                     if (!inviteToken) {
@@ -1347,29 +1389,177 @@
                     showMessage('Admin access required', 'error');
                     return;
                 }
+                if (res.status === 401) {
+                    await checkAuthStatus();
+                    return;
+                }
                 const data = await res.json();
                 if (data.success) {
                     const accountsList = document.getElementById('accountsList');
                     if (data.accounts.length === 0) {
                         accountsList.innerHTML = '<p class="text-gray-400 text-sm">No accounts found</p>';
                     } else {
-                        accountsList.innerHTML = data.accounts.map(account => `
-                            <div class="bg-gray-700 rounded-lg p-3 flex items-center justify-between">
-                                <div>
-                                    <p class="text-white font-medium">${account.username}</p>
-                                    <p class="text-gray-400 text-xs">${account.email}</p>
+                        let currentAccountId = null;
+                        try {
+                            const authRes = await fetch('/api/panel/auth', { credentials: 'include' });
+                            if (authRes.ok) {
+                                const authData = await authRes.json();
+                                if (authData.authenticated && authData.account_id) {
+                                    currentAccountId = authData.account_id;
+                                }
+                            }
+                        } catch (e) {
+                            console.error('Error getting current account:', e);
+                        }
+
+                        accountsList.innerHTML = data.accounts.map(account => {
+                            const isCurrentAccount = account.id === currentAccountId;
+                            return `
+                            <div class="bg-gray-700 rounded-lg p-3 sm:p-4">
+                                <div class="flex items-center justify-between mb-3">
+                                    <div class="flex-1">
+                                        <p class="text-white font-medium">${account.username}</p>
+                                        <p class="text-gray-400 text-xs">${account.email}</p>
+                                    </div>
+                                    <div class="flex items-center gap-2 flex-wrap">
+                                        <span class="px-2 py-1 rounded text-xs font-medium ${account.account_type === 'admin' ? 'bg-red-600 text-white' : 'bg-blue-600 text-white'}">${account.account_type}</span>
+                                        ${account.email_verified ? '<span class="text-green-500 text-xs"><i class="fas fa-check-circle"></i> Verified</span>' : '<span class="text-yellow-500 text-xs"><i class="fas fa-clock"></i> Pending</span>'}
+                                        ${account.is_frozen ? '<span class="text-red-500 text-xs"><i class="fas fa-lock"></i> Frozen</span>' : ''}
+                                    </div>
                                 </div>
-                                <div class="flex items-center gap-2">
-                                    <span class="px-2 py-1 rounded text-xs font-medium ${account.account_type === 'admin' ? 'bg-red-600 text-white' : 'bg-blue-600 text-white'}">${account.account_type}</span>
-                                    ${account.email_verified ? '<span class="text-green-500 text-xs"><i class="fas fa-check-circle"></i> Verified</span>' : '<span class="text-yellow-500 text-xs"><i class="fas fa-clock"></i> Pending</span>'}
+                                <div class="flex items-center gap-2 flex-wrap">
+                                    ${!account.email_verified 
+                                        ? `<button onclick="verifyAccount(${account.id}, '${account.username.replace(/'/g, "\\'")}')" class="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded text-xs font-medium transition-all">
+                                            <i class="fas fa-check-circle mr-1"></i>Verify
+                                        </button>`
+                                        : ''
+                                    }
+                                    ${account.is_frozen 
+                                        ? `<button onclick="unfreezeAccount(${account.id}, '${account.username.replace(/'/g, "\\'")}')" class="px-3 py-1.5 bg-green-600 hover:bg-green-700 text-white rounded text-xs font-medium transition-all">
+                                            <i class="fas fa-unlock mr-1"></i>Unfreeze
+                                        </button>`
+                                        : `<button onclick="freezeAccount(${account.id}, '${account.username.replace(/'/g, "\\'")}')" class="px-3 py-1.5 bg-yellow-600 hover:bg-yellow-700 text-white rounded text-xs font-medium transition-all">
+                                            <i class="fas fa-lock mr-1"></i>Freeze
+                                        </button>`
+                                    }
+                                    ${!isCurrentAccount ? `
+                                        <button onclick="deleteAccount(${account.id}, '${account.username.replace(/'/g, "\\'")}')" class="px-3 py-1.5 bg-red-600 hover:bg-red-700 text-white rounded text-xs font-medium transition-all">
+                                            <i class="fas fa-trash mr-1"></i>Delete
+                                        </button>
+                                    ` : '<span class="text-gray-500 text-xs">Current Account</span>'}
                                 </div>
                             </div>
-                        `).join('');
+                        `;
+                        }).join('');
                     }
                 }
             } catch (err) {
                 console.error('Error loading accounts:', err);
                 showMessage('Failed to load accounts', 'error');
+            }
+        }
+
+        async function freezeAccount(accountId, username) {
+            if (!confirm(`Are you sure you want to freeze account "${username}"?`)) {
+                return;
+            }
+            try {
+                const res = await fetch(`/api/panel/accounts/${accountId}/freeze`, {
+                    method: 'PUT',
+                    credentials: 'include'
+                });
+                if (res.status === 401) {
+                    await checkAuthStatus();
+                    return;
+                }
+                const data = await res.json();
+                if (data.success) {
+                    showMessage(data.message || 'Account frozen successfully', 'success');
+                    await loadAccounts();
+                } else {
+                    showMessage(data.error || 'Failed to freeze account', 'error');
+                }
+            } catch (err) {
+                console.error('Error freezing account:', err);
+                showMessage('Failed to freeze account', 'error');
+            }
+        }
+
+        async function unfreezeAccount(accountId, username) {
+            if (!confirm(`Are you sure you want to unfreeze account "${username}"?`)) {
+                return;
+            }
+            try {
+                const res = await fetch(`/api/panel/accounts/${accountId}/unfreeze`, {
+                    method: 'PUT',
+                    credentials: 'include'
+                });
+                if (res.status === 401) {
+                    await checkAuthStatus();
+                    return;
+                }
+                const data = await res.json();
+                if (data.success) {
+                    showMessage(data.message || 'Account unfrozen successfully', 'success');
+                    await loadAccounts();
+                } else {
+                    showMessage(data.error || 'Failed to unfreeze account', 'error');
+                }
+            } catch (err) {
+                console.error('Error unfreezing account:', err);
+                showMessage('Failed to unfreeze account', 'error');
+            }
+        }
+
+        async function verifyAccount(accountId, username) {
+            if (!confirm(`Are you sure you want to manually verify account "${username}"?`)) {
+                return;
+            }
+            try {
+                const res = await fetch(`/api/panel/accounts/${accountId}/verify`, {
+                    method: 'PUT',
+                    credentials: 'include'
+                });
+                if (res.status === 401) {
+                    await checkAuthStatus();
+                    return;
+                }
+                const data = await res.json();
+                if (data.success) {
+                    showMessage(data.message || 'Account verified successfully', 'success');
+                    await loadAccounts();
+                } else {
+                    showMessage(data.error || 'Failed to verify account', 'error');
+                }
+            } catch (err) {
+                console.error('Error verifying account:', err);
+                showMessage('Failed to verify account', 'error');
+            }
+        }
+
+        async function deleteAccount(accountId, username) {
+            if (!confirm(`Are you sure you want to DELETE account "${username}"? This action cannot be undone!`)) {
+                return;
+            }
+            try {
+                const res = await fetch(`/api/panel/accounts/${accountId}`, {
+                    method: 'DELETE',
+                    credentials: 'include'
+                });
+                if (res.status === 401) {
+                    await checkAuthStatus();
+                    return;
+                }
+                const data = await res.json();
+                if (data.success) {
+                    showMessage(data.message || 'Account deleted successfully', 'success');
+                    await loadAccounts();
+                } else {
+                    showMessage(data.error || 'Failed to delete account', 'error');
+                }
+            } catch (err) {
+                console.error('Error deleting account:', err);
+                showMessage('Failed to delete account', 'error');
             }
         }
 
@@ -1783,6 +1973,15 @@
         let botLogsAutoScroll = true;
         let botLogsLastUpdated = null;
         let botLogTerminalInitialized = false;
+
+        const PANEL_LOG_FETCH_LIMIT = 200;
+        const PANEL_LOG_POLL_INTERVAL = 5000;
+        let panelLogs = [];
+        let panelLogsPollingInterval = null;
+        let panelLogsLoading = false;
+        let panelLogsAutoScroll = true;
+        let panelLogsLastUpdated = null;
+        let panelLogTerminalInitialized = false;
         const SERVERS_PER_PAGE = 9;
         let allServers = [];
         let currentServerPage = 1;
@@ -2042,6 +2241,183 @@
             updateBotLogsAutoScrollButton();
             loadBotLogs(true);
         }
+
+        function ensurePanelLogElements() {
+            const terminal = document.getElementById('panelLogTerminal');
+            if (terminal && !panelLogTerminalInitialized) {
+                terminal.addEventListener('scroll', handlePanelLogsScroll, { passive: true });
+                panelLogTerminalInitialized = true;
+            }
+        }
+        function handlePanelLogsScroll() {
+            const terminal = document.getElementById('panelLogTerminal');
+            if (!terminal) return;
+            const isAtBottom = Math.abs((terminal.scrollTop + terminal.clientHeight) - terminal.scrollHeight) <= 8;
+            if (panelLogsAutoScroll !== isAtBottom) {
+                panelLogsAutoScroll = isAtBottom;
+                updatePanelLogsAutoScrollButton();
+            }
+        }
+        function scrollPanelLogsToBottom() {
+            const terminal = document.getElementById('panelLogTerminal');
+            if (!terminal) return;
+            terminal.scrollTop = terminal.scrollHeight;
+        }
+        function updatePanelLogsAutoScrollButton() {
+            const btn = document.getElementById('panelLogsAutoScrollBtn');
+            if (!btn) return;
+            btn.textContent = `Auto Scroll: ${panelLogsAutoScroll ? 'On' : 'Off'}`;
+            btn.classList.toggle('bg-red-600', panelLogsAutoScroll);
+            btn.classList.toggle('text-white', panelLogsAutoScroll);
+            btn.classList.toggle('bg-gray-700', !panelLogsAutoScroll);
+            btn.classList.toggle('text-gray-300', !panelLogsAutoScroll);
+        }
+        function togglePanelLogsAutoScroll() {
+            panelLogsAutoScroll = !panelLogsAutoScroll;
+            updatePanelLogsAutoScrollButton();
+            if (panelLogsAutoScroll) {
+                scrollPanelLogsToBottom();
+            }
+        }
+        function setPanelLogsLoadingState(isLoading) {
+            const refreshBtn = document.getElementById('panelLogsRefreshBtn');
+            if (!refreshBtn) return;
+            refreshBtn.disabled = isLoading;
+            const icon = refreshBtn.querySelector('i');
+            if (icon) {
+                icon.classList.toggle('fa-spin', isLoading);
+            }
+        }
+        function updatePanelLogsMeta(statusText = 'Auto-refreshing every 5 seconds') {
+            const statusEl = document.getElementById('panelLogsStatusText');
+            const updatedEl = document.getElementById('panelLogsUpdatedAt');
+            if (statusEl) {
+                const isError = statusText.toLowerCase().includes('fail');
+                statusEl.textContent = statusText;
+                statusEl.classList.toggle('text-red-400', isError);
+                statusEl.classList.toggle('text-gray-500', !isError);
+            }
+            if (updatedEl) {
+                if (panelLogsLastUpdated) {
+                    if (appTimezone) {
+                        const formatter = new Intl.DateTimeFormat('en-US', {
+                            timeZone: appTimezone,
+                            hour12: false,
+                            hour: '2-digit',
+                            minute: '2-digit',
+                            second: '2-digit'
+                        });
+                        updatedEl.textContent = `Updated ${formatter.format(panelLogsLastUpdated)}`;
+                    } else {
+                        updatedEl.textContent = `Updated ${panelLogsLastUpdated.toLocaleTimeString('en-US', { hour12: false })}`;
+                    }
+                } else {
+                    updatedEl.textContent = '';
+                }
+            }
+        }
+        function renderPanelLogs() {
+            ensurePanelLogElements();
+            const terminal = document.getElementById('panelLogTerminal');
+            if (!terminal) return;
+            if (!panelLogs || panelLogs.length === 0) {
+                terminal.innerHTML = '<p class="text-gray-500">No logs yet.</p>';
+                return;
+            }
+            const lines = panelLogs.map(log => {
+                const time = formatLogTimestamp(log.created_at);
+                const message = escapeHtml(log.message || '');
+                return `
+                    <div class="flex items-start gap-3 py-1">
+                        <span class="text-gray-500 whitespace-nowrap">${time}</span>
+                        <span class="text-gray-200 whitespace-pre-wrap break-words flex-1">${message}</span>
+                    </div>
+                `;
+            }).join('');
+            terminal.innerHTML = lines;
+            if (panelLogsAutoScroll) {
+                requestAnimationFrame(() => scrollPanelLogsToBottom());
+            }
+        }
+        async function loadPanelLogs(isInitial = false) {
+            if (panelLogsLoading) return;
+            if (currentAccountType !== 'admin') {
+                return;
+            }
+            panelLogsLoading = true;
+            if (isInitial) {
+                updatePanelLogsMeta('Loading logs...');
+            }
+            setPanelLogsLoadingState(true);
+            try {
+                const response = await fetch(`/api/panel/logs?limit=${PANEL_LOG_FETCH_LIMIT}`, {
+                    credentials: 'include'
+                });
+                if (response.status === 401) {
+                    await checkAuthStatus();
+                    return;
+                }
+                if (response.status === 403) {
+                    const terminal = document.getElementById('panelLogTerminal');
+                    if (terminal) {
+                        terminal.innerHTML = '<p class="text-red-400">Admin access required to view panel logs</p>';
+                    }
+                    updatePanelLogsMeta('Access denied');
+                    panelLogsLoading = false;
+                    setPanelLogsLoadingState(false);
+                    return;
+                }
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}`);
+                }
+                const data = await response.json();
+                const logs = Array.isArray(data.logs) ? data.logs : [];
+                panelLogs = logs.slice().reverse();
+                panelLogsLastUpdated = new Date();
+                renderPanelLogs();
+                updatePanelLogsMeta();
+            } catch (error) {
+                console.error('Failed to load panel logs:', error);
+                if (!panelLogs.length) {
+                    const terminal = document.getElementById('panelLogTerminal');
+                    if (terminal) {
+                        terminal.innerHTML = '<p class="text-red-400">Failed to load logs. Retrying...</p>';
+                    }
+                }
+                updatePanelLogsMeta('Failed to load logs. Retrying...');
+            } finally {
+                panelLogsLoading = false;
+                setPanelLogsLoadingState(false);
+            }
+        }
+        function startPanelLogPolling() {
+            if (currentAccountType !== 'admin') {
+                return;
+            }
+            stopPanelLogPolling();
+            panelLogs = [];
+            panelLogsLastUpdated = null;
+            panelLogsAutoScroll = true;
+            renderPanelLogs();
+            updatePanelLogsAutoScrollButton();
+            updatePanelLogsMeta('Loading logs...');
+            loadPanelLogs(true);
+            panelLogsPollingInterval = setInterval(() => loadPanelLogs(false), PANEL_LOG_POLL_INTERVAL);
+        }
+        function stopPanelLogPolling() {
+            if (panelLogsPollingInterval) {
+                clearInterval(panelLogsPollingInterval);
+                panelLogsPollingInterval = null;
+            }
+            panelLogsLastUpdated = null;
+            updatePanelLogsMeta('Log stream paused');
+        }
+        function manualRefreshPanelLogs() {
+            panelLogsAutoScroll = true;
+            updatePanelLogsAutoScrollButton();
+            loadPanelLogs(true);
+        }
+
         async function viewBotDetail(botId) {
             stopBotLogPolling();
             currentBotId = botId;
@@ -2057,7 +2433,14 @@
             document.getElementById('accountManagementContainer').classList.add('hidden');
             document.getElementById('dashboardContainer').classList.remove('hidden');
             stopBotLogPolling();
+            stopPanelLogPolling();
             currentBotId = null;
+            if (currentAccountType === 'admin') {
+                document.getElementById('panelLogsWrapper').classList.remove('hidden');
+                startPanelLogPolling();
+            } else {
+                document.getElementById('panelLogsWrapper').classList.add('hidden');
+            }
         }
         async function loadBotDetail() {
             if (!currentBotId) return;
@@ -7873,12 +8256,10 @@
                 botDetailRefreshInterval = null;
             }
         }
-        // Username input validation - only allow letters
         function setupUsernameValidation() {
             const usernameInput = document.getElementById('username');
             if (usernameInput) {
                 usernameInput.addEventListener('input', (e) => {
-                    // Remove any characters that are not letters (a-z, A-Z)
                     e.target.value = e.target.value.replace(/[^a-zA-Z]/g, '');
                 });
             }
