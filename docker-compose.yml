@@ -1,7 +1,7 @@
 services:
   database:
     image: mariadb:10.11
-    container_name: goblox-database
+    container_name: dansday-database
     restart: unless-stopped
     environment:
       MARIADB_ROOT_PASSWORD: ${DB_ROOT_PASSWORD}
@@ -14,7 +14,7 @@ services:
     ports:
       - "${DB_PORT:-3306}:3306"
     networks:
-      - goblox-network
+      - dansday-network
     healthcheck:
       test: ["CMD-SHELL", "mysqladmin ping -h localhost || exit 1"]
       interval: 10s
@@ -24,7 +24,7 @@ services:
 
   app:
     build: .
-    container_name: goblox-app
+    container_name: dansday-app
     restart: unless-stopped
     depends_on:
       database:
@@ -43,11 +43,11 @@ services:
     volumes:
       - app_data:/app/data
     networks:
-      - goblox-network
+      - dansday-network
 
   phpmyadmin:
     image: phpmyadmin/phpmyadmin
-    container_name: goblox-phpmyadmin
+    container_name: dansday-phpmyadmin
     restart: unless-stopped
     depends_on:
       database:
@@ -61,7 +61,7 @@ services:
     ports:
       - "8081:80"
     networks:
-      - goblox-network
+      - dansday-network
 
 volumes:
   mysql_data:
@@ -70,6 +70,6 @@ volumes:
     driver: local
 
 networks:
-  goblox-network:
+  dansday-network:
     driver: bridge
 
