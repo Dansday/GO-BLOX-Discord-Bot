@@ -1,7 +1,7 @@
 {
-  "name": "go-blox-bot-system",
+  "name": "Dansday-bot-system",
   "version": "7.8.0",
-  "description": "GO BLOX Bot System - Self-bot and Official Bot",
+  "description": "Dansday Bot System - Self-bot and Official Bot",
   "main": "main.js",
   "type": "module",
   "scripts": {
@@ -11,8 +11,8 @@
     "discord",
     "selfbot",
     "bot",
-    "goblox",
-    "go-blox"
+    "dansday",
+    "Dansday"
   ],
   "author": "Akbar Yudhanto",
   "license": "MIT",
