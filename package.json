@@ -1,6 +1,6 @@
 {
   "name": "Dansday-bot-system",
-  "version": "7.8.1",
+  "version": "7.8.2",
   "description": "Dansday Bot System - Self-bot and Official Bot",
   "main": "index.js",
   "type": "module",
@@ -24,6 +24,7 @@
     "discord.js-selfbot-v13": "^3.7.1",
     "dotenv": "^17.3.1",
     "express": "^5.2.1",
+    "express-mysql-session": "^3.0.3",
     "express-session": "^1.19.0",
     "luxon": "^3.7.2",
     "mysql2": "^3.19.0",

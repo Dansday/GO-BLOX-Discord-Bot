@@ -6,8 +6,11 @@ controlPanel.init().catch(err => {
     process.exit(1);
 });
 
-process.on('SIGINT', () => {
-    console.log('\n🛑 Shutting down control panel...');
-    controlPanel.stop();
-    process.exit(0);
-});
+function shutdown(signal) {
+    console.log(`\n🛑 Shutting down control panel (${signal})...`);
+    controlPanel.stop(() => {
+        process.exit(0);
+    });
+}
+process.on('SIGINT', () => shutdown('SIGINT'));
+process.on('SIGTERM', () => shutdown('SIGTERM'));

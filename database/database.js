@@ -52,7 +52,7 @@ function getConnectionConfig() {
     };
 }
 
-const connectionConfig = getConnectionConfig();
+export const connectionConfig = getConnectionConfig();
 
 console.log(`🔌 Database connection: mysql://${connectionConfig.user}@${connectionConfig.host}:${connectionConfig.port}/${connectionConfig.database}`);
 
@@ -1645,6 +1645,10 @@ async function updatePanelAccount(accountId, updateData) {
     return await getPanelAccountById(accountId);
 }
 
+async function deletePanelAccount(accountId) {
+    await query('DELETE FROM panel_accounts WHERE id = ?', [accountId]);
+}
+
 async function getAllPanelAccounts() {
     return await query('SELECT id, username, email, account_type, email_verified, is_frozen, created_at, updated_at FROM panel_accounts ORDER BY created_at ASC');
 }
@@ -2567,6 +2571,7 @@ export default {
     getPanelAccountByUsername,
     createPanelAccount,
     updatePanelAccount,
+    deletePanelAccount,
     getAllPanelAccounts,
     createPanelInviteLink,
     getPanelInviteLinkByToken,

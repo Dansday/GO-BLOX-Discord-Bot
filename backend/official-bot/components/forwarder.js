@@ -1,59 +1,128 @@
 import { FORWARDER, getEmbedConfig } from "../../config.js";
 import logger from "../../logger.js";
 
-const CUSTOM_EMOJI_STATIC = /<:([^:]+):(\d+)>/g;
-const CUSTOM_EMOJI_ANIMATED = /<a:([^:]+):(\d+)>/g;
-
-/** Extract unique custom emoji refs from text: { name, id, animated } */
+/** Extract unique custom emoji refs from text: { name, id, animated }. */
 function extractCustomEmojis(text) {
-    if (!text) return [];
+    const str = text != null ? String(text) : '';
+    if (!str) return [];
     const seen = new Set();
     const out = [];
-    for (const g of [CUSTOM_EMOJI_STATIC, CUSTOM_EMOJI_ANIMATED]) {
-        g.lastIndex = 0;
+    const patternSpecs = [
+        ['<:([^:]+):(\\d+)>', false],
+        ['<a:([^:]+):(\\d+)>', true]
+    ];
+    for (const [pattern, animated] of patternSpecs) {
+        const regex = new RegExp(pattern, 'g');
         let m;
-        while ((m = g.exec(text)) !== null) {
+        while ((m = regex.exec(str)) !== null) {
+            const name = m[1];
             const id = m[2];
-            if (seen.has(id)) continue;
+            if (typeof name !== 'string' || typeof id !== 'string') continue;
+            const trimmedName = name.trim();
+            if (!trimmedName || seen.has(id)) continue;
             seen.add(id);
-            out.push({ name: m[1], id, animated: g === CUSTOM_EMOJI_ANIMATED });
+            out.push({ name: trimmedName, id, animated });
         }
     }
     return out;
 }
 
 /**
- * Ensure each emoji exists on the target guild (by name). If not, download from CDN and create.
- * Returns { sourceToTarget: Map, createdIds: string[] } so we can delete created emojis after send.
- * Bot needs Manage Guild Expressions on the target server.
+ * Download emoji image from CDN. Returns Buffer or null.
  */
-async function ensureEmojisOnGuild(guild, emojiRefs, log) {
-    const sourceToTarget = new Map();
-    const createdIds = [];
-    if (!emojiRefs.length) return { sourceToTarget, createdIds };
+async function downloadEmojiBuffer(emojiId, ext, log) {
+    const cdnUrl = `https://cdn.discordapp.com/emojis/${emojiId}.${ext}`;
+    try {
+        const res = await fetch(cdnUrl);
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        return Buffer.from(await res.arrayBuffer());
+    } catch (err) {
+        if (log) await log(`⚠️ Forwarder: could not download emoji ${emojiId}: ${err.message}`);
+        return null;
+    }
+}
 
-    const existing = guild.emojis.cache;
+function findEmojiByName(cache, name) {
+    const n = String(name).trim();
+    if (!n) return null;
+    return cache.find(e => String(e.name || '').trim() === n) || null;
+}
+
+function isAppEmojiLimitError(err) {
+    const msg = (err?.message || '').toLowerCase();
+    return msg.includes('maximum number of emojis') || msg.includes('emojis reached') || msg.includes('2000');
+}
+
+/** Discord app emoji names: ≥2 chars, alphanumeric + underscores only. */
+function sanitizeAppEmojiName(name) {
+    const s = String(name).trim().replace(/[^a-zA-Z0-9_]/g, '_');
+    if (s.length >= 2) return s;
+    return 'e_' + String(name || '').replace(/\D/g, '').slice(-6) || 'emoji';
+}
+
+/**
+ * Ensure each emoji exists on the application (by name). Reuse if same name; only create when missing. Up to 2,000 app emojis; no per-server limit.
+ * Returns { sourceToTarget: Map }. Bot token must have application emoji scope.
+ */
+async function ensureEmojisOnApplication(client, emojiRefs, log) {
+    const sourceToTarget = new Map();
+    if (!emojiRefs.length) return { sourceToTarget };
+    const app = client.application;
+    if (!app?.emojis) {
+        if (log) await log('⚠️ Forwarder: application emojis not available (client.application.emojis missing)');
+        return { sourceToTarget };
+    }
+    await app.emojis.fetch();
+    let cache = app.emojis.cache;
     for (const ref of emojiRefs) {
-        const existingEmoji = existing.find(e => e.name === ref.name);
+        let name = ref.name != null ? String(ref.name).trim() : '';
+        if (!name && ref.id) name = String(ref.id);
+        if (!name) continue;
+        name = sanitizeAppEmojiName(name);
+        const refId = ref.id != null ? String(ref.id) : '';
+        if (!refId) continue;
+        let existingEmoji = findEmojiByName(cache, name);
         if (existingEmoji) {
-            sourceToTarget.set(ref.id, existingEmoji.id);
+            sourceToTarget.set(refId, existingEmoji.id);
+            continue;
+        }
+        await app.emojis.fetch();
+        cache = app.emojis.cache;
+        existingEmoji = findEmojiByName(cache, name);
+        if (existingEmoji) {
+            sourceToTarget.set(refId, existingEmoji.id);
             continue;
         }
         const ext = ref.animated ? 'gif' : 'png';
-        const cdnUrl = `https://cdn.discordapp.com/emojis/${ref.id}.${ext}`;
+        const buffer = await downloadEmojiBuffer(refId, ext, log);
+        if (!buffer) continue;
+        let created = null;
         try {
-            const created = await guild.emojis.create({ attachment: cdnUrl, name: ref.name });
-            sourceToTarget.set(ref.id, created.id);
-            createdIds.push(created.id);
-            if (log) await log(`📥 Forwarder: added emoji :${ref.name}: to this server`);
+            created = await app.emojis.create({ attachment: buffer, name });
         } catch (err) {
-            if (log) await log(`⚠️ Forwarder: could not add emoji :${ref.name}: (${err.message})`);
+            if (isAppEmojiLimitError(err) && cache.size > 0) {
+                const toRemove = cache.first();
+                try {
+                    await toRemove.delete();
+                    await app.emojis.fetch();
+                    cache = app.emojis.cache;
+                    created = await app.emojis.create({ attachment: buffer, name });
+                } catch (retryErr) {
+                    if (log) await log(`⚠️ Forwarder: could not add application emoji :${name}: (${retryErr.message})`);
+                }
+            } else {
+                if (log) await log(`⚠️ Forwarder: could not add application emoji :${name}: (${err.message})`);
+            }
+        }
+        if (created) {
+            sourceToTarget.set(refId, created.id);
+            cache = app.emojis.cache;
         }
     }
-    return { sourceToTarget, createdIds };
+    return { sourceToTarget };
 }
 
-/** Replace custom emoji IDs in text so they point to target server emojis. */
+/** Replace custom emoji IDs in text so they point to target server or application emojis. */
 function replaceEmojiIdsInText(text, sourceIdToTargetId) {
     if (!text || sourceIdToTargetId.size === 0) return text;
     return text
@@ -74,13 +143,17 @@ function cleanMessageContent(text) {
     return cleaned;
 }
 
-/** Remove Discord user/role mention tags so embed text is clean. Keeps message.content mentions for notifications. */
+/** Remove Discord user/role mention tags so embed text is clean. Keeps message.content mentions for notifications. Preserves newlines so format is not broken. */
 function stripMentionsFromText(text) {
     if (!text) return text;
     let stripped = text
         .replace(/<@!?\d+>/g, '')   // user mentions <@123> or <@!123>
         .replace(/<@&\d+>/g, '');   // role mentions <@&123>
-    stripped = stripped.replace(/\s+/g, ' ').trim();
+    stripped = stripped
+        .split('\n')
+        .map(line => line.replace(/\s+/g, ' ').trim())
+        .join('\n')
+        .trim();
     return stripped;
 }
 
@@ -142,8 +215,6 @@ export async function processMessageFromSelfBot(messageData, client) {
     }
 
     try {
-        const targetGuild = targetChannel.guild;
-
         const embedConfig = await getEmbedConfig(targetGuildId);
 
         const allTexts = [messageData.content || ''];
@@ -157,8 +228,9 @@ export async function processMessageFromSelfBot(messageData, client) {
                 }
             }
         }
-        const emojiRefs = [...new Map(allTexts.flatMap(t => extractCustomEmojis(t).map(e => [e.id, e])).values())];
-        const { sourceToTarget: sourceIdToTargetId, createdIds: createdEmojiIds } = await ensureEmojisOnGuild(targetGuild, emojiRefs, logger.log.bind(logger));
+        const pairs = allTexts.flatMap(t => extractCustomEmojis(t).map(e => [e.id, e])).filter(([id, r]) => id && r && typeof r.name === 'string' && r.name.length > 0);
+        const emojiRefs = [...new Map(pairs).values()];
+        const { sourceToTarget: sourceIdToTargetId } = await ensureEmojisOnApplication(client, emojiRefs, logger.log.bind(logger));
 
         const applyEmojiReplace = (text) => replaceEmojiIdsInText(text, sourceIdToTargetId);
 
@@ -255,14 +327,6 @@ export async function processMessageFromSelfBot(messageData, client) {
         }
 
         await targetChannel.send(messageOptions);
-
-        for (const emojiId of createdEmojiIds) {
-            try {
-                await targetGuild.emojis.delete(emojiId);
-            } catch (err) {
-                await logger.log(`⚠️ Forwarder: could not remove temporary emoji ${emojiId}: ${err.message}`);
-            }
-        }
 
         await logger.log(`✅ Forwarded ${messageData.id} from source channel ${sourceChannelId}`);
     } catch (err) {

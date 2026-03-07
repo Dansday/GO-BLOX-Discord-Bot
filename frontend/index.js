@@ -7,7 +7,8 @@ import { readFileSync, writeFileSync, unlinkSync, existsSync, mkdirSync } from '
 import bcrypt from 'bcrypt';
 import { CONTROL_PANEL } from './config.js';
 import logger from '../backend/logger.js';
-import db, { initializeDatabase } from '../database/database.js';
+import db, { initializeDatabase, connectionConfig } from '../database/database.js';
+import MySQLStoreFactory from 'express-mysql-session';
 import { parseMySQLDateTime, getNowInTimezone, getDateTimeFromSQL, getDateTimeFromJSDate, addMinutesToNow, addDaysToNow, getCurrentDateTime } from '../backend/utils.js';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -475,7 +476,14 @@ export async function init() {
         throw new Error('Missing SESSION_SECRET environment variable');
     }
 
+    const MySQLStore = MySQLStoreFactory(session);
+    const sessionStore = new MySQLStore({
+        ...connectionConfig,
+        schema: { tableName: 'panel_sessions' }
+    });
+
     app.use(session({
+        store: sessionStore,
         secret: process.env.SESSION_SECRET,
         resave: false,
         saveUninitialized: false,
@@ -486,6 +494,8 @@ export async function init() {
             maxAge: 24 * 60 * 60 * 1000
         }
     }));
+
+    app.locals.sessionStore = sessionStore;
 
     const rateLimitStore = new Map();
     const RATE_LIMIT_WINDOW = 15 * 60 * 1000;
@@ -624,6 +634,14 @@ export async function init() {
 
     async function requireAuth(req, res, next) {
         if (req.session && req.session.authenticated && req.session.panel_account_id) {
+            try {
+                const account = await db.getPanelAccountById(req.session.panel_account_id);
+                if (account && account.is_frozen) {
+                    return res.status(403).json({ error: 'Your account has been frozen. Access denied.' });
+                }
+            } catch (err) {
+                logger.log(`❌ Error checking account in requireAuth: ${err.message}`);
+            }
             return next();
         }
         return res.status(401).json({ error: 'Authentication required' });
@@ -1074,6 +1092,23 @@ export async function init() {
 
             await db.updatePanelAccount(accountId, { is_frozen: true });
 
+            const store = req.app.locals.sessionStore;
+            if (store && typeof store.all === 'function') {
+                try {
+                    const sessions = await store.all();
+                    for (const [sid, data] of Object.entries(sessions || {})) {
+                        if (data && data.panel_account_id === accountId) {
+                            await new Promise((resolve, reject) => {
+                                store.destroy(sid, (err) => (err ? reject(err) : resolve()));
+                            });
+                            logger.log(`🛑 Destroyed session for frozen account ${account.username} (ID: ${accountId})`);
+                        }
+                    }
+                } catch (sessionErr) {
+                    logger.log(`⚠️  Failed to destroy sessions for frozen account: ${sessionErr.message}`);
+                }
+            }
+
             const adminAccount = await getAccountForLogging(req);
             if (adminAccount) {
                 await logPanelActivity(req, `${adminAccount.username} froze account: ${account.username} (ID: ${accountId})`);
@@ -1190,7 +1225,7 @@ export async function init() {
                 logger.log(`⚠️  Failed to send account deleted email: ${emailError.message}`);
             }
 
-            await query('DELETE FROM panel_accounts WHERE id = ?', [accountId]);
+            await db.deletePanelAccount(accountId);
 
             const adminAccount = await getAccountForLogging(req);
             if (adminAccount) {
@@ -2410,11 +2445,41 @@ export async function init() {
     });
 }
 
-export function stop() {
+const BOT_KILL_TIMEOUT_MS = 2000;
+
+export function stop(callback) {
+    for (const [botId, info] of botProcesses.entries()) {
+        try {
+            if (info.process && !info.process.killed && info.process.exitCode === null) {
+                info.process.kill('SIGINT');
+                logger.log(`🛑 Stopping bot ${botId} (PID ${info.pid}) for app shutdown`);
+                const proc = info.process;
+                setTimeout(() => {
+                    if (proc && !proc.killed && proc.exitCode === null) {
+                        try { proc.kill('SIGKILL'); } catch (_) { }
+                    }
+                }, BOT_KILL_TIMEOUT_MS);
+            }
+        } catch (e) {
+            try { process.kill(info.pid, 'SIGKILL'); } catch (_) { }
+        }
+        botProcesses.delete(botId);
+    }
     if (server) {
-        server.close();
+        const s = server;
         server = null;
-        logger.log('🛑 Control panel stopped');
+        logger.log('🛑 Control panel stopping (closing server)...');
+        let done = false;
+        const onDone = () => {
+            if (done) return;
+            done = true;
+            logger.log('🛑 Control panel stopped');
+            if (typeof callback === 'function') callback();
+        };
+        s.close(onDone);
+        setTimeout(onDone, 5000).unref?.();
+    } else if (typeof callback === 'function') {
+        callback();
     }
 }
 

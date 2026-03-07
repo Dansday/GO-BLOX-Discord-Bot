@@ -34,11 +34,14 @@ client.on("ready", async () => {
     forwarder.init(client);
 });
 
-process.on("SIGINT", () => {
+function shutdown() {
     console.log("\n🛑 Shutting down self-bot...");
     client.destroy();
     process.exit(0);
-});
+}
+
+process.on("SIGINT", shutdown);
+process.on("SIGTERM", shutdown);
 
 (async () => {
     if (!BOT_TOKEN) {
