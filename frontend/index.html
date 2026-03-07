@@ -1445,6 +1445,9 @@
                                         </button>`
                                         : ''
                                     }
+                                    ${isCurrentAccount 
+                                        ? '<span class="text-gray-500 text-xs">Current Account</span>'
+                                        : `
                                     ${account.is_frozen 
                                         ? `<button onclick="unfreezeAccount(${account.id}, '${escapeHtml(account.username || '').replace(/'/g, "\\'")}')" class="px-3 py-1.5 bg-green-600 hover:bg-green-700 text-white rounded text-xs font-medium transition-all">
                                             <i class="fas fa-unlock mr-1"></i>Unfreeze
@@ -1453,11 +1456,10 @@
                                             <i class="fas fa-lock mr-1"></i>Freeze
                                         </button>`
                                     }
-                                    ${!isCurrentAccount ? `
-                                        <button onclick="deleteAccount(${account.id}, '${escapeHtml(account.username || '').replace(/'/g, "\\'")}')" class="px-3 py-1.5 bg-red-600 hover:bg-red-700 text-white rounded text-xs font-medium transition-all">
-                                            <i class="fas fa-trash mr-1"></i>Delete
-                                        </button>
-                                    ` : '<span class="text-gray-500 text-xs">Current Account</span>'}
+                                    <button onclick="deleteAccount(${account.id}, '${escapeHtml(account.username || '').replace(/'/g, "\\'")}')" class="px-3 py-1.5 bg-red-600 hover:bg-red-700 text-white rounded text-xs font-medium transition-all">
+                                        <i class="fas fa-trash mr-1"></i>Delete
+                                    </button>
+                                    `}
                                 </div>
                             </div>
                         `;
