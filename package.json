@@ -1,6 +1,6 @@
 {
   "name": "Dansday-bot-system",
-  "version": "7.8.0",
+  "version": "7.8.1",
   "description": "Dansday Bot System - Self-bot and Official Bot",
   "main": "index.js",
   "type": "module",
