@@ -280,6 +280,17 @@
       "permissionDenied": "❌ **Izin Ditolak**\\n\\nKamu memerlukan izin admin untuk menyetujui atau menolak laporan staff."
     }
   },
+  "notifications": {
+    "button": "🔔 Notifikasi",
+    "title": "🔔 Preferensi Notifikasi",
+    "description": "Pilih channel mana yang ingin kamu dapatkan notifikasinya. Role yang dipilih akan diberikan kepadamu.",
+    "selectPlaceholder": "Pilih channel notifikasi...",
+    "updated": "✅ Preferensi notifikasi kamu telah diperbarui.",
+    "errors": {
+      "notConfigured": "❌ Notifikasi belum dikonfigurasi untuk server ini.",
+      "noRoles": "❌ Belum ada channel notifikasi. Minta admin untuk mengonfigurasi notifikasi di dashboard."
+    }
+  },
   "customSupporterRole": {
     "create": {
       "title": "💎 Buat Role Supporter Kustom",

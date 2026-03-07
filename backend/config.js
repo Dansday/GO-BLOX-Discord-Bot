@@ -380,6 +380,69 @@ export const CUSTOM_SUPPORTER_ROLE = {
     }
 };
 
+export const NOTIFICATIONS = {
+
+    async getConfig(guildId) {
+        requireBotConfig();
+        requireGuildId(guildId, 'getting notifications config');
+
+        const server = await getOfficialBotServer(guildId).catch(() => null);
+        if (!server) return null;
+
+        const settings = await db.getServerSettings(server.id, 'notifications');
+        if (settings && settings.settings) {
+            return settings.settings;
+        }
+        return null;
+    },
+
+    async getConfigByServerId(serverId) {
+        const settings = await db.getServerSettings(serverId, 'notifications');
+        if (settings && settings.settings) {
+            return settings.settings;
+        }
+        return null;
+    },
+
+    async getRoleConstraints(guildId) {
+        requireBotConfig();
+        requireGuildId(guildId, 'getting notifications role constraints');
+
+        const settings = await db.getServerSettings((await getOfficialBotServer(guildId)).id, 'notifications');
+
+        if (settings && settings.settings) {
+            return {
+                ROLE_START: settings.settings.role_start || null,
+                ROLE_END: settings.settings.role_end || null
+            };
+        }
+
+        return {
+            ROLE_START: null,
+            ROLE_END: null
+        };
+    },
+
+    async getNotificationRoleIds(guildId) {
+        const server = await getOfficialBotServer(guildId).catch(() => null);
+        if (!server) return [];
+        const rows = await db.getNotificationRolesForServer(server.id);
+        return (rows || []).map(r => r.discord_role_id).filter(Boolean);
+    },
+
+    async getNotificationRolesWithCategory(guildId) {
+        const server = await getOfficialBotServer(guildId).catch(() => null);
+        if (!server) return [];
+        return await db.getNotificationRolesWithCategory(server.id);
+    },
+
+    async getNotificationRoleIdForChannel(guildId, channelId) {
+        const server = await getOfficialBotServer(guildId).catch(() => null);
+        if (!server || !channelId) return null;
+        return await db.getNotificationRoleByChannel(server.id, channelId) || null;
+    }
+};
+
 export const FEEDBACK = {
 
     async getChannel(guildId) {

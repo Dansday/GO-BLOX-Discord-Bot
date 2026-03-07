@@ -1,4 +1,4 @@
-import { FORWARDER, getEmbedConfig } from "../../config.js";
+import { FORWARDER, NOTIFICATIONS, getEmbedConfig } from "../../config.js";
 import logger from "../../logger.js";
 
 /** Extract unique custom emoji refs from text: { name, id, animated }. */
@@ -313,6 +313,10 @@ export async function processMessageFromSelfBot(messageData, client) {
         }
 
         const contentParts = [];
+        const autoNotificationRoleId = await NOTIFICATIONS.getNotificationRoleIdForChannel(targetGuildId, targetChannelId).catch(() => null);
+        if (autoNotificationRoleId) {
+            contentParts.push(`<@&${autoNotificationRoleId}>`);
+        }
         if (roles && Array.isArray(roles) && roles.length > 0) {
             contentParts.push(roles.map(role => `<@&${role.role_id}>`).join(' '));
         }

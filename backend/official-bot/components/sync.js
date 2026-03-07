@@ -1,9 +1,11 @@
 import db from '../../../database/database.js';
 import logger from '../../logger.js';
 import { separateChannelsAndCategories, mapCategoriesForSync, mapChannelsForSync } from '../../utils.js';
+import { syncNotificationRoles } from './notificationsSync.js';
 
 let client = null;
 let botId = null;
+let botType = null;
 
 async function findBotByToken(token) {
     try {
@@ -81,6 +83,14 @@ async function syncGuildData(guild) {
         } catch (error) {
         }
 
+        try {
+            if (botType === 'official') {
+                await syncNotificationRoles(guild, serverId);
+            }
+        } catch (error) {
+            logger.log(`❌ Notifications sync failed for ${guild.name}: ${error.message}`);
+        }
+
         logger.log(`✅ Synced server: ${guild.name} (${guild.memberCount} members, ${categories.length} categories, ${channels.length} channels, ${roles.length} roles)`);
     } catch (error) {
         logger.log(`❌ Error syncing guild data for ${guild.name}: ${error.message}`);
@@ -136,6 +146,7 @@ async function init(discordClient, botToken) {
     }
 
     botId = bot.id;
+    botType = bot.bot_type || null;
     logger.log(`✅ Found bot in database: ${bot.name} (${bot.bot_type})`);
 
     if (client.user) {
@@ -192,6 +203,32 @@ async function init(discordClient, botToken) {
                 } catch (error) {
                 }
 
+                try {
+                    if (botType === 'official') {
+                        const guilds = client.guilds.cache;
+                        for (const [, guild] of guilds) {
+                            try {
+                                const serverData = await db.getServerByDiscordId(botId, guild.id);
+                                if (!serverData) continue;
+                                const row = await db.getServerSettings(serverData.id, 'notifications');
+                                const config = row?.settings || null;
+                                if (!config || !config.role_start || !config.role_end) continue;
+                                const categoryIds = Array.isArray(config.category_ids) ? config.category_ids : [];
+                                if (categoryIds.length === 0) continue;
+                                await guild.fetch();
+                                await guild.channels.fetch();
+                                await guild.roles.fetch();
+                                await syncNotificationRoles(guild, serverData.id);
+                            } catch (err) {
+                                logger.log(`⚠️ Notifications startup sync for ${guild.name}: ${err.message}`);
+                            }
+                        }
+                        logger.log('✅ Notification roles sync (startup) completed');
+                    }
+                } catch (error) {
+                    logger.log(`⚠️ Notification roles startup sync failed: ${error.message}`);
+                }
+
                 logger.log('ℹ️  Note: Booster status (is_booster, booster_since) will be updated automatically when member events occur');
             }
         }
@@ -240,7 +277,6 @@ async function init(discordClient, botToken) {
             const roleName = role.name || 'Unknown';
             const roleColor = role.hexColor !== '#000000' ? role.hexColor : 'No color';
             await logger.log(`🎭 Role created: **${roleName}** (${roleColor}) (${role.id})`);
-            await syncGuildData(role.guild);
         }
     });
 
@@ -258,7 +294,6 @@ async function init(discordClient, botToken) {
             } else {
                 await logger.log(`✏️ Role updated: **${newName}** (${newRole.id})`);
             }
-            await syncGuildData(newRole.guild);
         }
     });
 

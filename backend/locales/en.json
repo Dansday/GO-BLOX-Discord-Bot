@@ -280,6 +280,17 @@
       "permissionDenied": "❌ **Permission Denied**\\n\\nYou need admin permissions to approve or reject staff reports."
     }
   },
+  "notifications": {
+    "button": "🔔 Notifications",
+    "title": "🔔 Notification Preferences",
+    "description": "Select which channels you want to receive notifications for. You will get the selected roles assigned to you.",
+    "selectPlaceholder": "Select notification channels...",
+    "updated": "✅ Your notification preferences have been updated.",
+    "errors": {
+      "notConfigured": "❌ Notifications are not configured for this server.",
+      "noRoles": "❌ No notification channels are set up yet. Ask an admin to configure notifications in the dashboard."
+    }
+  },
   "customSupporterRole": {
     "create": {
       "title": "💎 Create Custom Supporter Role",

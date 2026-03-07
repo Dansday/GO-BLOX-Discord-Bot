@@ -1,4 +1,4 @@
-import { getLevelingSettings, PERMISSIONS, getBotConfig, getEmbedConfig } from "../../config.js";
+import { getLevelingSettings, PERMISSIONS, getBotConfig, getEmbedConfig, NOTIFICATIONS } from "../../config.js";
 import db from "../../../database/database.js";
 import logger from "../../logger.js";
 import { EmbedBuilder } from "discord.js";
@@ -343,7 +343,9 @@ export async function sendLevelProgressNotification({
                 );
         }
 
-        await channel.send({ embeds: [embed] });
+        const notificationRoleId = await NOTIFICATIONS.getNotificationRoleIdForChannel(guildId, progressChannelId).catch(() => null);
+        const content = notificationRoleId ? `<@&${notificationRoleId}>` : undefined;
+        await channel.send({ content, embeds: [embed] });
         const typeLabel = eventType === "rank" ? "rank" : "level";
         await logger.log(`⭐ Sent ${typeLabel} notification (${contextLabel}) to channel ${progressChannelId} for ${discordMemberId} in ${serverName}`);
         return true;

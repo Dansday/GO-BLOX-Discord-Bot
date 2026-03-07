@@ -1,5 +1,5 @@
 import { ModalBuilder, TextInputBuilder, ActionRowBuilder, TextInputStyle, EmbedBuilder, ButtonBuilder, ButtonStyle, RoleSelectMenuBuilder } from 'discord.js';
-import { getEmbedConfig, GIVEAWAY, getServerForCurrentBot } from '../../../config.js';
+import { getEmbedConfig, GIVEAWAY, NOTIFICATIONS, getServerForCurrentBot } from '../../../config.js';
 import logger from '../../../logger.js';
 import { hasPermission, getPermissionDeniedMessage } from '../permissions.js';
 import db from '../../../../database/database.js';
@@ -501,7 +501,10 @@ export async function handleGiveawayModal(interaction) {
 
         const enterButtonRow = new ActionRowBuilder().addComponents(enterButton);
 
+        const notificationRoleId = await NOTIFICATIONS.getNotificationRoleIdForChannel(guild.id, giveawayChannel.id).catch(() => null);
+        const mentionContent = notificationRoleId ? `<@&${notificationRoleId}>` : undefined;
         const message = await giveawayChannel.send({
+            content: mentionContent,
             embeds: [giveawayEmbed],
             components: [enterButtonRow]
         });
@@ -786,7 +789,9 @@ export async function handleGiveawayFinish(interaction) {
                 .setTimestamp()
                 .setFooter({ text: embedConfig.FOOTER });
 
+            const noEntriesMention = await NOTIFICATIONS.getNotificationRoleIdForChannel(guild.id, channel.id).catch(() => null);
             await channel.send({
+                content: noEntriesMention ? `<@&${noEntriesMention}>` : undefined,
                 embeds: [noEntriesEmbed]
             }).catch(() => null);
 
@@ -815,7 +820,9 @@ export async function handleGiveawayFinish(interaction) {
                 .setTimestamp()
                 .setFooter({ text: embedConfig.FOOTER });
 
+            const noWinnersMention = await NOTIFICATIONS.getNotificationRoleIdForChannel(guild.id, channel.id).catch(() => null);
             await channel.send({
+                content: noWinnersMention ? `<@&${noWinnersMention}>` : undefined,
                 embeds: [noWinnersEmbed]
             }).catch(() => null);
 
@@ -854,7 +861,9 @@ export async function handleGiveawayFinish(interaction) {
             .setTimestamp()
             .setFooter({ text: embedConfig.FOOTER });
 
+        const winnersMention = await NOTIFICATIONS.getNotificationRoleIdForChannel(guild.id, channel.id).catch(() => null);
         await channel.send({
+            content: winnersMention ? `<@&${winnersMention}>` : undefined,
             embeds: [winnersEmbed]
         }).catch(() => null);
 
@@ -932,7 +941,9 @@ async function processEndedGiveaways(client) {
                             .setTimestamp()
                             .setFooter({ text: embedConfig.FOOTER });
 
+                        const noEntriesMention = await NOTIFICATIONS.getNotificationRoleIdForChannel(guild.id, channel.id).catch(() => null);
                         await channel.send({
+                            content: noEntriesMention ? `<@&${noEntriesMention}>` : undefined,
                             embeds: [noEntriesEmbed]
                         });
 
@@ -957,7 +968,9 @@ async function processEndedGiveaways(client) {
                             .setTimestamp()
                             .setFooter({ text: embedConfig.FOOTER });
 
+                        const noWinnersMention = await NOTIFICATIONS.getNotificationRoleIdForChannel(guild.id, channel.id).catch(() => null);
                         await channel.send({
+                            content: noWinnersMention ? `<@&${noWinnersMention}>` : undefined,
                             embeds: [noWinnersEmbed]
                         });
 
@@ -991,8 +1004,9 @@ async function processEndedGiveaways(client) {
                         components: []
                     });
 
-
+                    const winnersMention = await NOTIFICATIONS.getNotificationRoleIdForChannel(guild.id, channel.id).catch(() => null);
                     await channel.send({
+                        content: winnersMention ? `<@&${winnersMention}>` : undefined,
                         embeds: [winnersEmbed]
                     });
 

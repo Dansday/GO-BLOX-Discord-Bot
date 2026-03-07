@@ -3013,6 +3013,7 @@
             { id: 'permissions', name: 'Permissions', icon: 'fa-shield-alt' },
             { id: 'custom_supporter_role', name: 'Custom Supporter Role', icon: 'fa-user-tag' },
             { id: 'staff_report_rating', name: 'Staff Report & Rating', icon: 'fa-star' },
+            { id: 'notifications', name: 'Notifications', icon: 'fa-bell' },
             { id: 'feedback', name: 'Feedback', icon: 'fa-comment-dots' },
             { id: 'giveaway', name: 'Giveaway', icon: 'fa-gift' },
             { id: 'forwarder', name: 'Forwarder', icon: 'fa-exchange-alt' },
@@ -4194,6 +4195,18 @@
                         componentContent.innerHTML = html;
                     });
                     break;
+                case 'notifications':
+                    renderNotifications(settings).then(html => {
+                        contentContainer.innerHTML = contentHTML + html;
+                    });
+                    contentContainer.innerHTML = contentHTML + `
+                        <div class="bg-gray-700 rounded-lg p-4 sm:p-6">
+                            <div class="flex items-center justify-center py-8">
+                                <i class="fas fa-spinner fa-spin text-2xl text-gray-400"></i>
+                            </div>
+                        </div>
+                    `;
+                    return;
                 case 'custom_supporter_role':
                     renderCustomSupporterRole(settings).then(html => {
                         contentContainer.innerHTML = contentHTML + html;
@@ -4292,6 +4305,25 @@
                 return channelMap;
             } catch (err) {
                 console.error('Error loading channel names:', err);
+                return {};
+            }
+        }
+        async function loadCategoryNames(categoryIds) {
+            if (!categoryIds || categoryIds.length === 0) return {};
+            if (!currentServerId) return {};
+            try {
+                const res = await fetch(`/api/servers/${currentServerId}/categories`, { credentials: 'include' });
+                if (res.status === 401) { await checkAuthStatus(); return {}; }
+                const categories = res.ok ? await res.json() : [];
+                const map = {};
+                categories.forEach(cat => {
+                    if (categoryIds.includes(cat.discord_category_id)) {
+                        map[cat.discord_category_id] = cat.name || `Category ${cat.discord_category_id}`;
+                    }
+                });
+                return map;
+            } catch (err) {
+                console.error('Error loading category names:', err);
                 return {};
             }
         }
@@ -4778,6 +4810,102 @@
                             </button>
                         </div>
                     </form>
+                `;
+        }
+        async function renderNotifications(settings) {
+            let config = {};
+            if (settings) {
+                if (settings.settings) {
+                    config = settings.settings;
+                } else if (typeof settings === 'object') {
+                    config = settings;
+                }
+            }
+            await loadRolesForServer();
+            const roleStartId = config.role_start || '';
+            const roleEndId = config.role_end || '';
+            const categoryIds = config.category_ids || [];
+            const roleStart = roleStartId ? allRoles.find(r => String(r.discord_role_id) === String(roleStartId)) : null;
+            const roleEnd = roleEndId ? allRoles.find(r => String(r.discord_role_id) === String(roleEndId)) : null;
+            const categoryNames = await loadCategoryNames(categoryIds);
+            return `
+                    <div class="space-y-6">
+                        <div>
+                            <h2 class="text-2xl font-semibold text-white">Notifications</h2>
+                            <p class="text-gray-400 text-sm">Create roles from channels in selected categories. Members can choose which notification roles to get from the menu.</p>
+                        </div>
+                        <form id="notificationsConfigForm" class="space-y-4 sm:space-y-6">
+                        <!-- Role Start (Top) -->
+                        <div>
+                            <label class="block text-xs sm:text-sm font-medium text-gray-300 mb-2">
+                                <i class="fas fa-arrow-up text-red-500 mr-2"></i>Notification Role Start (Top/Highest Position)
+                            </label>
+                            <p class="text-xs text-gray-400 mb-2">Highest role position where notification roles will be created. Roles will be placed below this.</p>
+                            <button type="button" onclick="openRoleSelectorSingle('notifications_role_start')"
+                                class="w-full px-3 sm:px-4 py-2.5 sm:py-3 bg-gray-700 hover:bg-gray-600 border border-gray-600 rounded-lg text-left transition-colors flex items-center justify-between group">
+                                <div class="flex items-center gap-2 sm:gap-3 flex-1 min-w-0">
+                                    <i class="fas fa-bell text-gray-400 group-hover:text-white transition-colors flex-shrink-0"></i>
+                                    <span id="notifications_role_start_display" class="text-gray-300 text-sm sm:text-base">
+                                        ${roleStart ? `<span class="inline-flex items-center gap-1.5"><span class="w-3 h-3 rounded-full" style="background-color: ${roleStart.color || '#7289da'};"></span>${escapeHtml(roleStart.name || 'Unknown Role')}</span>` : 'Select role...'}
+                                    </span>
+                                </div>
+                                <i class="fas fa-chevron-right text-gray-500 group-hover:text-white transition-colors text-xs"></i>
+                            </button>
+                            <input type="hidden" id="notifications_role_start" name="role_start" value="${roleStartId}">
+                        </div>
+                        <!-- Role End (Bottom) -->
+                        <div>
+                            <label class="block text-xs sm:text-sm font-medium text-gray-300 mb-2">
+                                <i class="fas fa-arrow-down text-red-500 mr-2"></i>Notification Role End (Bottom/Lowest Position)
+                            </label>
+                            <p class="text-xs text-gray-400 mb-2">Lowest role position where notification roles will be created. Roles will be placed above this.</p>
+                            <button type="button" onclick="openRoleSelectorSingle('notifications_role_end')"
+                                class="w-full px-3 sm:px-4 py-2.5 sm:py-3 bg-gray-700 hover:bg-gray-600 border border-gray-600 rounded-lg text-left transition-colors flex items-center justify-between group">
+                                <div class="flex items-center gap-2 sm:gap-3 flex-1 min-w-0">
+                                    <i class="fas fa-bell text-gray-400 group-hover:text-white transition-colors flex-shrink-0"></i>
+                                    <span id="notifications_role_end_display" class="text-gray-300 text-sm sm:text-base">
+                                        ${roleEnd ? `<span class="inline-flex items-center gap-1.5"><span class="w-3 h-3 rounded-full" style="background-color: ${roleEnd.color || '#7289da'};"></span>${escapeHtml(roleEnd.name || 'Unknown Role')}</span>` : 'Select role...'}
+                                    </span>
+                                </div>
+                                <i class="fas fa-chevron-right text-gray-500 group-hover:text-white transition-colors text-xs"></i>
+                            </button>
+                            <input type="hidden" id="notifications_role_end" name="role_end" value="${roleEndId}">
+                        </div>
+                        <!-- Categories -->
+                        <div>
+                            <label class="block text-xs sm:text-sm font-medium text-gray-300 mb-2">
+                                <i class="fas fa-folder mr-2"></i>Categories
+                            </label>
+                            <p class="text-xs text-gray-400 mb-2">Channels inside these categories will get a notification role (one role per channel). Multiple categories allowed.</p>
+                            <button type="button" onclick="openCategorySelectorMultiselect('notifications_categories')"
+                                class="w-full px-3 sm:px-4 py-2.5 sm:py-3 bg-gray-700 border border-gray-600 rounded-lg text-white text-left flex items-center justify-between hover:border-gray-500 transition-all text-sm sm:text-base">
+                                <span id="notifications_categories_display" class="text-gray-300">
+                                    ${categoryIds.length > 0 ? `${categoryIds.length} categor${categoryIds.length !== 1 ? 'ies' : 'y'} selected` : 'Select categories...'}
+                                </span>
+                                <i class="fas fa-chevron-down text-gray-400"></i>
+                            </button>
+                            <input type="hidden" id="notifications_categories" name="category_ids" value="${(categoryIds || []).join(',')}">
+                            <div id="notifications_categories_selected" class="mt-2 flex flex-wrap gap-2">
+                                ${categoryIds.length > 0 ? categoryIds.map(catId => `
+                                    <span class="inline-flex items-center gap-1.5 px-2.5 py-1.5 bg-red-600 text-white text-xs rounded-lg">
+                                        ${categoryNames[catId] ? escapeHtml(categoryNames[catId]) : `Category ${catId}`}
+                                        <button type="button" onclick="removeNotificationsCategory('${catId}')" class="hover:text-red-200 transition-colors">
+                                            <i class="fas fa-times"></i>
+                                        </button>
+                                    </span>
+                                `).join('') : ''}
+                            </div>
+                        </div>
+                        <div class="pt-4 border-t border-gray-700">
+                            <button type="submit" id="saveNotificationsConfigBtn"
+                                class="w-full bg-red-600 hover:bg-red-700 text-white py-2.5 sm:py-3 rounded-lg transition-all duration-200 transform hover:scale-[1.02] active:scale-[0.98] flex items-center justify-center gap-2 text-sm sm:text-base font-medium disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none">
+                                <i class="fas fa-spinner fa-spin hidden" id="saveNotificationsConfigLoading"></i>
+                                <i class="fas fa-save"></i>
+                                <span>Save Configuration</span>
+                            </button>
+                        </div>
+                        </form>
+                    </div>
                 `;
         }
         async function renderStaffRating(settings) {
@@ -5900,6 +6028,8 @@
         }
         let currentChannelField = null;
         let isMultiselectMode = false;
+        let isCategorySelectMode = false;
+        let allCategoriesList = [];
         let selectedChannels = [];
         let allChannels = [];
         let currentRoleField = null;
@@ -5963,12 +6093,68 @@
                 showMessage('Failed to load channels', 'error');
             }
         }
+        async function openCategorySelectorMultiselect(fieldId) {
+            currentChannelField = fieldId;
+            isMultiselectMode = true;
+            isCategorySelectMode = true;
+            const hiddenInput = document.getElementById(fieldId);
+            selectedChannels = hiddenInput && hiddenInput.value ? hiddenInput.value.split(',').filter(Boolean) : [];
+            try {
+                const res = await fetch(`/api/servers/${currentServerId}/categories`, { credentials: 'include' });
+                if (res.status === 401) {
+                    await checkAuthStatus();
+                    return;
+                }
+                allCategoriesList = res.ok ? await res.json() : [];
+                document.getElementById('channelSelectorTitle').innerHTML = '<i class="fas fa-folder text-red-500"></i> Select Categories';
+                document.getElementById('channelSearchInput').placeholder = 'Search categories...';
+                document.getElementById('channelSearchInput').value = '';
+                document.getElementById('channelSelectorConfirm').classList.remove('hidden');
+                document.getElementById('channelSelectorModal').classList.remove('hidden');
+                renderCategoryListForModal(allCategoriesList);
+            } catch (err) {
+                console.error('Error loading categories:', err);
+                showMessage('Failed to load categories', 'error');
+            }
+        }
         function closeChannelSelector() {
             document.getElementById('channelSelectorModal').classList.add('hidden');
+            document.getElementById('channelSearchInput').placeholder = 'Search channels...';
             document.getElementById('channelSearchInput').value = '';
             currentChannelField = null;
             isMultiselectMode = false;
+            isCategorySelectMode = false;
+            allCategoriesList = [];
             selectedChannels = [];
+        }
+        function renderCategoryListForModal(categories) {
+            const channelList = document.getElementById('channelList');
+            if (!channelList) return;
+            const searchTerm = (document.getElementById('channelSearchInput')?.value || '').toLowerCase().trim();
+            const filtered = searchTerm
+                ? categories.filter(cat => (cat.name || '').toLowerCase().includes(searchTerm) || (cat.discord_category_id || '').includes(searchTerm))
+                : categories;
+            const html = filtered.length === 0
+                ? '<p class="text-gray-400 text-sm py-4">No categories match.</p>'
+                : filtered.map(cat => {
+                    const id = cat.discord_category_id;
+                    const isSelected = selectedChannels.includes(id);
+                    return `
+                        <div class="flex items-center gap-3 p-2.5 sm:p-3 rounded-lg cursor-pointer transition-colors ${isSelected ? 'bg-red-600/30 border border-red-500/50' : 'bg-gray-700 hover:bg-gray-600 border border-transparent'}"
+                            onclick="toggleCategorySelection('${id}')">
+                            <i class="fas fa-folder text-gray-400 flex-shrink-0"></i>
+                            <span class="text-gray-300 text-sm sm:text-base truncate flex-1">${escapeHtml(cat.name || 'Unnamed Category')}</span>
+                            ${isSelected ? '<i class="fas fa-check text-red-400 flex-shrink-0"></i>' : ''}
+                        </div>`;
+                }).join('');
+            channelList.innerHTML = html || '<p class="text-gray-400 text-sm py-4">No categories.</p>';
+        }
+        function toggleCategorySelection(categoryId) {
+            if (!isCategorySelectMode) return;
+            const idx = selectedChannels.indexOf(categoryId);
+            if (idx > -1) selectedChannels.splice(idx, 1);
+            else selectedChannels.push(categoryId);
+            renderCategoryListForModal(allCategoriesList);
         }
         function renderChannelList(channels, categories) {
             const channelList = document.getElementById('channelList');
@@ -6136,6 +6322,10 @@
         }
         let allCategories = [];
         function searchChannels() {
+            if (isCategorySelectMode) {
+                renderCategoryListForModal(allCategoriesList);
+                return;
+            }
             const searchTerm = document.getElementById('channelSearchInput').value.toLowerCase();
             if (!searchTerm) {
                 renderChannelList(allChannels, allCategories);
@@ -6191,6 +6381,8 @@
                 await updateSelectedBoosterChannelsDisplay();
             } else if (currentChannelField === 'forwarder_from_channels') {
                 await updateForwarderFromChannelsDisplay();
+            } else if (currentChannelField === 'notifications_categories') {
+                await updateSelectedNotificationsCategoriesDisplay();
             }
             closeChannelSelector();
         }
@@ -6261,6 +6453,47 @@
                 displayEl.textContent = count > 0 ? `${count} channel${count !== 1 ? 's' : ''} selected` : 'Select channels...';
             }
             await updateSelectedBoosterChannelsDisplay();
+        }
+        async function updateSelectedNotificationsCategoriesDisplay() {
+            const hiddenInput = document.getElementById('notifications_categories');
+            if (!hiddenInput) return;
+            const categoryIds = hiddenInput.value ? hiddenInput.value.split(',').filter(Boolean) : [];
+            const displayEl = document.getElementById('notifications_categories_selected');
+            const displaySummary = document.getElementById('notifications_categories_display');
+            if (displaySummary) {
+                displaySummary.textContent = categoryIds.length > 0
+                    ? `${categoryIds.length} categor${categoryIds.length !== 1 ? 'ies' : 'y'} selected`
+                    : 'Select categories...';
+            }
+            if (categoryIds.length === 0) {
+                if (displayEl) displayEl.innerHTML = '';
+                return;
+            }
+            const categoryNames = await loadCategoryNames(categoryIds);
+            if (displayEl) {
+                displayEl.innerHTML = categoryIds.map(catId => `
+                    <span class="inline-flex items-center gap-1.5 px-2.5 py-1.5 bg-red-600 text-white text-xs rounded-lg">
+                        ${categoryNames[catId] ? escapeHtml(categoryNames[catId]) : `Category ${catId}`}
+                        <button type="button" onclick="removeNotificationsCategory('${catId}')" class="hover:text-red-200 transition-colors">
+                            <i class="fas fa-times"></i>
+                        </button>
+                    </span>
+                `).join('');
+            }
+        }
+        async function removeNotificationsCategory(categoryId) {
+            const hiddenInput = document.getElementById('notifications_categories');
+            if (!hiddenInput) return;
+            const categoryIds = hiddenInput.value ? hiddenInput.value.split(',').filter(Boolean) : [];
+            const filtered = categoryIds.filter(id => id !== categoryId);
+            hiddenInput.value = filtered.join(',');
+            const displayEl = document.getElementById('notifications_categories_display');
+            if (displayEl) {
+                displayEl.textContent = filtered.length > 0
+                    ? `${filtered.length} categor${filtered.length !== 1 ? 'ies' : 'y'} selected`
+                    : 'Select categories...';
+            }
+            await updateSelectedNotificationsCategoriesDisplay();
         }
         async function selectChannel(channelId, channelNameParam) {
             if (!currentChannelField || isMultiselectMode) return;
@@ -6366,6 +6599,8 @@
                 const titles = {
                     'custom_supporter_role_start': 'Select Custom Supporter Role Start (Top/Highest Position)',
                     'custom_supporter_role_end': 'Select Custom Supporter Role End (Bottom/Lowest Position)',
+                    'notifications_role_start': 'Select Notification Role Start (Top/Highest Position)',
+                    'notifications_role_end': 'Select Notification Role End (Bottom/Lowest Position)',
                     'staff_rating_role_start': 'Select Staff Rating Role Start (Top/Highest Position)',
                     'staff_rating_role_end': 'Select Staff Rating Role End (Bottom/Lowest Position)',
                     'staff_rating_pending_role': 'Select Pending Report Role',
@@ -7267,6 +7502,50 @@
             } finally {
                 submitBtn.disabled = false;
                 loadingIcon.classList.add('hidden');
+            }
+        });
+        document.addEventListener('submit', async function (e) {
+            if (e.target.id !== 'notificationsConfigForm') return;
+            e.preventDefault();
+            const roleStartInput = document.getElementById('notifications_role_start');
+            const roleEndInput = document.getElementById('notifications_role_end');
+            const categoriesInput = document.getElementById('notifications_categories');
+            const categoryIds = categoriesInput && categoriesInput.value ? categoriesInput.value.split(',').filter(Boolean) : [];
+            const formData = {
+                role_start: roleStartInput?.value || null,
+                role_end: roleEndInput?.value || null,
+                category_ids: categoryIds
+            };
+            const submitBtn = document.getElementById('saveNotificationsConfigBtn');
+            const loadingIcon = document.getElementById('saveNotificationsConfigLoading');
+            if (submitBtn) submitBtn.disabled = true;
+            if (loadingIcon) loadingIcon.classList.remove('hidden');
+            try {
+                const res = await fetch(`/api/servers/${currentServerId}/settings`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    credentials: 'include',
+                    body: JSON.stringify({
+                        component_name: 'notifications',
+                        settings: formData
+                    })
+                });
+                if (res.status === 401) {
+                    await checkAuthStatus();
+                    return;
+                }
+                const data = await res.json();
+                if (data.success) {
+                    showMessage('Notifications configuration saved successfully!', 'success');
+                    setTimeout(() => loadComponent('notifications'), 500);
+                } else {
+                    showMessage(data.error || 'Failed to save configuration', 'error');
+                }
+            } catch (err) {
+                showMessage('Failed to save configuration. Please try again.', 'error');
+            } finally {
+                if (submitBtn) submitBtn.disabled = false;
+                if (loadingIcon) loadingIcon.classList.add('hidden');
             }
         });
         document.addEventListener('submit', async function (e) {

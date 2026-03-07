@@ -1,4 +1,4 @@
-import { COMMUNICATION } from "../../config.js";
+import { COMMUNICATION, NOTIFICATIONS } from "../../config.js";
 import { EmbedBuilder } from 'discord.js';
 import { getEmbedConfig } from "../../config.js";
 import logger from "../../logger.js";
@@ -158,7 +158,11 @@ async function handleSendEmbed(payload) {
                     continue;
                 }
 
-                await channel.send(messageOptions);
+                const notificationRoleId = await NOTIFICATIONS.getNotificationRoleIdForChannel(guild_id, channelId).catch(() => null);
+                const channelContent = [notificationRoleId ? `<@&${notificationRoleId}>` : null, content].filter(Boolean).join(' ') || undefined;
+                const channelMessageOptions = { ...messageOptions, content: channelContent };
+
+                await channel.send(channelMessageOptions);
                 results.push({ channelId, success: true, channelName: channel.name });
                 await logger.log(`📤 Embed sent via webhook to ${channel.name} (${channel.id}) in ${guild.name} (${guild.id})`);
             } catch (channelError) {

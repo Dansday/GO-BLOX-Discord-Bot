@@ -9,6 +9,7 @@ import { handleLevelingButton, handleLeaderboardButton } from './interface/level
 import { handleGiveawayButton, handleGiveawayModal, handleGiveawayEnterButton, handleGiveawayRoleSelect, handleGiveawaySkipRolesContinue, handleGiveawayFinish } from './interface/giveaway.js';
 import { handleSettingsButton, handleLanguageButton, handleLanguageSelect, handleDMToggleButton } from './interface/settings.js';
 import { handleStaffReportButton, handleStaffReportUserSelect, handleStaffReportModal, handleStaffReportRatingSelect, handleStaffReportCategorySelect, handleStaffReportContinue, handleStaffReportApprove, handleStaffReportReject } from './interface/staffreportrating.js';
+import { handleNotificationsButton, handleNotificationsSelect } from './interface/notifications.js';
 import { translate } from '../../i18n.js';
 
 async function handleMenuButton(interaction) {
@@ -88,6 +89,13 @@ async function handleMenuButton(interaction) {
         buttons.push(new ButtonBuilder()
             .setCustomId('bot_staff_report')
             .setLabel(await translate('staffReport.button', interaction.guild.id, interaction.user.id))
+            .setStyle(ButtonStyle.Success));
+    }
+
+    if (await hasPermission(member, 'notifications')) {
+        buttons.push(new ButtonBuilder()
+            .setCustomId('bot_notifications')
+            .setLabel(await translate('notifications.button', interaction.guild.id, interaction.user.id))
             .setStyle(ButtonStyle.Success));
     }
 
@@ -193,6 +201,9 @@ export async function handleButtonInteraction(interaction, client) {
             break;
         case 'bot_staff_report':
             await handleStaffReportButton(interaction);
+            break;
+        case 'bot_notifications':
+            await handleNotificationsButton(interaction);
             break;
         case 'bot_afk':
             await handleAFKButton(interaction);
@@ -406,6 +417,8 @@ function init(client) {
                     await handleStaffReportCategorySelect(interaction);
                 } else if (customId === 'settings_language_select') {
                     await handleLanguageSelect(interaction);
+                } else if (customId === 'notifications_select') {
+                    await handleNotificationsSelect(interaction);
                 } else {
                     await logger.log(`⚠️ Unknown string select: "${customId}" by ${user.tag} (${user.id})`);
                 }

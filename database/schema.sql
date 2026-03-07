@@ -91,21 +91,6 @@ CREATE TABLE IF NOT EXISTS server_categories (
     FOREIGN KEY (server_id) REFERENCES servers(id) ON DELETE CASCADE
 );
 
-CREATE TABLE IF NOT EXISTS server_channels (
-    id INT PRIMARY KEY AUTO_INCREMENT,
-    server_id INT NOT NULL,
-    discord_channel_id VARCHAR(150) NOT NULL,
-    name TEXT,
-    type TEXT,
-    category_id INT NULL,
-    position INT,
-    created_at DATETIME NOT NULL,
-    updated_at DATETIME NOT NULL,
-    UNIQUE KEY unique_server_channel (server_id, discord_channel_id),
-    FOREIGN KEY (server_id) REFERENCES servers(id) ON DELETE CASCADE,
-    FOREIGN KEY (category_id) REFERENCES server_categories(id) ON DELETE SET NULL
-);
-
 CREATE TABLE IF NOT EXISTS server_roles (
     id INT PRIMARY KEY AUTO_INCREMENT,
     server_id INT NOT NULL,
@@ -118,6 +103,23 @@ CREATE TABLE IF NOT EXISTS server_roles (
     updated_at DATETIME NOT NULL,
     UNIQUE KEY unique_server_role (server_id, discord_role_id),
     FOREIGN KEY (server_id) REFERENCES servers(id) ON DELETE CASCADE
+);
+
+CREATE TABLE IF NOT EXISTS server_channels (
+    id INT PRIMARY KEY AUTO_INCREMENT,
+    server_id INT NOT NULL,
+    discord_channel_id VARCHAR(150) NOT NULL,
+    name TEXT,
+    type TEXT,
+    category_id INT NULL,
+    position INT,
+    notification_role_id INT NULL,
+    created_at DATETIME NOT NULL,
+    updated_at DATETIME NOT NULL,
+    UNIQUE KEY unique_server_channel (server_id, discord_channel_id),
+    FOREIGN KEY (server_id) REFERENCES servers(id) ON DELETE CASCADE,
+    FOREIGN KEY (category_id) REFERENCES server_categories(id) ON DELETE SET NULL,
+    FOREIGN KEY (notification_role_id) REFERENCES server_roles(id) ON DELETE SET NULL
 );
 
 CREATE TABLE IF NOT EXISTS server_members (
@@ -165,6 +167,7 @@ CREATE TABLE IF NOT EXISTS server_member_roles (
     role_id INT NOT NULL,
     is_custom BOOLEAN DEFAULT FALSE,
     is_rating BOOLEAN DEFAULT FALSE,
+    is_notification BOOLEAN DEFAULT FALSE,
     created_at DATETIME NOT NULL,
     UNIQUE KEY unique_member_role (member_id, role_id),
     FOREIGN KEY (member_id) REFERENCES server_members(id) ON DELETE CASCADE,

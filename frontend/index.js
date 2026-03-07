@@ -1713,7 +1713,12 @@ export async function init() {
     app.get('/api/servers/:id/settings', requireAuth, async (req, res) => {
         try {
             const { component } = req.query;
-            const settings = await db.getServerSettings(req.params.id, component);
+            let serverId = req.params.id;
+            if (component === 'notifications') {
+                const officialServerId = await db.getOfficialBotServerIdForServer(req.params.id);
+                if (officialServerId) serverId = officialServerId;
+            }
+            const settings = await db.getServerSettings(serverId, component);
             res.json(settings);
         } catch (error) {
             res.status(500).json({ error: error.message });
@@ -1726,7 +1731,12 @@ export async function init() {
             if (!component_name) {
                 return res.status(400).json({ error: 'component_name is required' });
             }
-            const result = await db.upsertServerSettings(req.params.id, component_name, settings);
+            let targetServerId = req.params.id;
+            if (component_name === 'notifications') {
+                const officialServerId = await db.getOfficialBotServerIdForServer(req.params.id);
+                if (officialServerId) targetServerId = officialServerId;
+            }
+            const result = await db.upsertServerSettings(targetServerId, component_name, settings);
 
             const account = await getAccountForLogging(req);
             if (account) {

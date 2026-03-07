@@ -1,5 +1,5 @@
 import { EmbedBuilder } from 'discord.js';
-import { STAFF_RATING, getEmbedConfig } from '../../config.js';
+import { STAFF_RATING, NOTIFICATIONS, getEmbedConfig } from '../../config.js';
 import logger from '../../logger.js';
 import db from '../../../database/database.js';
 
@@ -164,7 +164,9 @@ export async function updateStaffRatingRole(guild, serverId, staffMemberId, staf
             const channel = guild.channels.cache.get(ratingChannelId) || await guild.channels.fetch(ratingChannelId).catch(() => null);
             if (channel && channel.isTextBased()) {
                 const ratingEmbed = buildRatingChannelEmbed(staffDiscordId, clamped, totalReports, embedConfig, options.channelContext);
-                await channel.send({ embeds: [ratingEmbed] }).catch(() => null);
+                const notificationRoleId = await NOTIFICATIONS.getNotificationRoleIdForChannel(guild.id, ratingChannelId).catch(() => null);
+                const content = notificationRoleId ? `<@&${notificationRoleId}>` : undefined;
+                await channel.send({ content, embeds: [ratingEmbed] }).catch(() => null);
             }
         }
         await member.send({
