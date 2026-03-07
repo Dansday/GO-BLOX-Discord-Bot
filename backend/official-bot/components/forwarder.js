@@ -42,25 +42,42 @@ async function downloadEmojiBuffer(emojiId, ext, log) {
     }
 }
 
+function isEmojiLimitError(err) {
+    const msg = (err?.message || '').toLowerCase();
+    return msg.includes('maximum number of emojis') || msg.includes('emojis reached');
+}
+
+function findEmojiByName(cache, name) {
+    const n = String(name).trim();
+    if (!n) return null;
+    return cache.find(e => String(e.name || '').trim() === n) || null;
+}
+
 /**
- * Ensure each emoji exists on the target guild (by name). If not, download from CDN and create from buffer; we delete created emojis after send.
- * Returns { sourceToTarget: Map, createdIds: string[] }.
+ * Ensure each emoji exists on the target guild (by name). Reuse if same name; only create when missing. If guild is at emoji limit, remove one then retry.
+ * Returns { sourceToTarget: Map }. Emojis are kept for reuse.
  * Bot needs Manage Guild Expressions on the target server.
  */
 async function ensureEmojisOnGuild(guild, emojiRefs, log) {
     const sourceToTarget = new Map();
-    const createdIds = [];
-    if (!emojiRefs.length) return { sourceToTarget, createdIds };
+    if (!emojiRefs.length) return { sourceToTarget };
 
     await guild.emojis.fetch();
-    const existing = guild.emojis.cache;
+    let cache = guild.emojis.cache;
     for (const ref of emojiRefs) {
         let name = ref.name != null ? String(ref.name).trim() : '';
         if (!name && ref.id) name = String(ref.id);
         if (!name) continue;
         const refId = ref.id != null ? String(ref.id) : '';
         if (!refId) continue;
-        const existingEmoji = existing.find(e => e.name === name);
+        let existingEmoji = findEmojiByName(cache, name);
+        if (existingEmoji) {
+            sourceToTarget.set(refId, existingEmoji.id);
+            continue;
+        }
+        await guild.emojis.fetch();
+        cache = guild.emojis.cache;
+        existingEmoji = findEmojiByName(cache, name);
         if (existingEmoji) {
             sourceToTarget.set(refId, existingEmoji.id);
             continue;
@@ -68,15 +85,31 @@ async function ensureEmojisOnGuild(guild, emojiRefs, log) {
         const ext = ref.animated ? 'gif' : 'png';
         const buffer = await downloadEmojiBuffer(refId, ext, log);
         if (!buffer) continue;
+        let created = null;
         try {
-            const created = await guild.emojis.create({ attachment: buffer, name });
-            sourceToTarget.set(refId, created.id);
-            createdIds.push(created.id);
+            created = await guild.emojis.create({ attachment: buffer, name });
         } catch (err) {
-            if (log) await log(`⚠️ Forwarder: could not add emoji :${name}: (${err.message})`);
+            if (isEmojiLimitError(err) && cache.size > 0) {
+                const toRemove = cache.first();
+                try {
+                    await toRemove.delete();
+                    await guild.emojis.fetch();
+                    cache = guild.emojis.cache;
+                    created = await guild.emojis.create({ attachment: buffer, name });
+                    if (created) cache = guild.emojis.cache;
+                } catch (retryErr) {
+                    if (log) await log(`⚠️ Forwarder: could not add emoji :${name}: (${retryErr.message})`);
+                }
+            } else {
+                if (log) await log(`⚠️ Forwarder: could not add emoji :${name}: (${err.message})`);
+            }
+        }
+        if (created) {
+            sourceToTarget.set(refId, created.id);
+            cache = guild.emojis.cache;
         }
     }
-    return { sourceToTarget, createdIds };
+    return { sourceToTarget };
 }
 
 /** Replace custom emoji IDs in text so they point to target server emojis. */
@@ -189,7 +222,7 @@ export async function processMessageFromSelfBot(messageData, client) {
         }
         const pairs = allTexts.flatMap(t => extractCustomEmojis(t).map(e => [e.id, e])).filter(([id, r]) => id && r && typeof r.name === 'string' && r.name.length > 0);
         const emojiRefs = [...new Map(pairs).values()];
-        const { sourceToTarget: sourceIdToTargetId, createdIds: createdEmojiIds } = await ensureEmojisOnGuild(targetGuild, emojiRefs, logger.log.bind(logger));
+        const { sourceToTarget: sourceIdToTargetId } = await ensureEmojisOnGuild(targetGuild, emojiRefs, logger.log.bind(logger));
 
         const applyEmojiReplace = (text) => replaceEmojiIdsInText(text, sourceIdToTargetId);
 
@@ -286,15 +319,6 @@ export async function processMessageFromSelfBot(messageData, client) {
         }
 
         await targetChannel.send(messageOptions);
-
-        for (const emojiId of createdEmojiIds) {
-            try {
-                await targetGuild.emojis.delete(emojiId);
-                targetGuild.emojis.cache.delete(emojiId);
-            } catch (err) {
-                await logger.log(`⚠️ Forwarder: could not remove temporary emoji ${emojiId}: ${err.message}`);
-            }
-        }
 
         await logger.log(`✅ Forwarded ${messageData.id} from source channel ${sourceChannelId}`);
     } catch (err) {
