@@ -13,10 +13,13 @@ function extractCustomEmojis(text) {
         g.lastIndex = 0;
         let m;
         while ((m = g.exec(text)) !== null) {
+            const name = m[1];
             const id = m[2];
-            if (seen.has(id)) continue;
+            if (!name || !id || seen.has(id)) continue;
+            const trimmedName = String(name).trim();
+            if (!trimmedName) continue;
             seen.add(id);
-            out.push({ name: m[1], id, animated: g === CUSTOM_EMOJI_ANIMATED });
+            out.push({ name: trimmedName, id, animated: g === CUSTOM_EMOJI_ANIMATED });
         }
     }
     return out;
@@ -34,7 +37,9 @@ async function ensureEmojisOnGuild(guild, emojiRefs, log) {
 
     const existing = guild.emojis.cache;
     for (const ref of emojiRefs) {
-        const existingEmoji = existing.find(e => e.name === ref.name);
+        const name = ref.name != null ? String(ref.name).trim() : '';
+        if (!name) continue;
+        const existingEmoji = existing.find(e => e.name === name);
         if (existingEmoji) {
             sourceToTarget.set(ref.id, existingEmoji.id);
             continue;
@@ -42,12 +47,12 @@ async function ensureEmojisOnGuild(guild, emojiRefs, log) {
         const ext = ref.animated ? 'gif' : 'png';
         const cdnUrl = `https://cdn.discordapp.com/emojis/${ref.id}.${ext}`;
         try {
-            const created = await guild.emojis.create({ attachment: cdnUrl, name: ref.name });
+            const created = await guild.emojis.create({ attachment: cdnUrl, name });
             sourceToTarget.set(ref.id, created.id);
             createdIds.push(created.id);
-            if (log) await log(`📥 Forwarder: added emoji :${ref.name}: to this server`);
+            if (log) await log(`📥 Forwarder: added emoji :${name}: to this server`);
         } catch (err) {
-            if (log) await log(`⚠️ Forwarder: could not add emoji :${ref.name}: (${err.message})`);
+            if (log) await log(`⚠️ Forwarder: could not add emoji :${name}: (${err.message})`);
         }
     }
     return { sourceToTarget, createdIds };
@@ -74,13 +79,17 @@ function cleanMessageContent(text) {
     return cleaned;
 }
 
-/** Remove Discord user/role mention tags so embed text is clean. Keeps message.content mentions for notifications. */
+/** Remove Discord user/role mention tags so embed text is clean. Keeps message.content mentions for notifications. Preserves newlines so format is not broken. */
 function stripMentionsFromText(text) {
     if (!text) return text;
     let stripped = text
         .replace(/<@!?\d+>/g, '')   // user mentions <@123> or <@!123>
         .replace(/<@&\d+>/g, '');   // role mentions <@&123>
-    stripped = stripped.replace(/\s+/g, ' ').trim();
+    stripped = stripped
+        .split('\n')
+        .map(line => line.replace(/\s+/g, ' ').trim())
+        .join('\n')
+        .trim();
     return stripped;
 }
 
