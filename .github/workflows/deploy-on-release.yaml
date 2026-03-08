@@ -57,8 +57,10 @@ jobs:
             echo "Missing DEPLOY_WEBHOOK_URL or DEPLOY_TOKEN"
             exit 1
           fi
+          # API allows uuid OR tag, not both. Use base URL + tag only.
+          base="${DEPLOY_URL%%\?*}"
+          url="${base}?tag=${TAG}&force=false"
           echo "Triggering deploy for tag: $TAG"
-          url="${DEPLOY_URL}&tag=${TAG}"
           resp=$(curl -s -w "\n%{http_code}" -X GET "$url" -H "Authorization: Bearer $TOKEN")
           code=$(echo "$resp" | tail -n1)
           body=$(echo "$resp" | sed '$d')
