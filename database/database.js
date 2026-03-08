@@ -372,10 +372,12 @@ export async function getOfficialBotServerIdForServer(serverId) {
     const server = await getServer(serverId);
     if (!server) return null;
     const bots = await getAllBots();
-    const official = bots.find(b => b.bot_type === 'official');
-    if (!official) return null;
-    const officialServer = await getServerByDiscordId(official.id, server.discord_server_id);
-    return officialServer ? officialServer.id : null;
+    const officialBots = bots.filter(b => b.bot_type === 'official');
+    for (const official of officialBots) {
+        const officialServer = await getServerByDiscordId(official.id, server.discord_server_id);
+        if (officialServer) return officialServer.id;
+    }
+    return null;
 }
 
 async function getServerIdsInSameGuild(serverId) {
@@ -401,11 +403,15 @@ export async function getNotificationRolesForServer(serverId) {
 export async function getNotificationRolesWithCategory(serverId) {
     await initializeDatabase();
     const result = await query(
-        `SELECT r.discord_role_id, COALESCE(cat.name, c.name) AS category_name
+        `SELECT r.discord_role_id, COALESCE(cat.name, c.name) AS category_name,
+                COALESCE(cat.position, 9999) AS category_position,
+                COALESCE(c.position, 0) AS channel_position,
+                c.name AS channel_name
          FROM server_channels c
          INNER JOIN server_roles r ON r.id = c.notification_role_id
          LEFT JOIN server_categories cat ON cat.id = c.category_id
-         WHERE c.server_id = ? AND c.notification_role_id IS NOT NULL`,
+         WHERE c.server_id = ? AND c.notification_role_id IS NOT NULL
+         ORDER BY category_position ASC, channel_position ASC, channel_name ASC`,
         [serverId]
     );
     return result || [];

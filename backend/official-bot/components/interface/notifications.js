@@ -60,9 +60,9 @@ export async function handleNotificationsButton(interaction) {
 
         const roleIdToCategory = new Map(rolesWithCategory.map(r => [r.discord_role_id, r.category_name || '']));
         const options = notificationRoles.slice(0, 25).map(role => ({
-            label: (roleIdToCategory.get(role.id) || role.name).slice(0, 100),
+            label: role.name.slice(0, 100),
             value: role.id,
-            description: role.name.slice(0, 100),
+            description: (roleIdToCategory.get(role.id) || '').slice(0, 100),
             default: memberCurrentNotificationRoleIds.includes(role.id)
         }));
 

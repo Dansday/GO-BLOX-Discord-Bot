@@ -355,4 +355,8 @@ async function init(discordClient, botToken) {
     logger.log('🔄 Sync component initialized');
 }
 
-export default { init, syncGuildData, syncAllGuilds };
+export function getBotId() {
+    return botId;
+}
+
+export default { init, syncGuildData, syncAllGuilds, getBotId };

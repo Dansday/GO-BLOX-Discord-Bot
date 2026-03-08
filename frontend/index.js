@@ -1738,6 +1738,43 @@ export async function init() {
             }
             const result = await db.upsertServerSettings(targetServerId, component_name, settings);
 
+            if (component_name === 'notifications') {
+                try {
+                    const server = await db.getServer(targetServerId);
+                    const bot = server ? await db.getBot(server.bot_id) : null;
+                    if (server && bot && server.discord_server_id) {
+                        const http = await import('http');
+                        const payload = JSON.stringify({ type: 'sync_notification_roles', guild_id: server.discord_server_id });
+                        const options = {
+                            hostname: 'localhost',
+                            port: bot.port,
+                            path: '/',
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json',
+                                'Content-Length': Buffer.byteLength(payload),
+                                'X-Secret-Key': bot.secret_key
+                            }
+                        };
+                        await new Promise((resolve) => {
+                            const webhookReq = http.request(options, (webhookRes) => {
+                                let data = '';
+                                webhookRes.on('data', (chunk) => { data += chunk; });
+                                webhookRes.on('end', () => resolve());
+                            });
+                            webhookReq.on('error', (err) => {
+                                logger.log(`⚠️  Notification sync webhook failed: ${err.message}`);
+                                resolve();
+                            });
+                            webhookReq.write(payload);
+                            webhookReq.end();
+                        });
+                    }
+                } catch (err) {
+                    logger.log(`⚠️  Notification sync trigger failed: ${err.message}`);
+                }
+            }
+
             const account = await getAccountForLogging(req);
             if (account) {
                 const server = await db.getServer(req.params.id);

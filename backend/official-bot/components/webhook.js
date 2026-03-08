@@ -2,9 +2,12 @@ import { COMMUNICATION, NOTIFICATIONS } from "../../config.js";
 import { EmbedBuilder } from 'discord.js';
 import { getEmbedConfig } from "../../config.js";
 import logger from "../../logger.js";
+import db from "../../../database/database.js";
+import { syncNotificationRoles } from "./notificationsSync.js";
 
 let webhookServer = null;
 let client = null;
+let currentBotId = null;
 
 function parseColor(colorInput) {
     if (!colorInput || colorInput.trim() === '') {
@@ -64,6 +67,12 @@ async function handleSendEmbed(payload) {
         const guild = client.guilds.cache.get(guild_id);
         if (!guild) {
             throw new Error('Guild not found');
+        }
+        if (currentBotId) {
+            const server = await db.getServerByDiscordId(currentBotId, guild_id);
+            if (!server) {
+                throw new Error('Guild not found');
+            }
         }
 
         const embedConfig = await getEmbedConfig(guild_id);
@@ -240,6 +249,40 @@ async function handleWebhookRequest(req, res) {
                         res.writeHead(500, { 'Content-Type': 'application/json' });
                         res.end(JSON.stringify({ error: 'Failed to send embed', details: embedErr.message }));
                     }
+                } else if (payload.type === 'sync_notification_roles') {
+                    try {
+                        const guildId = payload.guild_id;
+                        if (!guildId) {
+                            res.writeHead(400, { 'Content-Type': 'application/json' });
+                            res.end(JSON.stringify({ error: 'Missing guild_id' }));
+                            return;
+                        }
+                        let guild = client.guilds.cache.get(guildId);
+                        if (!guild) {
+                            guild = await client.guilds.fetch(guildId);
+                        }
+                        const botIdToUse = currentBotId;
+                        if (!botIdToUse) {
+                            res.writeHead(500, { 'Content-Type': 'application/json' });
+                            res.end(JSON.stringify({ error: 'Current bot id not set' }));
+                            return;
+                        }
+                        const server = await db.getServerByDiscordId(botIdToUse, guildId);
+                        if (!server) {
+                            res.writeHead(404, { 'Content-Type': 'application/json' });
+                            res.end(JSON.stringify({ error: 'Server not found for this guild' }));
+                            return;
+                        }
+                        await logger.log(`📥 Received sync_notification_roles webhook for guild ${guildId}`);
+                        await syncNotificationRoles(guild, server.id);
+                        await logger.log(`✅ Notification roles synced for guild ${guild.name}`);
+                        res.writeHead(200, { 'Content-Type': 'application/json' });
+                        res.end(JSON.stringify({ success: true, message: 'Notification roles synced' }));
+                    } catch (syncErr) {
+                        await logger.log(`❌ Failed to sync notification roles: ${syncErr.message}`);
+                        res.writeHead(500, { 'Content-Type': 'application/json' });
+                        res.end(JSON.stringify({ error: 'Failed to sync notification roles', details: syncErr.message }));
+                    }
                 } else {
                     await logger.log(`❌ Invalid payload format: ${JSON.stringify(payload)}`);
                     res.writeHead(400, { 'Content-Type': 'application/json' });
@@ -259,8 +302,9 @@ async function handleWebhookRequest(req, res) {
     }
 }
 
-function startWebhookServer(discordClient) {
+function startWebhookServer(discordClient, botId) {
     client = discordClient;
+    currentBotId = botId ?? null;
 
     if (COMMUNICATION.WEBHOOK_URL) {
         const port = COMMUNICATION.PORT;

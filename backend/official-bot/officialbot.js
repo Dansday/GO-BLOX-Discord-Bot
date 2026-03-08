@@ -63,7 +63,7 @@ client.on("clientReady", async () => {
     leveling.init(client);
 
     await sync.init(client, BOT_TOKEN);
-    webhook.startWebhookServer(client);
+    webhook.startWebhookServer(client, sync.getBotId());
 });
 
 function shutdown() {
