@@ -21,13 +21,14 @@ jobs:
             echo "Missing DEPLOY_WEBHOOK_URL or DEPLOY_TOKEN"
             exit 1
           fi
-          url="$DEPLOY_URL"
-          if [[ "$url" == *"?"* ]]; then
-            url="${url}&tag=${TAG}"
-          else
-            url="${url}?tag=${TAG}"
-          fi
           echo "Triggering deploy for tag: $TAG"
-          curl -sf -X GET "$url" -H "Authorization: Bearer $TOKEN"
-          echo ""
+          url="${DEPLOY_URL}&tag=${TAG}"
+          resp=$(curl -s -w "\n%{http_code}" -X GET "$url" -H "Authorization: Bearer $TOKEN")
+          code=$(echo "$resp" | tail -n1)
+          body=$(echo "$resp" | sed '$d')
+          echo "Response ($code): $body"
+          if [ "$code" -lt 200 ] || [ "$code" -gt 299 ]; then
+            echo "Deploy request failed with HTTP $code"
+            exit 1
+          fi
           echo "Deploy triggered."
