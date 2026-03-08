@@ -17,7 +17,7 @@ You only need this on your machine:
 
 You do **not** need Node.js or npm installed — everything runs inside Docker.
 
-Port **80** (or your `CONTROL_PANEL_PORT`) must be free for the control panel.
+Port **3333** must be free for local access to the control panel.
 
 ---
 
@@ -32,7 +32,7 @@ cd Dansday-Discord-Bot
 
 **Step 2 – Configure environment**
 
-Copy `.env.example` to `.env` and set your values. Required: `DB_HOST`, `DB_PORT`, `DB_USER`, `DB_PASSWORD`, `DB_NAME`, `SESSION_SECRET`. Optional: `REDIS_HOST`, `REDIS_PORT`, `REDIS_USERNAME`, `REDIS_PASSWORD`, `REDIS_URL`, `TIMEZONE`, `MAIL_*`.
+Copy `.env.example` to `.env` and set your values. Required: `DB_HOST`, `DB_PORT`, `DB_USER`, `DB_PASSWORD`, `DB_NAME`, `SESSION_SECRET`. Optional: `REDIS_URL`, `TIMEZONE`, `MAIL_*`.
 
 **Step 3 – Database**
 
@@ -44,7 +44,7 @@ Ensure MySQL is running and run the schema once: execute `database/schema.sql` i
 make up
 ```
 
-Then open the control panel at **http://localhost** (or your `CONTROL_PANEL_PORT`).
+Then open the control panel at **http://localhost:3333**.
 
 **Stop:** `make down`
 
@@ -56,14 +56,14 @@ Only if you run the app directly on your machine (no Docker): copy `.env.example
 
 - **app**
   - Node.js control panel + official bot + self-bot logic
-  - Runs in Docker, exposed on port **80** (or `CONTROL_PANEL_PORT`)
+  - Runs in Docker; local access at **http://localhost:3333** (app listens on port 80 inside container)
   - Connects to MySQL (and optionally Redis) via env vars
 
 - **MySQL**
   - External; set `DB_HOST`, `DB_USER`, `DB_PASSWORD`, `DB_NAME` in `.env`
 
 - **Redis** (optional)
-  - External; set `REDIS_HOST` + `REDIS_PASSWORD` (or `REDIS_URL`) for sessions and rate limiting
+  - External; set `REDIS_URL` (full URL with password) for sessions and rate limiting
 
 ### Tech stack
 
