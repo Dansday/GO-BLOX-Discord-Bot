@@ -1,0 +1,33 @@
+# Deploy when a new GitHub Release is published.
+# Requires repository secrets: DEPLOY_WEBHOOK_URL, DEPLOY_TOKEN
+
+name: Deploy on release
+
+on:
+  release:
+    types: [published]
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Trigger deploy by release tag
+        env:
+          TAG: ${{ github.event.release.tag_name }}
+          DEPLOY_URL: ${{ secrets.DEPLOY_WEBHOOK_URL }}
+          TOKEN: ${{ secrets.DEPLOY_TOKEN }}
+        run: |
+          if [ -z "$DEPLOY_URL" ] || [ -z "$TOKEN" ]; then
+            echo "Missing DEPLOY_WEBHOOK_URL or DEPLOY_TOKEN"
+            exit 1
+          fi
+          url="$DEPLOY_URL"
+          if [[ "$url" == *"?"* ]]; then
+            url="${url}&tag=${TAG}"
+          else
+            url="${url}?tag=${TAG}"
+          fi
+          echo "Triggering deploy for tag: $TAG"
+          curl -sf -X GET "$url" -H "Authorization: Bearer $TOKEN"
+          echo ""
+          echo "Deploy triggered."
