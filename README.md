@@ -17,7 +17,18 @@ You only need this on your machine:
 
 You do **not** need Node.js or npm installed — everything runs inside Docker.
 
-Port **3333** must be free for local access to the control panel.
+Port **3333** must be free for local access to the control panel (or set `HOST_PORT` in `.env`).
+
+---
+
+### Coolify / Preview Deployments
+
+If you deploy with **Coolify** (or Heroku, Railway, etc.), the platform assigns a **dynamic port** via the `PORT` environment variable. The app uses `PORT` when set, so preview and production can run on different ports without conflict.
+
+- **Coolify**: Use the **Dockerfile** (not docker-compose). Coolify will set `PORT` and map it for you; no need to set `CONTROL_PANEL_PORT`.
+- **Public repo / Docker**: People who clone and run with `docker-compose` use `CONTROL_PANEL_PORT` (default 80) and host port `3333` (or `HOST_PORT`). No `PORT` is set, so the app listens on `CONTROL_PANEL_PORT`.
+
+So: **set `PORT`** for Coolify/preview; **set `CONTROL_PANEL_PORT`** (or leave default) for Docker Compose / self-host.
 
 ---
 

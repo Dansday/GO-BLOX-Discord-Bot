@@ -1222,7 +1222,7 @@ export async function getServerLeaderboard(serverId, limit = 3, sortType = 'xp')
          WHERE sm.server_id = ?
          ORDER BY ${orderBy}
          LIMIT ?`,
-        [serverId, safeLimit]
+        [serverId, String(safeLimit)]
     );
     return result;
 }
@@ -1859,14 +1859,16 @@ export async function insertPanelLog(panelAccountId, message) {
 
 export async function getPanelLogs(limit = 100, offset = 0) {
     await initializeDatabase();
-
+    const lim = Math.min(500, Math.max(1, parseInt(limit, 10) || 100));
+    const off = Math.max(0, parseInt(offset, 10) || 0);
+    // MySQL 8.0.22+ rejects LIMIT/OFFSET when passed as numbers in prepared stmt; pass as strings.
     const result = await query(
         `SELECT pl.*, pa.username as account_username, pa.email as account_email
          FROM panel_logs pl
          LEFT JOIN panel_accounts pa ON pl.panel_account_id = pa.id
          ORDER BY pl.created_at DESC
          LIMIT ? OFFSET ?`,
-        [limit, offset]
+        [String(lim), String(off)]
     );
     return result;
 }
@@ -2004,6 +2006,8 @@ export async function getBotLogs(botId, limit = 100, offset = 0) {
     if (!botId) {
         throw new Error('botId is required to fetch bot logs');
     }
+    const lim = Math.min(500, Math.max(1, parseInt(limit, 10) || 100));
+    const off = Math.max(0, parseInt(offset, 10) || 0);
 
     const result = await query(
         `SELECT bl.*, b.name as bot_name
@@ -2012,7 +2016,7 @@ export async function getBotLogs(botId, limit = 100, offset = 0) {
          WHERE bl.bot_id = ?
          ORDER BY bl.created_at DESC
          LIMIT ? OFFSET ?`,
-        [botId, limit, offset]
+        [botId, String(lim), String(off)]
     );
     return result;
 }
@@ -2538,13 +2542,15 @@ export async function getFeedback(serverId, feedbackId) {
 
 export async function getFeedbackByServer(serverId, limit = 100, offset = 0) {
     await initializeDatabase();
+    const lim = Math.min(500, Math.max(1, parseInt(limit, 10) || 100));
+    const off = Math.max(0, parseInt(offset, 10) || 0);
     const result = await query(
         `SELECT f.* FROM server_feedback f
          INNER JOIN server_members sm ON f.member_id = sm.id
          WHERE sm.server_id = ?
          ORDER BY f.submitted_at DESC
          LIMIT ? OFFSET ?`,
-        [serverId, limit, offset]
+        [serverId, String(lim), String(off)]
     );
     return result;
 }
