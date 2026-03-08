@@ -3,6 +3,7 @@ services:
     build: .
     restart: unless-stopped
     environment:
+      TZ: ${TIMEZONE:-Asia/Jakarta}
       DB_HOST: ${DB_HOST}
       DB_PORT: ${DB_PORT:-3306}
       DB_USER: ${DB_USER}
