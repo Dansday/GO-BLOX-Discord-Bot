@@ -10,6 +10,11 @@ services:
       DB_PASSWORD: ${DB_PASSWORD}
       DB_NAME: ${DB_NAME}
       REDIS_URL: ${REDIS_URL}
+      REDIS_HOST: ${REDIS_HOST}
+      REDIS_PORT: ${REDIS_PORT:-6379}
+      REDIS_USERNAME: ${REDIS_USERNAME}
+      REDIS_PASSWORD: ${REDIS_PASSWORD}
+      REDIS_DB: ${REDIS_DB:-0}
       CONTROL_PANEL_PORT: ${CONTROL_PANEL_PORT:-80}
       SESSION_SECRET: ${SESSION_SECRET}
       TIMEZONE: ${TIMEZONE:-Asia/Jakarta}
@@ -22,12 +27,12 @@ services:
     volumes:
       - app_data:/app/data
     networks:
-      - coolify
+      - app
 
 volumes:
   app_data:
     driver: local
 
 networks:
-  coolify:
-    external: true
+  app:
+    driver: bridge

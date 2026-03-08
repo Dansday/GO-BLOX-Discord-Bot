@@ -152,7 +152,7 @@ CREATE TABLE IF NOT EXISTS server_member_levels (
     level INT DEFAULT 1,
     dm_notifications_enabled BOOLEAN DEFAULT TRUE,
     is_in_voice BOOLEAN DEFAULT FALSE,
-    rank INT DEFAULT NULL,
+    `rank` INT DEFAULT NULL,
     chat_rewarded_at DATETIME NULL,
     voice_rewarded_at DATETIME NULL,
     created_at DATETIME NOT NULL,
@@ -284,7 +284,7 @@ CREATE INDEX idx_server_members_server_id ON server_members(server_id);
 CREATE INDEX idx_server_members_discord_id ON server_members(discord_member_id);
 CREATE INDEX idx_server_members_language ON server_members(language);
 CREATE INDEX idx_server_member_levels_member_id ON server_member_levels(member_id);
-CREATE INDEX idx_server_member_levels_rank ON server_member_levels(rank);
+CREATE INDEX idx_server_member_levels_rank ON server_member_levels(`rank`);
 CREATE INDEX idx_server_member_roles_member_id ON server_member_roles(member_id);
 CREATE INDEX idx_server_member_roles_role_id ON server_member_roles(role_id);
 CREATE INDEX idx_server_members_afk_member_id ON server_members_afk(member_id);
