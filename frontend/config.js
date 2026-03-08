@@ -2,8 +2,6 @@ import dotenv from 'dotenv';
 
 dotenv.config();
 
-// PORT: used by Coolify, Heroku, Railway, etc. for preview/production (dynamic port).
-// CONTROL_PANEL_PORT: used by Docker/self-host when you want a fixed port (e.g. 80).
 const portRaw = process.env.PORT || process.env.CONTROL_PANEL_PORT || '80';
 const port = parseInt(portRaw, 10);
 

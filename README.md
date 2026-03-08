@@ -17,18 +17,16 @@ You only need this on your machine:
 
 You do **not** need Node.js or npm installed — everything runs inside Docker.
 
-Port **3333** must be free for local access to the control panel (or set `HOST_PORT` in `.env`).
+When running locally with `make up`, the control panel is at **http://localhost:3333** (via `docker-compose.override.yml`). Ensure port **3333** is free.
 
 ---
 
-### Coolify / Preview Deployments
+### Preview / multiple deployments
 
-If you deploy with **Coolify** (or Heroku, Railway, etc.), the platform assigns a **dynamic port** via the `PORT` environment variable. The app uses `PORT` when set, so preview and production can run on different ports without conflict.
+The main **docker-compose.yaml** publishes the app as **`0:80`** (random host port), so multiple stacks (e.g. production and preview) never conflict on a fixed port. Your host or proxy can route by domain to the app on the internal network.
 
-- **Coolify**: Use the **Dockerfile** (not docker-compose). Coolify will set `PORT` and map it for you; no need to set `CONTROL_PANEL_PORT`.
-- **Public repo / Docker**: People who clone and run with `docker-compose` use `CONTROL_PANEL_PORT` (default 80) and host port `3333` (or `HOST_PORT`). No `PORT` is set, so the app listens on `CONTROL_PANEL_PORT`.
-
-So: **set `PORT`** for Coolify/preview; **set `CONTROL_PANEL_PORT`** (or leave default) for Docker Compose / self-host.
+- **Hosted / PaaS**: Use **docker-compose.yaml** only (no override). Set required env vars in your platform (DB_*, SESSION_SECRET, etc.). The app listens on container port 80; set `PORT` if your platform expects it.
+- **Local / clone repo**: `make up` merges **docker-compose.override.yml**, which binds **3333:80**, so the panel is at http://localhost:3333.
 
 ---
 
