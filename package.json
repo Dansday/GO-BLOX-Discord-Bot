@@ -1,11 +1,11 @@
 {
   "name": "Dansday-bot-system",
-  "version": "7.9.0",
+  "version": "7.10.0",
   "description": "Dansday Bot System - Self-bot and Official Bot",
   "main": "index.js",
   "type": "module",
   "scripts": {
-    "start": "node index.js"
+    "start": "node --import ./backend/otel.js index.js"
   },
   "keywords": [
     "discord",
@@ -19,6 +19,17 @@
   "dependencies": {
     "bcrypt": "^6.0.0",
     "concurrently": "^9.2.1",
+    "@opentelemetry/api": "^1.9.0",
+    "@opentelemetry/api-logs": "^0.213.0",
+    "@opentelemetry/auto-instrumentations-node": "^0.71.0",
+    "@opentelemetry/exporter-logs-otlp-http": "^0.213.0",
+    "@opentelemetry/exporter-metrics-otlp-http": "^0.213.0",
+    "@opentelemetry/exporter-trace-otlp-http": "^0.213.0",
+    "@opentelemetry/resources": "^2.6.0",
+    "@opentelemetry/sdk-logs": "^0.213.0",
+    "@opentelemetry/sdk-metrics": "^2.6.0",
+    "@opentelemetry/sdk-node": "^0.213.0",
+    "@opentelemetry/semantic-conventions": "^1.40.0",
     "debug": "^4.4.3",
     "discord.js": "^14.25.1",
     "discord.js-selfbot-v13": "^3.7.1",
@@ -29,7 +40,7 @@
     "luxon": "^3.7.2",
     "mysql2": "^3.19.0",
     "nodemailer": "^8.0.1",
-    "redis": "^4.7.0",
-    "connect-redis": "^7.1.0"
+    "redis": "^5.11.0",
+    "connect-redis": "^9.0.0"
   }
 }

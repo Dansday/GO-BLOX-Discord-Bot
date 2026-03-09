@@ -74,7 +74,16 @@ async function startBotById(botId, bot) {
         }
 
         const scriptPath = join(botPath, botScript);
-        const botProcess = spawn('node', [scriptPath], {
+        const otelEnabled =
+            process.env.OTEL_ENABLED === 'true' ||
+            Boolean(process.env.OTEL_EXPORTER_OTLP_ENDPOINT) ||
+            Boolean(process.env.OTEL_EXPORTER_OTLP_TRACES_ENDPOINT) ||
+            Boolean(process.env.OTEL_EXPORTER_OTLP_METRICS_ENDPOINT) ||
+            Boolean(process.env.OTEL_EXPORTER_OTLP_LOGS_ENDPOINT);
+
+        const otelArgs = otelEnabled ? ['--import', join(projectRoot, 'backend', 'otel.js')] : [];
+
+        const botProcess = spawn(process.execPath, [...otelArgs, scriptPath], {
             cwd: botPath,
             stdio: ['ignore', 'pipe', 'pipe'],
             shell: false,
