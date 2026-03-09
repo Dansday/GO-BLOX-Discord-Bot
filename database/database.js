@@ -37,11 +37,20 @@ function getConnectionConfig() {
         }
     }
 
-    if (!process.env.DB_HOST) throw new Error('Missing DB_HOST environment variable');
-    if (!process.env.DB_PORT) throw new Error('Missing DB_PORT environment variable');
-    if (!process.env.DB_USER) throw new Error('Missing DB_USER environment variable');
-    if (!process.env.DB_PASSWORD) throw new Error('Missing DB_PASSWORD environment variable');
-    if (!process.env.DB_NAME) throw new Error('Missing DB_NAME environment variable');
+    if (!process.env.DB_HOST ||
+        !process.env.DB_PORT ||
+        !process.env.DB_USER ||
+        !process.env.DB_PASSWORD ||
+        !process.env.DB_NAME) {
+        console.error('❌ Database environment variables are missing. Expected DB_HOST, DB_PORT, DB_USER, DB_PASSWORD, DB_NAME.');
+        console.error('   Current values:', {
+            DB_HOST: process.env.DB_HOST || '(undefined)',
+            DB_PORT: process.env.DB_PORT || '(undefined)',
+            DB_USER: process.env.DB_USER || '(undefined)',
+            DB_NAME: process.env.DB_NAME || '(undefined)',
+        });
+        throw new Error('Missing required database environment variables');
+    }
 
     return {
         host: process.env.DB_HOST,
