@@ -12,4 +12,4 @@ COPY . .
 
 EXPOSE 80
 
-CMD ["node", "--import", "./backend/otel.js", "index.js"]
+CMD ["node", "index.js"]
