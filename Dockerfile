@@ -6,7 +6,7 @@ RUN apk add --no-cache tzdata
 
 COPY package.json ./
 
-RUN npm install
+RUN sh -c 'unset NODE_OPTIONS; npm install'
 
 COPY . .
 
