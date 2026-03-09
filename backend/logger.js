@@ -32,12 +32,18 @@ function error(message, meta) {
     console.error(line);
 }
 
+// Backwards-compatible generic log method
+function log(message, meta) {
+    info(message, meta);
+}
+
 function init(client) {
     void client;
 }
 
 export default {
     init,
+    log,
     info,
     debug,
     warn,
